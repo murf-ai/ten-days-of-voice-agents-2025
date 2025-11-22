@@ -73,8 +73,9 @@ async def entrypoint(ctx: JobContext):
             ),
         # Text-to-speech (TTS) is your agent's voice, turning the LLM's text into speech that the user can hear
         # See all available models as well as voice selections at https://docs.livekit.io/agents/models/tts/
+        #{"voice_id":"Iris","style":"Conversational","model:":"Falcon"}
         tts=murf.TTS(
-                voice="en-US-matthew", 
+                voice="Iris", 
                 style="Conversation",
                 tokenizer=tokenize.basic.SentenceTokenizer(min_sentence_len=2),
                 text_pacing=True

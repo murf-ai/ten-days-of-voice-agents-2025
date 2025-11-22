@@ -1,0 +1,14 @@
+# OS-specific files
+.DS_Store
+Thumbs.db
+
+# IDE configuration
+.idea/
+.vscode/
+
+# Executable files
+*.exe
+
+# Environment variables
+.env
+.env.local
