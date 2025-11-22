@@ -1,6 +1,7 @@
 import logging
 
 from dotenv import load_dotenv
+
 from livekit.agents import (
     Agent,
     AgentSession,
@@ -26,10 +27,8 @@ load_dotenv(".env.local")
 class Assistant(Agent):
     def __init__(self) -> None:
         super().__init__(
-            instructions="""You are a helpful voice AI assistant. The user is interacting with you via voice, even if you perceive the conversation as text.
-            You eagerly assist users with their questions by providing information from your extensive knowledge.
-            Your responses are concise, to the point, and without any complex formatting or punctuation including emojis, asterisks, or other symbols.
-            You are curious, friendly, and have a sense of humor.""",
+            instructions=""" You are a friendly voice AI assistant.
+            You answer questions clearly, politely, and with a touch of humor.""",
         )
 
     # To add tools, use the @function_tool decorator.
@@ -134,6 +133,6 @@ async def entrypoint(ctx: JobContext):
     # Join the room and connect to the user
     await ctx.connect()
 
-
+    
 if __name__ == "__main__":
     cli.run_app(WorkerOptions(entrypoint_fnc=entrypoint, prewarm_fnc=prewarm))
