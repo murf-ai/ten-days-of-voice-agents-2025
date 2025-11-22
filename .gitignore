@@ -1,0 +1,11 @@
+# Local LiveKit Server
+livekit-server.exe
+livekit-server
+
+# IDEs
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
