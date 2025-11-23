@@ -1,4 +1,6 @@
 import logging
+import json
+from typing import List, Optional
 
 from dotenv import load_dotenv
 from livekit.agents import (
@@ -12,8 +14,8 @@ from livekit.agents import (
     cli,
     metrics,
     tokenize,
-    # function_tool,
-    # RunContext
+    function_tool,
+    RunContext
 )
 from livekit.plugins import murf, silero, google, deepgram, noise_cancellation
 from livekit.plugins.turn_detector.multilingual import MultilingualModel
@@ -26,28 +28,98 @@ load_dotenv(".env.local")
 class Assistant(Agent):
     def __init__(self) -> None:
         super().__init__(
-            instructions="""You are a helpful voice AI assistant. The user is interacting with you via voice, even if you perceive the conversation as text.
-            You eagerly assist users with their questions by providing information from your extensive knowledge.
-            Your responses are concise, to the point, and without any complex formatting or punctuation including emojis, asterisks, or other symbols.
-            You are curious, friendly, and have a sense of humor.""",
-        )
+            instructions="""You are a friendly Coffee Shop Barista for a premium coffee brand.
+            Your goal is to take the customer's beverage order efficiently and warmly.
+            
+            You must collect the following details to complete an order:
+            1. Drink Type (e.g., Latte, Cappuccino, Americano)
+            2. Size (e.g., Small, Medium, Large)
+            3. Milk Preference (e.g., Whole, Oat, Almond, Soy)
+            4. Customer Name (for the cup)
+            
+            You can also add Extras (e.g., extra shot, sugar, syrup) if requested.
 
-    # To add tools, use the @function_tool decorator.
-    # Here's an example that adds a simple weather tool.
-    # You also have to add `from livekit.agents import function_tool, RunContext` to the top of this file
-    # @function_tool
-    # async def lookup_weather(self, context: RunContext, location: str):
-    #     """Use this tool to look up current weather information in the given location.
-    #
-    #     If the location is not supported by the weather service, the tool will indicate this. You must tell the user the location's weather is unavailable.
-    #
-    #     Args:
-    #         location: The location to look up weather information for (e.g. city name)
-    #     """
-    #
-    #     logger.info(f"Looking up weather for {location}")
-    #
-    #     return "sunny with a temperature of 70 degrees."
+            Behavior:
+            - Ask short, conversational questions.
+            - Ask for missing details one at a time. Do not overwhelm the user.
+            - If the user provides multiple details at once, update them all.
+            - Gently redirect if the user goes off-topic.
+            - Once all required fields (drinkType, size, milk, name) are present, confirm the order summary with the user.
+            - After the user confirms, IMMEDIATELY call the `submit_order` tool.
+            - Be friendly and polite.
+            """,
+        )
+        self.order = {
+            "drinkType": "",
+            "size": "",
+            "milk": "",
+            "extras": [],
+            "name": ""
+        }
+
+    @function_tool
+    async def update_order(
+        self, 
+        context: RunContext, 
+        drink_type: Optional[str] = None, 
+        size: Optional[str] = None, 
+        milk: Optional[str] = None, 
+        extras: Optional[List[str]] = None, 
+        name: Optional[str] = None
+    ):
+        """Update the current order with new details provided by the user.
+        
+        Args:
+            drink_type: The type of beverage (e.g., "Latte", "Cappuccino").
+            size: The size of the drink (e.g., "Small", "Medium", "Large").
+            milk: The type of milk (e.g., "Oat", "Whole", "Almond").
+            extras: A list of any extra additions (e.g., ["sugar", "extra hot"]).
+            name: The customer's name.
+        """
+        if drink_type:
+            self.order["drinkType"] = drink_type
+        if size:
+            self.order["size"] = size
+        if milk:
+            self.order["milk"] = milk
+        if extras:
+            # Append new extras to existing ones, or replace? 
+            # Usually adding is safer, but let's just extend the list if it exists
+            current_extras = self.order.get("extras", [])
+            if isinstance(extras, list):
+                current_extras.extend(extras)
+            else:
+                current_extras.append(extras)
+            self.order["extras"] = current_extras
+        if name:
+            self.order["name"] = name
+        
+        logger.info(f"Order updated: {self.order}")
+        return f"Order updated. Current state: {json.dumps(self.order)}"
+
+    @function_tool
+    async def submit_order(self, context: RunContext):
+        """Finalize and save the order to a file. Call this ONLY when all required fields (drinkType, size, milk, name) are filled and confirmed."""
+        
+        # Validation check (optional, but good for robustness)
+        missing = []
+        if not self.order["drinkType"]: missing.append("drink type")
+        if not self.order["size"]: missing.append("size")
+        if not self.order["milk"]: missing.append("milk")
+        if not self.order["name"]: missing.append("name")
+        
+        if missing:
+            return f"Cannot submit order yet. Missing details: {', '.join(missing)}. Please ask the user for these."
+
+        file_path = "order.json"
+        try:
+            with open(file_path, "w") as f:
+                json.dump(self.order, f, indent=2)
+            logger.info(f"Order saved to {file_path}")
+            return "Order successfully saved to order.json. Tell the user their order is confirmed!"
+        except Exception as e:
+            logger.error(f"Failed to save order: {e}")
+            return f"Error saving order: {e}"
 
 
 def prewarm(proc: JobProcess):
@@ -137,3 +209,4 @@ async def entrypoint(ctx: JobContext):
 
 if __name__ == "__main__":
     cli.run_app(WorkerOptions(entrypoint_fnc=entrypoint, prewarm_fnc=prewarm))
+
