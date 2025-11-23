@@ -12,8 +12,8 @@ from livekit.agents import (
     cli,
     metrics,
     tokenize,
-    # function_tool,
-    # RunContext
+    function_tool,
+    RunContext
 )
 from livekit.plugins import murf, silero, google, deepgram, noise_cancellation
 from livekit.plugins.turn_detector.multilingual import MultilingualModel
@@ -21,17 +21,64 @@ from livekit.plugins.turn_detector.multilingual import MultilingualModel
 logger = logging.getLogger("agent")
 
 load_dotenv(".env.local")
+import os
+import json
+from datetime import datetime
+from typing import List
+
+@function_tool
+async def save_order(
+    ctx: RunContext,
+    drinkType: str,
+    size: str,
+    milk: str,
+    extras: List[str],
+    name: str,
+) -> str:
+    """Save the completed CCD order to a JSON file."""
+    
+    order = {
+        "drinkType": drinkType,
+        "size": size,
+        "milk": milk,
+        "extras": extras or [],
+        "name": name,
+    }
+
+    base_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+    orders_dir = os.path.join(base_dir, "orders")
+    os.makedirs(orders_dir, exist_ok=True)
+
+    ts = datetime.utcnow().isoformat(timespec="seconds").replace(":", "-")
+    filename = f"order_{ts}.json"
+    path = os.path.join(orders_dir, filename)
+
+    with open(path, "w", encoding="utf-8") as f:
+        json.dump(order, f, indent=2)
+
+    return f"saved:{path}"
 
 
 class Assistant(Agent):
     def __init__(self) -> None:
         super().__init__(
-            instructions="""You are a helpful voice AI assistant. The user is interacting with you via voice, even if you perceive the conversation as text.
-            You eagerly assist users with their questions by providing information from your extensive knowledge.
-            Your responses are concise, to the point, and without any complex formatting or punctuation including emojis, asterisks, or other symbols.
-            You are curious, friendly, and have a sense of humor.""",
+            instructions=(
+    "You are a friendly barista for Café Coffee Day. "
+    "When a new session begins, greet the user immediately with a warm welcome. "
+    "Right after greeting, list the main coffee options you serve clearly, such as: "
+    "Americano, Cappuccino, Latte, Mocha, Espresso, Flat White, and Cold Coffee. "
+    "Then politely ask the user which drink they would like. "
+    "After they choose a drink, guide them through size, milk preference, extras, and name. "
+    "Continue asking clarifying questions until all fields in the order state are filled: "
+    "{ drinkType, size, milk, extras[], name }. "
+    "Once the order is fully confirmed, call the tool "
+    "save_order(drinkType, size, milk, extras, name). "
+    "After saving, give a short confirmation message including the customer's name. "
+    "Your tone must be friendly, concise, and simple. No emojis or special formatting."
+)
+,
+            tools=[save_order],
         )
-
     # To add tools, use the @function_tool decorator.
     # Here's an example that adds a simple weather tool.
     # You also have to add `from livekit.agents import function_tool, RunContext` to the top of this file
@@ -130,7 +177,6 @@ async def entrypoint(ctx: JobContext):
             noise_cancellation=noise_cancellation.BVC(),
         ),
     )
-
     # Join the room and connect to the user
     await ctx.connect()
 

@@ -14,3 +14,5 @@ Alternatively
 - Step 4: **Post the video on LinkedIn** with a description of what you did for the task on Day 1. Also, mention that you are building voice agent using the fastest TTS API - Murf Falcon. Mention that you are part of the **“Murf AI Voice Agent Challenge”** and don't forget to tag the official Murf AI handle. Also use hashtags **#MurfAIVoiceAgentsChallenge** and **#10DaysofAIVoiceAgents**
 
 Once your agent is running and your LinkedIn post is live, you’ve completed Day 1.
+
+Day 1 Completed.
