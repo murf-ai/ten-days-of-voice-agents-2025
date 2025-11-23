@@ -31,6 +31,7 @@ order = {
     "name": ""
 }
 
+<<<<<<< HEAD
 questions = {
     "drinkType": "Which drink would you like? Latte, Cappuccino, Americano, or something else?",
     "size": "What size would you like? Small, Medium, or Large?",
@@ -38,6 +39,31 @@ questions = {
     "extras": "Any extras like whipped cream or syrup? (You can list multiple separated by commas)",
     "name": "May I have your name for the order?"
 }
+=======
+class Assistant(Agent):
+    def __init__(self) -> None:
+        super().__init__(
+            instructions=""" You are a friendly voice AI assistant.
+            You answer questions clearly, politely, and with a touch of humor.""",
+        )
+
+    # To add tools, use the @function_tool decorator.
+    # Here's an example that adds a simple weather tool.
+    # You also have to add `from livekit.agents import function_tool, RunContext` to the top of this file
+    # @function_tool
+    # async def lookup_weather(self, context: RunContext, location: str):
+    #     """Use this tool to look up current weather information in the given location.
+    #
+    #     If the location is not supported by the weather service, the tool will indicate this. You must tell the user the location's weather is unavailable.
+    #
+    #     Args:
+    #         location: The location to look up weather information for (e.g. city name)
+    #     """
+    #
+    #     logger.info(f"Looking up weather for {location}")
+    #
+    #     return "sunny with a temperature of 70 degrees."
+>>>>>>> 55efc1ba54ed8afc027a0b4a5053364be90f3c3f
 
 # ---------------------------
 # Load VAD on main thread
@@ -141,8 +167,5 @@ async def entrypoint(ctx: JobContext):
 
     await ctx.connect()
 
-# ---------------------------
-# Run Agent
-# ---------------------------
 if __name__ == "__main__":
     cli.run_app(WorkerOptions(entrypoint_fnc=entrypoint, prewarm_fnc=prewarm))
