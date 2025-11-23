@@ -1,5 +1,15 @@
 import logging
 
+from dataclasses import dataclass
+from pathlib import Path
+import json
+from datetime import datetime
+
+from livekit.agents import Agent, function_tool, RunContext
+from livekit.agents import get_job_context  # if you actually use this elsewhere
+
+
+
 from dotenv import load_dotenv
 from livekit.agents import (
     Agent,
@@ -22,15 +32,124 @@ logger = logging.getLogger("agent")
 
 load_dotenv(".env.local")
 
+@dataclass
+class BaristaOrder:
+    drinkType: str
+    size: str
+    milk: str
+    extras: list[str]
+    name: str
+
 
 class Assistant(Agent):
     def __init__(self) -> None:
         super().__init__(
-            instructions="""You are a helpful voice AI assistant. The user is interacting with you via voice, even if you perceive the conversation as text.
-            You eagerly assist users with their questions by providing information from your extensive knowledge.
-            Your responses are concise, to the point, and without any complex formatting or punctuation including emojis, asterisks, or other symbols.
-            You are curious, friendly, and have a sense of humor.""",
+            instructions=(
+                """You are a friendly barista at “Chai Sutta Bar”. Greet the customer and help them place a drink order.
+                    Collect these fields using your tools: drinkType, size, milk, extras, name.
+                    Ask one short question at a time and guide them if unsure.
+                    Understand drinks like masala chai, cutting chai, ginger chai, filter coffee, cold coffee, cappuccino, iced latte.
+                    Order flow: first drink type, then size, milk, extras, and finally their name.
+                    Use your tools as soon as a detail is clear.
+                    Keep replies brief (1 to 2 sentences) and stay fully in character.
+                    When all fields are collected, confirm the final order naturally."""
+            )
         )
+        # internal partial state
+        self._order: dict[str, object] = {}
+
+    async def _check_completion(self) -> None:
+        required = {"drinkType", "size", "milk", "extras", "name"}
+        if set(self._order.keys()) == required:
+            order = BaristaOrder(
+                drinkType=str(self._order["drinkType"]),
+                size=str(self._order["size"]),
+                milk=str(self._order["milk"]),
+                extras=list(self._order["extras"]),
+                name=str(self._order["name"]),
+            )
+            await self._on_order_complete(order)
+        else:
+            # ask the model to continue collecting
+            await self.session.generate_reply(
+                instructions="Continue collecting the missing order details."
+            )
+
+    async def _on_order_complete(self, order: BaristaOrder) -> None:
+        # 1) Save JSON file
+        orders_dir = Path(__file__).parent.parent / "orders"
+        orders_dir.mkdir(exist_ok=True)
+
+        ts = datetime.now().strftime("%Y-%m-%dT%H-%M-%S")
+        file_path = orders_dir / f"order-{ts}.json"
+
+        data = {
+            "drinkType": order.drinkType,
+            "size": order.size,
+            "milk": order.milk,
+            "extras": order.extras,
+            "name": order.name,
+        }
+
+        with file_path.open("w", encoding="utf-8") as f:
+            json.dump(data, f, indent=2)
+
+        logger.info("Saved order JSON to %s", file_path)
+
+        # 2) Confirm to user
+        base = f"Got it, {order.name}! A {order.size} {order.drinkType} with {order.milk} milk"
+        if order.extras:
+            extras_str = ", ".join(order.extras)
+            base += f" and extras: {extras_str}."
+        else:
+            base += "."
+
+        await self.session.generate_reply(
+            instructions=(
+                "Confirm the order in one short sentence using this summary: "
+                f"'{base}'"
+            )
+        )
+
+    @function_tool()
+    async def set_drink_type(self, context: RunContext, drink_type: str):
+        """Set the drink type, e.g. latte, cappuccino, americano, mocha, cold brew."""
+        logger.info("Setting drink type to %s", drink_type)
+        self._order["drinkType"] = drink_type
+        await self._check_completion()
+
+    @function_tool()
+    async def set_size(self, context: RunContext, size: str):
+        """Set the drink size, e.g. small, medium, large."""
+        logger.info("Setting size to %s", size)
+        self._order["size"] = size
+        await self._check_completion()
+
+    @function_tool()
+    async def set_milk(self, context: RunContext, milk: str):
+        """Set the milk type, e.g. whole, skim, oat, almond, soy."""
+        logger.info("Setting milk to %s", milk)
+        self._order["milk"] = milk
+        await self._check_completion()
+
+    @function_tool()
+    async def add_extra(self, context: RunContext, extra: str):
+        """Add an extra such as extra shot, whipped cream, syrup, etc. or would like your drink more strong."""
+        logger.info("Adding extra %s", extra)
+        extras = self._order.get("extras")
+        if extras is None:
+            extras = []
+        if extra not in extras:
+            extras.append(extra)
+        self._order["extras"] = extras
+        await self._check_completion()
+
+    @function_tool()
+    async def set_name(self, context: RunContext, name: str):
+        """Set the customer's name for the order."""
+        logger.info("Setting name to %s", name)
+        self._order["name"] = name
+        await self._check_completion()
 
     # To add tools, use the @function_tool decorator.
     # Here's an example that adds a simple weather tool.
