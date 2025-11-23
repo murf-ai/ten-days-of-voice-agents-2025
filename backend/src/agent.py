@@ -1,4 +1,8 @@
 import logging
+import json
+import os
+from datetime import datetime
+from pathlib import Path
 
 from dotenv import load_dotenv
 from livekit.agents import (
@@ -12,8 +16,8 @@ from livekit.agents import (
     cli,
     metrics,
     tokenize,
-    # function_tool,
-    # RunContext
+    function_tool,
+    RunContext
 )
 from livekit.plugins import murf, silero, google, deepgram, noise_cancellation
 from livekit.plugins.turn_detector.multilingual import MultilingualModel
@@ -26,28 +30,149 @@ load_dotenv(".env")
 class Assistant(Agent):
     def __init__(self) -> None:
         super().__init__(
-            instructions="""You are a helpful voice AI assistant. The user is interacting with you via voice, even if you perceive the conversation as text.
-            You eagerly assist users with their questions by providing information from your extensive knowledge.
-            Your responses are concise, to the point, and without any complex formatting or punctuation including emojis, asterisks, or other symbols.
-            You are curious, friendly, and have a sense of humor.""",
+            instructions="""You are a friendly and enthusiastic barista working at Imaginary Coffee Co., the finest coffee shop in town. 
+            You're passionate about coffee and love helping customers find their perfect drink.
+            Your goal is to take complete coffee orders by collecting all required information:
+            - Drink type (Latte, Cappuccino, Americano, Espresso, Macchiato, Mocha, Cold Brew, etc.)
+            - Size (Small, Medium, Large)
+            - Milk preference (Whole, 2%, Oat, Almond, Soy, Coconut, or None)
+            - Any extras (Extra shot, Decaf, Sugar, Honey, Whipped cream, Vanilla syrup, Caramel syrup, etc.)
+            - Customer's name
+            
+            Be conversational and ask clarifying questions until you have all the information needed.
+            When the order is complete, confirm all details with the customer before finalizing it.
+            Keep responses natural, friendly, and concise. No complex formatting or symbols.""",
         )
+        
+        # Initialize order state
+        self.order_state = {
+            "drinkType": None,
+            "size": None,
+            "milk": None,
+            "extras": [],
+            "name": None
+        }
+        
+        # Create orders directory if it doesn't exist
+        self.orders_dir = Path("orders")
+        self.orders_dir.mkdir(exist_ok=True)
 
-    # To add tools, use the @function_tool decorator.
-    # Here's an example that adds a simple weather tool.
-    # You also have to add `from livekit.agents import function_tool, RunContext` to the top of this file
-    # @function_tool
-    # async def lookup_weather(self, context: RunContext, location: str):
-    #     """Use this tool to look up current weather information in the given location.
-    #
-    #     If the location is not supported by the weather service, the tool will indicate this. You must tell the user the location's weather is unavailable.
-    #
-    #     Args:
-    #         location: The location to look up weather information for (e.g. city name)
-    #     """
-    #
-    #     logger.info(f"Looking up weather for {location}")
-    #
-    #     return "sunny with a temperature of 70 degrees."
+    @function_tool
+    async def update_order(self, context: RunContext, drink_type: str = None, size: str = None, 
+                          milk: str = None, extras: str = None, name: str = None):
+        """Update the customer's coffee order with new information.
+        
+        Use this tool whenever the customer provides information about their order.
+        You can update multiple fields at once or just one field at a time.
+        
+        Args:
+            drink_type: Type of coffee drink (e.g., Latte, Cappuccino, Americano, Espresso, Macchiato, Mocha, Cold Brew)
+            size: Size of the drink (Small, Medium, Large)
+            milk: Type of milk (Whole, 2%, Oat, Almond, Soy, Coconut, None)
+            extras: Any extras as a comma-separated string (e.g., "Extra shot, Vanilla syrup")
+            name: Customer's name
+        """
+        
+        logger.info(f"Updating order: drink_type={drink_type}, size={size}, milk={milk}, extras={extras}, name={name}")
+        
+        # Update order state
+        if drink_type:
+            self.order_state["drinkType"] = drink_type.strip()
+        if size:
+            self.order_state["size"] = size.strip()
+        if milk:
+            self.order_state["milk"] = milk.strip()
+        if extras:
+            # Parse extras and add to list
+            new_extras = [extra.strip() for extra in extras.split(",") if extra.strip()]
+            self.order_state["extras"].extend(new_extras)
+            # Remove duplicates while preserving order
+            self.order_state["extras"] = list(dict.fromkeys(self.order_state["extras"]))
+        if name:
+            self.order_state["name"] = name.strip()
+            
+        # Check what's still missing
+        missing_fields = []
+        if not self.order_state["drinkType"]:
+            missing_fields.append("drink type")
+        if not self.order_state["size"]:
+            missing_fields.append("size")
+        if not self.order_state["milk"]:
+            missing_fields.append("milk preference")
+        if not self.order_state["name"]:
+            missing_fields.append("name")
+            
+        current_order = f"Current order: {self.order_state['drinkType'] or 'TBD'} ({self.order_state['size'] or 'TBD'})"
+        if self.order_state['milk']:
+            current_order += f" with {self.order_state['milk']} milk"
+        if self.order_state['extras']:
+            current_order += f", extras: {', '.join(self.order_state['extras'])}"
+        if self.order_state['name']:
+            current_order += f" for {self.order_state['name']}"
+            
+        if missing_fields:
+            return f"Got it! {current_order}. Still need: {', '.join(missing_fields)}."
+        else:
+            return f"Perfect! {current_order}. Order is complete and ready to finalize!"
+    
+    @function_tool
+    async def finalize_order(self, context: RunContext):
+        """Finalize and save the customer's complete order to a JSON file.
+        
+        Only use this tool when all required fields are filled and customer confirms the order.
+        """
+        
+        # Check if order is complete
+        required_fields = ["drinkType", "size", "milk", "name"]
+        missing_fields = [field for field in required_fields if not self.order_state[field]]
+        
+        if missing_fields:
+            return f"Cannot finalize order. Missing: {', '.join(missing_fields)}. Please collect this information first."
+        
+        # Create order with timestamp
+        final_order = {
+            "orderId": f"IMAGINE_{datetime.now().strftime('%Y%m%d_%H%M%S')}",
+            "timestamp": datetime.now().isoformat(),
+            "customerName": self.order_state["name"],
+            "drinkType": self.order_state["drinkType"],
+            "size": self.order_state["size"],
+            "milk": self.order_state["milk"],
+            "extras": self.order_state["extras"],
+            "status": "ordered",
+            "location": "Imaginary Coffee Co."
+        }
+        
+        # Save order to JSON file
+        filename = f"order_{final_order['orderId']}.json"
+        filepath = self.orders_dir / filename
+        
+        try:
+            with open(filepath, 'w') as f:
+                json.dump(final_order, f, indent=2)
+            
+            logger.info(f"Order saved to {filepath}")
+            
+            # Reset order state for next customer
+            self.order_state = {
+                "drinkType": None,
+                "size": None, 
+                "milk": None,
+                "extras": [],
+                "name": None
+            }
+            
+            order_summary = f"{final_order['size']} {final_order['drinkType']}"
+            if final_order['milk'] != "None":
+                order_summary += f" with {final_order['milk']} milk"
+            if final_order['extras']:
+                order_summary += f" and {', '.join(final_order['extras'])}"
+            order_summary += f" for {final_order['customerName']}"
+            
+            return f"Order finalized! {order_summary}. Order ID: {final_order['orderId']}. Thank you for choosing Falcon Coffee Co.!"
+            
+        except Exception as e:
+            logger.error(f"Failed to save order: {e}")
+            return f"Order completed but there was an issue saving it. Please contact a manager. Order details: {self.order_state}"
 
 
 def prewarm(proc: JobProcess):
