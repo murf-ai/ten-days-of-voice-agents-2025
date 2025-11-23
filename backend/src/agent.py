@@ -1,5 +1,7 @@
 import logging
 import json
+from typing import Annotated, Optional
+
 from dotenv import load_dotenv
 from livekit.agents import (
     Agent,
@@ -12,141 +14,150 @@ from livekit.agents import (
     cli,
     metrics,
     tokenize,
+    function_tool,
+    RunContext
 )
 from livekit.plugins import murf, silero, google, deepgram, noise_cancellation
 from livekit.plugins.turn_detector.multilingual import MultilingualModel
 
+
 logger = logging.getLogger("agent")
 load_dotenv(".env.local")
 
-# ----------------------------
-# Global Order State
-# ----------------------------
-order_state = {
-    "drinkType": "",
-    "size": "",
-    "milk": "",
-    "extras": [],
-    "name": ""
-}
 
-# ----------------------------
-# Helper Functions
-# ----------------------------
-def get_next_question(order):
-    if not order["drinkType"]:
-        return "What would you like to drink today? (latte, espresso, cappuccino)"
-    if not order["size"]:
-        return "What size would you like? (small, medium, large)"
-    if not order["milk"]:
-        return "Which milk would you like? (whole, skim, oat)"
-    if not order["extras"]:
-        return "Any extras? (whipped cream, caramel, chocolate, or none)"
-    if not order["name"]:
-        return "May I have your name for the order?"
-    return None  # All fields filled
-
-def save_order(order):
-    with open("order_summary.json", "w") as f:
-        json.dump(order, f, indent=2)
-
-# ----------------------------
-# Assistant Agent
-# ----------------------------
+# ------------------ ASSISTANT ------------------
 class Assistant(Agent):
     def __init__(self) -> None:
         super().__init__(
-            instructions="""You are a helpful voice AI assistant. The user is interacting with you via voice, even if you perceive the conversation as text.
-            You eagerly assist users with their questions by providing information from your extensive knowledge.
-            Your responses are concise, to the point, and without any complex formatting or punctuation including emojis, asterisks, or other symbols.
-            You are curious, friendly, and have a sense of humor."""
+            instructions="""
+You are a professional barista at a premium specialty coffee shop.
+You speak politely, confidently, and with clear product knowledge.
+You ONLY talk about ordering, brewing, and serving coffee.
+No AI talk. No breaking character. No emojis or special formatting.
+Keep responses short, friendly, and direct.
+Always reconfirm before submitting for ordering complete for each like before drink type then size then milk then name 
+CORE MISSION
+Take the customer’s coffee order by collecting these REQUIRED details:
+1) Drink Type — latte, espresso, cold brew, cappuccino
+   (If they request something else, politely explain it’s unavailable and guide them to the nearest option.)
+2) Size — Small (8 oz), Medium (12 oz), Large (16 oz)
+3) Milk Choice — whole, skim, 2 percent, oat, almond, soy, coconut, lactose free
+(Ask them for extras Extras are optional:
+extra shot, vanilla syrup, caramel syrup, hazelnut syrup, mocha syrup, whipped cream, sugar, honey, stevia, hot or iced)
+4) Customer Name
+
+
+ORDER-TAKING RULES
+• Ask ONLY for missing information.
+• Do NOT repeat information the customer already gave.
+• Gather one detail at a time and guide the customer smoothly.
+• Suggest extras politely but never pressure the customer.
+• Match the customer's tone and pace:
+  - Casual → casual
+  - Formal → professional
+  - Non-native speaker → simple words
+  - Tech-savvy → respond with light technical analogies if appropriate
+
+TOOL CALL RULES (update_order)
+• Every time the customer provides ANY new order detail, you MUST call update_order.
+• The tool call must include ONLY the information the customer just provided.
+• During a tool call, do NOT speak normally — output only the tool call.
+• After the tool call response returns, continue talking normally and ask for the next missing detail.
+
+WHEN ORDER IS COMPLETE
+Once you have Drink Type + Size + Milk Choice + Customer Name:
+• Confirm the complete order warmly and professionally.
+• Stop asking for more information.
+• Remain a barista in character for the rest of the conversation.
+
+CONVERSATION START
+Begin by asking which drink the customer would like and list the drink options clearly.
+
+""",
         )
 
-    async def handle_order(self, user_text: str):
-        text = user_text.lower()
+        self.order_state = {
+            "drinkType": "",
+            "size": "",
+            "milk": "",
+            "extras": [],
+            "name": "",
+        }
 
-        # ----------------------------
-        # Fill order_state fields
-        # ----------------------------
-        if not order_state["drinkType"]:
-            order_state["drinkType"] = text
-        elif not order_state["size"]:
-            order_state["size"] = text
-        elif not order_state["milk"]:
-            order_state["milk"] = text
-        elif not order_state["extras"]:
-            if "none" in text:
-                order_state["extras"] = []
-            else:
-                order_state["extras"] = [x.strip() for x in text.split(",")]
-        elif not order_state["name"]:
-            order_state["name"] = text
+    @function_tool
+    async def update_order(
+        self,
+        # We use Optional[str] so the AI can send 'null' without crashing the app
+        drinkType: Annotated[Optional[str], "latte, espresso, cold brew, cappuccino"] = None,
+        size: Annotated[Optional[str], "Small, Medium, Large"] = None,
+        milk: Annotated[Optional[str], "Whole, Oat, Almond"] = None,
+        extras: Annotated[Optional[str], "syrups, sugar, etc"] = None,
+        name: Annotated[Optional[str], "Customer Name"] = None,
+    ):
+        """Updates order state and saves to JSON immediately."""
+        
+        # 1. Update State (Only if value is not None)
+        if drinkType: self.order_state["drinkType"] = drinkType
+        if size: self.order_state["size"] = size
+        if milk: self.order_state["milk"] = milk
+        if name: self.order_state["name"] = name
 
-        # ----------------------------
-        # Decide next question or complete
-        # ----------------------------
-        next_question = get_next_question(order_state)
-        if next_question is None:
-            save_order(order_state)
-            response_text = f"Thanks {order_state['name']}! Your {order_state['size']} {order_state['drinkType']} with {', '.join(order_state['extras']) or 'no extras'} is ready."
-        else:
-            response_text = next_question
+        if extras:
+            if extras.lower() in ["no", "none", "nothing"]:
+                self.order_state["extras"] = []
+            elif extras not in self.order_state["extras"]:
+                self.order_state["extras"].append(extras)
 
-        # Convert text to speech
-        audio_url = self.tts.speak(response_text)
-        return response_text, audio_url
+        # 2. Calculate Missing Fields (Check for empty strings)
+        missing = [k for k, v in self.order_state.items() if k != "extras" and not v]
 
-# ----------------------------
-# Prewarm
-# ----------------------------
+        # 3. LIVE SAVE 
+        with open("order_summary.json", "w") as f:
+            json.dump(self.order_state, f, indent=2)
+        
+        logger.info(f"State Updated: {self.order_state}")
+
+        if not missing:
+            return "Order is complete and saved to file. Confirm the full details to the customer."
+
+        return f"Order updated. Still missing: {', '.join(missing)}."
+
+# ------------------ PREWARM ------------------
 def prewarm(proc: JobProcess):
     proc.userdata["vad"] = silero.VAD.load()
 
-# ----------------------------
-# Entry Point
-# ----------------------------
-async def entrypoint(ctx: JobContext):
-    # Logging setup
-    ctx.log_context_fields = {
-        "room": ctx.room.name,
-    }
 
-    # ----------------------------
-    # Setup Voice AI Pipeline
-    # ----------------------------
+# ------------------ ENTRYPOINT ------------------
+async def entrypoint(ctx: JobContext):
+    ctx.log_context_fields = {"room": ctx.room.name}
+
     session = AgentSession(
         stt=deepgram.STT(model="nova-3"),
-        llm=google.LLM(model="gemini-2.5-flash"),
+        llm=google.LLM(model="gemini-2.0-flash"),
         tts=murf.TTS(
             voice="en-US-matthew",
             style="Conversation",
             tokenizer=tokenize.basic.SentenceTokenizer(min_sentence_len=2),
-            text_pacing=True
+            text_pacing=True,
         ),
         turn_detection=MultilingualModel(),
         vad=ctx.proc.userdata["vad"],
         preemptive_generation=True,
+
     )
 
-    # ----------------------------
-    # Metrics Collection
-    # ----------------------------
     usage_collector = metrics.UsageCollector()
 
     @session.on("metrics_collected")
-    def _on_metrics_collected(ev: MetricsCollectedEvent):
+    def _on_metrics(ev: MetricsCollectedEvent):
         metrics.log_metrics(ev.metrics)
         usage_collector.collect(ev.metrics)
 
     async def log_usage():
-        summary = usage_collector.get_summary()
-        logger.info(f"Usage: {summary}")
+        logger.info(f"Usage: {usage_collector.get_summary()}")
 
     ctx.add_shutdown_callback(log_usage)
 
-    # ----------------------------
-    # Start the session
-    # ----------------------------
     await session.start(
         agent=Assistant(),
         room=ctx.room,
@@ -155,22 +166,9 @@ async def entrypoint(ctx: JobContext):
         ),
     )
 
-    # ----------------------------
-    # Handle User Messages
-    # ----------------------------
-    @session.on("message")
-    async def on_user_message(message):
-        user_text = message.text
-        assistant: Assistant = session.agent
-        response_text, audio_url = await assistant.handle_order(user_text)
-        await session.send_text(response_text)
-        await session.send_audio(audio_url)
-
-    # Connect to the room
     await ctx.connect()
 
-# ----------------------------
-# Run CLI
-# ----------------------------
+
+# ------------------ WORKER ------------------
 if __name__ == "__main__":
     cli.run_app(WorkerOptions(entrypoint_fnc=entrypoint, prewarm_fnc=prewarm))
