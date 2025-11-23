@@ -1,0 +1,9 @@
+{
+  "drinkType": "latte",
+  "size": "medium",
+  "milk": "whole milk",
+  "extras": [
+    "caramel"
+  ],
+  "name": "Void"
+}

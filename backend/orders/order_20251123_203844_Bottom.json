@@ -1,0 +1,9 @@
+{
+  "drinkType": "espresso",
+  "size": "small",
+  "milk": "soy milk",
+  "extras": [
+    "vanilla syrup"
+  ],
+  "name": "Bottom"
+}
