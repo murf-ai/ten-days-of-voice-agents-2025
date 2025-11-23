@@ -1,4 +1,8 @@
 import logging
+import os
+import json
+from datetime import datetime
+from typing import List
 
 from dotenv import load_dotenv
 from livekit.agents import (
@@ -12,8 +16,8 @@ from livekit.agents import (
     cli,
     metrics,
     tokenize,
-    # function_tool,
-    # RunContext
+    function_tool,
+    RunContext,
 )
 from livekit.plugins import murf, silero, google, deepgram, noise_cancellation
 from livekit.plugins.turn_detector.multilingual import MultilingualModel
@@ -23,13 +27,59 @@ logger = logging.getLogger("agent")
 load_dotenv(".env.local")
 
 
+@function_tool
+async def save_order(
+    ctx: RunContext,
+    drinkType: str,
+    size: str,
+    milk: str,
+    extras: List[str],
+    name: str,
+) -> str:
+    """Save the completed order to a JSON file and return a short confirmation.
+
+    The agent should only call this tool once it has confirmed all fields with the user.
+    """
+    order = {
+        "drinkType": drinkType,
+        "size": size,
+        "milk": milk,
+        "extras": extras or [],
+        "name": name,
+    }
+
+    # Ensure orders directory exists next to this file (backend/orders)
+    base_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+    orders_dir = os.path.join(base_dir, "orders")
+    os.makedirs(orders_dir, exist_ok=True)
+
+    ts = datetime.utcnow().isoformat(timespec="seconds").replace(":", "-")
+    filename = f"order_{ts}.json"
+    path = os.path.join(orders_dir, filename)
+
+    with open(path, "w", encoding="utf-8") as f:
+        json.dump(order, f, indent=2, ensure_ascii=False)
+
+    return f"saved:{path}"
+
+
 class Assistant(Agent):
     def __init__(self) -> None:
+        # Barista persona for "Bean & Brew". The agent should collect a compact
+        # order state from the user and persist it using the `save_order` tool.
         super().__init__(
-            instructions="""You are a helpful voice AI assistant. The user is interacting with you via voice, even if you perceive the conversation as text.
-            You eagerly assist users with their questions by providing information from your extensive knowledge.
-            Your responses are concise, to the point, and without any complex formatting or punctuation including emojis, asterisks, or other symbols.
-            You are curious, friendly, and have a sense of humor.""",
+            instructions=(
+                "You are a friendly barista for the coffee brand 'Bean & Brew'."
+                " Greet customers warmly and help them place a drink order."
+                " Maintain an order state with these fields:\n"
+                "{\n  \"drinkType\": \"string\",\n  \"size\": \"string\",\n  \"milk\": \"string\",\n  \"extras\": [\"string\"],\n  \"name\": \"string\"\n}"
+                "\nAsk clarifying questions until all fields are filled."
+                " When you have confirmed every field with the user, call the tool"
+                " `save_order(drinkType, size, milk, extras, name)` to persist the order," 
+                "then give a short friendly confirmation to the user that includes the customer's name and the saved file path returned by the tool."
+                " Always refuse to help with requests that are illegal, harmful, or unsafe."
+            ),
+            tools=[save_order],
         )
 
     # To add tools, use the @function_tool decorator.
