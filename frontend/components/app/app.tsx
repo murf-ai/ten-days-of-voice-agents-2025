@@ -22,3 +22,4 @@ export function App({ appConfig }: AppProps) {
     </SessionProvider>
   );
 }
+
