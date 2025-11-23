@@ -1,0 +1,13 @@
+[
+  
+  {
+    "drinkType": "cappuccino",
+    "size": "medium",
+    "milk": "almond",
+    "extras": [
+      "honey"
+    ],
+    "name": "Jimmy",
+    "timestamp": "2025-11-23T19:30:58.416086"
+  }
+]
