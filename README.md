@@ -97,7 +97,7 @@ cp .env.example .env.local
 # Download required models
 uv run python src/agent.py download-files
 ```
-
+uv run python src/agent_barista.py download-files
 For LiveKit Cloud users, you can automatically populate credentials:
 
 ```bash
@@ -185,7 +185,7 @@ The backend includes a comprehensive test suite:
 
 ```bash
 cd backend
-uv run pytest
+j
 ```
 
 Learn more about testing voice agents in the [LiveKit testing documentation](https://docs.livekit.io/agents/build/testing/).
