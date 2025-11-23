@@ -1,0 +1,10 @@
+{
+  "drinkType": "Americano",
+  "size": "medium",
+  "milk": "skim",
+  "extras": [
+    "whipped cream"
+  ],
+  "name": "Aman",
+  "timestamp": "2025-11-23T15:36:54.874120"
+}

@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Coffee Order Receipt Demo</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-900 min-h-screen flex items-center justify-center p-4">
+    <div class="w-80 rounded-lg bg-white p-6 shadow-2xl">
+        <!-- Receipt Header -->
+        <div class="mb-4 border-b-2 border-dashed border-gray-300 pb-4 text-center">
+            <h2 class="text-2xl font-bold text-gray-800">☕ Cafe Latte</h2>
+            <p class="text-sm text-gray-600">Order Receipt</p>
+        </div>
+
+        <!-- Visual Cup -->
+        <div class="mb-6 flex justify-center">
+            <div class="relative">
+                <!-- Cup -->
+                <div class="h-48 w-24 rounded-b-lg bg-gradient-to-b from-amber-100 to-amber-200 border-4 border-amber-800 relative">
+                    <!-- Coffee inside -->
+                    <div class="absolute bottom-0 left-0 right-0 h-3/4 rounded-b-lg bg-gradient-to-b from-amber-700 to-amber-900"></div>
+                </div>
+                
+                <!-- Whipped Cream -->
+                <div class="absolute -top-4 left-1/2 h-8 w-20 -translate-x-1/2 rounded-full bg-gradient-to-b from-white to-gray-100 shadow-md"></div>
+                
+                <!-- Cup Lid -->
+                <div class="absolute -top-2 left-1/2 h-3 w-28 -translate-x-1/2 rounded-full bg-gray-800"></div>
+            </div>
+        </div>
+
+        <!-- Order Details -->
+        <div class="space-y-2 text-sm">
+            <div class="flex justify-between border-b border-gray-200 pb-2">
+                <span class="font-semibold text-gray-700">Name:</span>
+                <span class="text-gray-900">Ahmed</span>
+            </div>
+            
+            <div class="flex justify-between border-b border-gray-200 pb-2">
+                <span class="font-semibold text-gray-700">Drink:</span>
+                <span class="text-gray-900 capitalize">Cappuccino</span>
+            </div>
+            
+            <div class="flex justify-between border-b border-gray-200 pb-2">
+                <span class="font-semibold text-gray-700">Size:</span>
+                <span class="text-gray-900 capitalize">Large</span>
+            </div>
+            
+            <div class="flex justify-between border-b border-gray-200 pb-2">
+                <span class="font-semibold text-gray-700">Milk:</span>
+                <span class="text-gray-900 capitalize">Oat Milk</span>
+            </div>
+            
+            <div class="border-b border-gray-200 pb-2">
+                <span class="font-semibold text-gray-700">Extras:</span>
+                <ul class="ml-4 mt-1 list-disc text-gray-900">
+                    <li class="capitalize">Whipped Cream</li>
+                    <li class="capitalize">Extra Shot</li>
+                    <li class="capitalize">Vanilla Syrup</li>
+                </ul>
+            </div>
+        </div>
+
+        <!-- Receipt Footer -->
+        <div class="mt-4 border-t-2 border-dashed border-gray-300 pt-4 text-center">
+            <p class="text-xs text-gray-600">Thank you for your order!</p>
+            <p class="text-xs text-gray-500">Powered by Murf Falcon TTS</p>
+        </div>
+    </div>
+
+    <div class="fixed bottom-4 left-4 right-4 bg-blue-500 text-white p-4 rounded-lg text-center">
+        <p class="font-bold mb-2">This is what the receipt looks like!</p>
+        <p class="text-sm">In the actual app, this appears after you complete an order with the voice agent.</p>
+    </div>
+</body>
+</html>

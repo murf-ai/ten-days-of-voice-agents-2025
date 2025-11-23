@@ -1,0 +1,10 @@
+{
+  "drinkType": "cappuccino",
+  "size": "medium",
+  "milk": "skimmed milk",
+  "extras": [
+    "whipped cream"
+  ],
+  "name": "Aman",
+  "timestamp": "2025-11-23T15:35:17.834899"
+}
