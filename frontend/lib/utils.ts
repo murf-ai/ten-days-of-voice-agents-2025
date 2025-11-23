@@ -30,35 +30,74 @@ export const getAppConfig = cache(async (headers: Headers): Promise<AppConfig> =
 
     try {
       if (!sandboxId) {
-        throw new Error('Sandbox ID is required');
+        // Avoid throwing during server rendering which surfaces as a React server error.
+        // Log a warning and fall back to the default config so the app can render.
+        console.warn('SANDBOX_ID not set; falling back to APP_CONFIG_DEFAULTS');
+        return APP_CONFIG_DEFAULTS;
       }
 
-      const response = await fetch(CONFIG_ENDPOINT, {
+      // If the config endpoint is provided as a websocket URL (wss:// or ws://)
+      // convert it to the equivalent http(s) URL so `fetch` can be used.
+      let fetchEndpoint = CONFIG_ENDPOINT;
+      if (typeof fetchEndpoint === 'string') {
+        if (fetchEndpoint.startsWith('wss://')) {
+          fetchEndpoint = fetchEndpoint.replace(/^wss:\/\//, 'https://');
+        } else if (fetchEndpoint.startsWith('ws://')) {
+          fetchEndpoint = fetchEndpoint.replace(/^ws:\/\//, 'http://');
+        }
+      }
+
+      const response = await fetch(fetchEndpoint, {
         cache: 'no-store',
         headers: { 'X-Sandbox-ID': sandboxId },
       });
 
       if (response.ok) {
-        const remoteConfig: SandboxConfig = await response.json();
+        // Parse response safely. Some endpoints may return a plain text "OK"
+        // or other non-JSON responses; avoid throwing from JSON.parse.
+        let remoteConfig: SandboxConfig | null = null;
 
-        const config: AppConfig = { ...APP_CONFIG_DEFAULTS, sandboxId };
+        const contentType = response.headers.get('content-type') ?? '';
 
-        for (const [key, entry] of Object.entries(remoteConfig)) {
-          if (entry === null) continue;
-          // Only include app config entries that are declared in defaults and, if set,
-          // share the same primitive type as the default value.
-          if (
-            (key in APP_CONFIG_DEFAULTS &&
-              APP_CONFIG_DEFAULTS[key as keyof AppConfig] === undefined) ||
-            (typeof config[key as keyof AppConfig] === entry.type &&
-              typeof config[key as keyof AppConfig] === typeof entry.value)
-          ) {
-            // @ts-expect-error I'm not sure quite how to appease TypeScript, but we've thoroughly checked types above
-            config[key as keyof AppConfig] = entry.value as AppConfig[keyof AppConfig];
+        if (contentType.includes('application/json')) {
+          try {
+            // expected happy path
+            remoteConfig = (await response.json()) as SandboxConfig;
+          } catch (err) {
+            console.error('ERROR: failed to parse JSON from config endpoint', err);
+          }
+        } else {
+          // Attempt to parse text body if it's JSON-shaped, otherwise log and skip.
+          try {
+            const text = await response.text();
+            remoteConfig = JSON.parse(text) as SandboxConfig;
+          } catch (err) {
+            console.warn('CONFIG_ENDPOINT returned non-JSON response; falling back to defaults');
           }
         }
 
-        return config;
+        if (remoteConfig) {
+          const config: AppConfig = { ...APP_CONFIG_DEFAULTS, sandboxId };
+
+          for (const [key, entry] of Object.entries(remoteConfig)) {
+            if (entry === null) continue;
+            // Only include app config entries that are declared in defaults and, if set,
+            // share the same primitive type as the default value.
+            if (
+              (key in APP_CONFIG_DEFAULTS &&
+                APP_CONFIG_DEFAULTS[key as keyof AppConfig] === undefined) ||
+              (typeof config[key as keyof AppConfig] === entry.type &&
+                typeof config[key as keyof AppConfig] === typeof entry.value)
+            ) {
+              // @ts-expect-error I'm not sure quite how to appease TypeScript, but we've thoroughly checked types above
+              config[key as keyof AppConfig] = entry.value as AppConfig[keyof AppConfig];
+            }
+          }
+
+          return config;
+        } else {
+          console.warn('Using APP_CONFIG_DEFAULTS due to empty or invalid config response');
+        }
       } else {
         console.error(
           `ERROR: querying config endpoint failed with status ${response.status}: ${response.statusText}`
