@@ -2,7 +2,7 @@ import logging
 import os
 import json
 import datetime
-from typing import Optional, List
+from typing import Optional, List, Dict, Any
 
 from dotenv import load_dotenv
 from livekit import rtc
@@ -22,8 +22,6 @@ from livekit.agents import (
     tokenize,
     room_io,
     function_tool,
-    # function_tool,
-    # RunContext
 )
 from livekit.plugins import murf, silero, google, deepgram, noise_cancellation
 from livekit.plugins.turn_detector.multilingual import MultilingualModel
@@ -32,181 +30,222 @@ logger = logging.getLogger("agent")
 
 load_dotenv(".env.local")
 
+# ----- FIXED: make the log path absolute at project root -----
+BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+WELLNESS_LOG_PATH = os.path.join(BASE_DIR, "wellness_log.json")
+# -------------------------------------------------------------
+
+
+def _read_wellness_log() -> List[Dict[str, Any]]:
+    """Internal helper: read JSON log, return list of entries."""
+    if not os.path.exists(WELLNESS_LOG_PATH):
+        return []
+
+    try:
+        with open(WELLNESS_LOG_PATH, "r", encoding="utf-8") as f:
+            data = json.load(f)
+        if isinstance(data, list):
+            return data
+        # If corrupted / wrong type, back it up and start fresh
+        backup_path = WELLNESS_LOG_PATH + ".backup"
+        with open(backup_path, "w", encoding="utf-8") as bf:
+            json.dump(data, bf, indent=2, ensure_ascii=False)
+        return []
+    except Exception as e:
+        logger.warning(f"Failed to read wellness log: {e}")
+        return []
+
+
+def _write_wellness_log(entries: List[Dict[str, Any]]) -> None:
+    """Internal helper: write list of entries back to JSON log."""
+    try:
+        with open(WELLNESS_LOG_PATH, "w", encoding="utf-8") as f:
+            json.dump(entries, f, indent=2, ensure_ascii=False)
+    except Exception as e:
+        logger.error(f"Failed to write wellness log: {e}")
+
 
 class Assistant(Agent):
     def __init__(self) -> None:
         super().__init__(
             instructions="""
-You are a friendly coffee shop barista for a brand called Falcon Brew.
+You are a short, practical daily health & wellness check-in companion called "Nudge".
 
-You take exactly ONE coffee order at a time and maintain this JSON order state:
+Your job:
+- Have a brief, focused check-in with the user once per day (around 5–10 minutes).
+- Ask about mood, energy, and any current stressors.
+- Help them pick 1–3 realistic, concrete objectives for the day.
+- Offer simple, non-medical suggestions.
+- Summarize and confirm what you heard at the end.
 
-{
-  "drinkType": "string",
-  "size": "string",
-  "milk": "string",
-  "extras": ["string"],
-  "name": "string"
-}
+VERY IMPORTANT SAFETY RULES:
+- You are NOT a doctor, therapist, or crisis counselor.
+- Do NOT diagnose conditions, suggest medications, or interpret symptoms.
+- Do NOT give medical, psychiatric, or nutritional prescriptions.
+- If the user mentions self-harm, suicidal thoughts, or extreme distress:
+  - Acknowledge their feelings with warmth.
+  - Clearly say you are not a professional.
+  - Encourage them to immediately reach out to a trusted person or local emergency/mental health services.
+  - Keep your language supportive and non-judgmental.
 
-Your workflow:
-- Greet the customer.
-- Ask what they'd like to drink.
-- Ask clarifying questions until ALL fields in the order are filled.
-- You can accept combined phrases (e.g. "a large iced latte with oat milk") and then only ask for what is still missing.
-- Never guess any detail. If you are unsure, ASK.
-- As you learn anything about the order, call the `update_order` tool with the fields you understood.
-- When you believe the order is complete, FIRST:
-  - Read back a short summary to the customer in one or two sentences.
-  - THEN call the `save_order` tool to persist the order.
-- Use the `reset_order` tool if the customer wants to completely change their order.
-- Keep responses short and conversational, like a real barista talking at the counter.
+TOOLS YOU CAN USE:
+1) `get_wellness_history(limit)`:
+   - Call once near the start of the conversation.
+   - It returns the most recent past check-ins (if any).
+   - Use this to make at least ONE small reference to past days, for example:
+     - "Last time you said your energy was low. How does today compare?"
+     - "You wanted to focus on sleep last time. Did that help at all?"
+
+2) `log_wellness_check(mood, energy, stressors, objectives, agent_summary)`:
+
+   - At the END of EVERY conversation, after you recap and the user confirms,
+     you MUST call this tool EXACTLY ONE TIME.
+
+   - This tool call is REQUIRED for every daily check-in. Never skip it.
+
+   - Fill the arguments as follows:
+       • mood: short text describing how the user said they feel
+       • energy: integer 1–10 (convert their answer to a number)
+       • stressors: short text or null
+       • objectives: 1–3 goals stated by the user
+       • agent_summary: 1–3 sentences summarizing the check-in
+
+   - After calling this tool, your job is done and you should not continue
+     the conversation.
+
+
+CONVERSATION FLOW (DEFAULT):
+
+1) Warm open:
+   - Greet briefly.
+   - If history exists (via `get_wellness_history`), reference it naturally.
+   - Example: "Hey, good to see you again. Last time you were pretty drained. How are you feeling today?"
+
+2) Mood and energy:
+   - Ask open-ended AND simple-scale questions, e.g.:
+     - "How are you feeling today overall?"
+     - "On a scale from 1 to 10, where is your energy right now?"
+     - "Anything stressing you out at the moment?"
+   - Reflect back in simple language: "Sounds like you're a bit anxious but still functioning."
+
+3) Intentions / objectives for today:
+   - Ask for 1–3 concrete things:
+     - "What are 1–3 things you’d like to get done today?"
+     - "Is there anything you want to do just for yourself? (rest, exercise, hobbies, calling someone, etc.)"
+   - If goals are vague, help make them smaller and more specific:
+     - “Instead of ‘study a lot’, maybe ‘do 2 focused 25-minute study blocks’.”
+
+4) Simple, realistic suggestions:
+   - Offer small, optional ideas. Keep it grounded:
+     - break big tasks into smaller steps
+     - short breaks
+     - 5–10 minute walk or stretch
+     - drink water, light snack
+   - Do NOT overcomplicate or push too hard; suggestions should feel doable TODAY.
+
+5) Recap and confirmation:
+   - Summarize in 2–4 sentences:
+     - How they are feeling (mood + energy)
+     - The 1–3 main objectives
+     - Any tiny self-care step you agreed on.
+   - Example:
+     - "So today you’re feeling a bit tired but motivated, energy around 6/10.
+        Your focus is: finish your report draft, go for a 10-minute walk,
+        and try to get to bed before midnight."
+   - Ask: "Does this sound right?" and briefly adjust if needed.
+   - Then close gently: wish them luck, and remind them it’s okay if not everything gets done.
+
+STYLE:
+- Calm, grounded, and human.
+- Short paragraphs and simple language.
+- Never guilt-trip or judge the user.
+- If they didn’t follow through on past goals, respond with curiosity, not blame:
+  - "No worries, that happens. Do you want to keep that goal or adjust it for today?"
+
+Remember: your primary job is to be a short, supportive check-in, not a therapist, coach, or productivity drill sergeant.
 """,
         )
 
     @function_tool()
-    async def update_order(
+    async def get_wellness_history(
         self,
         context: RunContext,
-        drinkType: str = "",
-        size: str = "",
-        milk: str = "",
-        extras: Optional[List[str]] = None,
-        name: str = "",
+        limit: int = 3,
+    ) -> List[Dict[str, Any]]:
+        """
+        Return up to `limit` most recent wellness check-ins.
+
+        Each entry has this shape:
+        {
+          "timestamp": ISO-8601 string,
+          "mood": str,
+          "energy": int,
+          "stressors": str or null,
+          "objectives": [str, ...],
+          "agent_summary": str
+        }
+        """
+        entries = _read_wellness_log()
+        if limit <= 0:
+            return []
+
+        # newest first
+        entries_sorted = sorted(
+            entries,
+            key=lambda e: e.get("timestamp", ""),
+            reverse=True,
+        )
+        recent = entries_sorted[:limit]
+
+        # store last history in session if you ever want it
+        context.session.userdata["recent_wellness_history"] = recent
+        return recent
+
+    @function_tool()
+    async def log_wellness_check(
+        self,
+        context: RunContext,
+        mood: str,
+        energy: int,
+        stressors: Optional[str],
+        objectives: List[str],
+        agent_summary: str,
     ) -> str:
         """
-        Update the current coffee order.
-
-        Call this whenever the customer provides ANY order details
-        (drinkType, size, milk, extras, or name).
-
-        You can call this multiple times as you collect more information.
-        Only send the fields that changed.
+        Append a new wellness check-in entry to wellness_log.json.
         """
-        # initialize order state if missing
-        userdata = context.session.userdata
-        order = userdata.get("order")
-        if order is None:
-            order = {
-                "drinkType": "",
-                "size": "",
-                "milk": "",
-                "extras": [],
-                "name": "",
-            }
-            userdata["order"] = order
+        logger.info(f"[log_wellness_check] called with mood={mood}, energy={energy}, "
+                    f"stressors={stressors}, objectives={objectives}")
 
-        if drinkType:
-            order["drinkType"] = drinkType
-        if size:
-            order["size"] = size
-        if milk:
-            order["milk"] = milk
-        if extras is not None:
-            order["extras"] = extras
-        if name:
-            order["name"] = name
+        # basic safety for input
+        try:
+            energy_int = int(energy)
+        except Exception:
+            energy_int = 0
 
-        missing = [
-            key
-            for key in ("drinkType", "size", "milk", "name")
-            if not order.get(key)
-        ]
+        if not isinstance(objectives, list):
+            objectives = [str(objectives)]
 
-        return json.dumps(
-            {
-                "order": order,
-                "missing_fields": missing,
-            }
-        )
+        timestamp = datetime.datetime.now(datetime.timezone.utc).isoformat()
 
-
-    @function_tool()
-    async def reset_order(self, context: RunContext) -> str:
-        """
-        Clear the current order and start over.
-
-        Use this if the customer wants to change their whole order.
-        """
-        context.session.userdata["order"] = {
-            "drinkType": "",
-            "size": "",
-            "milk": "",
-            "extras": [],
-            "name": "",
+        entry: Dict[str, Any] = {
+            "timestamp": timestamp,
+            "mood": mood,
+            "energy": energy_int,
+            "stressors": stressors,
+            "objectives": objectives,
+            "agent_summary": agent_summary,
         }
-        return "Order has been reset. Start a fresh order with the customer."
 
-    @function_tool()
-    async def save_order(self, context: RunContext) -> str:
-        """
-        Save the current completed order to a JSON file.
+        entries = _read_wellness_log()
+        entries.append(entry)
+        _write_wellness_log(entries)
 
-        Only call this AFTER all fields are filled and you've
-        verbally confirmed the order with the customer.
-        """
-        order = context.session.userdata.get("order")
+        context.session.userdata["last_wellness_entry"] = entry
 
-        if not order:
-            return "There is no active order to save."
+        logger.info(f"[log_wellness_check] wrote entry to {WELLNESS_LOG_PATH}")
+        return f"Logged wellness check for {timestamp} with {len(objectives)} objectives."
 
-        missing = [
-            key
-            for key in ("drinkType", "size", "milk", "name")
-            if not order.get(key)
-        ]
-
-        if missing:
-            return (
-                "Order is not complete yet. Missing fields: "
-                + ", ".join(missing)
-            )
-
-        # Make sure extras is at least an empty list
-        if order.get("extras") is None:
-            order["extras"] = []
-
-        # Ensure orders directory exists
-        os.makedirs("orders", exist_ok=True)
-
-        # Use UTC timestamp to avoid clashes
-        timestamp = datetime.datetime.utcnow().strftime("%Y%m%d-%H%M%S")
-        safe_name = (order.get("name") or "guest").replace(" ", "_")
-        filename = f"orders/order-{timestamp}-{safe_name}.json"
-
-        with open(filename, "w", encoding="utf-8") as f:
-            json.dump(order, f, indent=2)
-
-        context.session.userdata["last_saved_order_file"] = filename
-
-        # Short human-readable summary (this is what your frontend can show as text)
-        summary = (
-            f"Order for {order['name']}: "
-            f"{order['size']} {order['drinkType']} with {order['milk']} milk"
-        )
-        if order["extras"]:
-            summary += f", extras: {', '.join(order['extras'])}."
-
-        return summary
-
-
-
-    # To add tools, use the @function_tool decorator.
-    # Here's an example that adds a simple weather tool.
-    # You also have to add `from livekit.agents import function_tool, RunContext` to the top of this file
-    # @function_tool
-    # async def lookup_weather(self, context: RunContext, location: str):
-    #     """Use this tool to look up current weather information in the given location.
-    #
-    #     If the location is not supported by the weather service, the tool will indicate this. You must tell the user the location's weather is unavailable.
-    #
-    #     Args:
-    #         location: The location to look up weather information for (e.g. city name)
-    #     """
-    #
-    #     logger.info(f"Looking up weather for {location}")
-    #
-    #     return "sunny with a temperature of 70 degrees."
 
 
 def prewarm(proc: JobProcess):
@@ -215,52 +254,27 @@ def prewarm(proc: JobProcess):
 
 async def entrypoint(ctx: JobContext):
     # Logging setup
-    # Add any other context you want in all log entries here
     ctx.log_context_fields = {
         "room": ctx.room.name,
     }
 
-    # Set up a voice AI pipeline using OpenAI, Cartesia, AssemblyAI, and the LiveKit turn detector
     session = AgentSession(
-        # Speech-to-text (STT) is your agent's ears, turning the user's speech into text that the LLM can understand
-        # See all available models at https://docs.livekit.io/agents/models/stt/
         stt=deepgram.STT(model="nova-3"),
-        # A Large Language Model (LLM) is your agent's brain, processing user input and generating a response
-        # See all available models at https://docs.livekit.io/agents/models/llm/
         llm=google.LLM(
-                model="gemini-2.5-flash",
-            ),
-        # Text-to-speech (TTS) is your agent's voice, turning the LLM's text into speech that the user can hear
-        # See all available models as well as voice selections at https://docs.livekit.io/agents/models/tts/
+            model="gemini-2.5-flash",
+        ),
         tts=murf.TTS(
-                voice="en-US-matthew", 
-                style="Conversation",
-                tokenizer=tokenize.basic.SentenceTokenizer(min_sentence_len=2),
-                text_pacing=True
-            ),
-        # VAD and turn detection are used to determine when the user is speaking and when the agent should respond
-        # See more at https://docs.livekit.io/agents/build/turns
+            voice="en-US-matthew",
+            style="Conversation",
+            tokenizer=tokenize.basic.SentenceTokenizer(min_sentence_len=2),
+            text_pacing=True,
+        ),
         turn_detection=MultilingualModel(),
         vad=ctx.proc.userdata["vad"],
-        # allow the LLM to generate a response while waiting for the end of turn
-        # See more at https://docs.livekit.io/agents/build/audio/#preemptive-generation
         preemptive_generation=True,
-        
     )
     session.userdata = {}
 
-    # To use a realtime model instead of a voice pipeline, use the following session setup instead.
-    # (Note: This is for the OpenAI Realtime API. For other providers, see https://docs.livekit.io/agents/models/realtime/))
-    # 1. Install livekit-agents[openai]
-    # 2. Set OPENAI_API_KEY in .env.local
-    # 3. Add `from livekit.plugins import openai` to the top of this file
-    # 4. Use the following session setup instead of the version above
-    # session = AgentSession(
-    #     llm=openai.realtime.RealtimeModel(voice="marin")
-    # )
-
-    # Metrics collection, to measure pipeline performance
-    # For more information, see https://docs.livekit.io/agents/build/metrics/
     usage_collector = metrics.UsageCollector()
 
     @session.on("metrics_collected")
@@ -274,25 +288,14 @@ async def entrypoint(ctx: JobContext):
 
     ctx.add_shutdown_callback(log_usage)
 
-    # # Add a virtual avatar to the session, if desired
-    # # For other providers, see https://docs.livekit.io/agents/models/avatar/
-    # avatar = hedra.AvatarSession(
-    #   avatar_id="...",  # See https://docs.livekit.io/agents/models/avatar/plugins/hedra
-    # )
-    # # Start the avatar and wait for it to join
-    # await avatar.start(session, room=ctx.room)
-
-    # Start the session, which initializes the voice pipeline and warms up the models
     await session.start(
         agent=Assistant(),
         room=ctx.room,
         room_input_options=RoomInputOptions(
-            # For telephony applications, use `BVCTelephony` for best results
             noise_cancellation=noise_cancellation.BVC(),
         ),
     )
 
-    # Join the room and connect to the user
     await ctx.connect()
 
 
