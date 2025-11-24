@@ -10,5 +10,11 @@ KMS
 *.egg-info
 .pytest_cache
 .ruff_cache
+
+# Order files
+orders/
+
+# Wellness log
+wellness_log.json
 # Order files
 orders/

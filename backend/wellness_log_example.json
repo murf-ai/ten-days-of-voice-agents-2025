@@ -1,0 +1,29 @@
+[
+  {
+    "date": "2025-11-23",
+    "timestamp": "2025-11-23T09:15:30.123456",
+    "mood": "a bit anxious",
+    "energy": "low",
+    "stress_factors": "big presentation at work tomorrow",
+    "objectives": [
+      "Practice presentation",
+      "Get 8 hours of sleep",
+      "Take a short walk"
+    ],
+    "summary": "User feeling anxious with low energy due to upcoming work presentation, focusing on preparation and self-care"
+  },
+  {
+    "date": "2025-11-24",
+    "timestamp": "2025-11-24T10:30:00.654321",
+    "mood": "relieved and happy",
+    "energy": "high",
+    "stress_factors": "nothing major, presentation went well",
+    "objectives": [
+      "Catch up on emails",
+      "Go to the gym",
+      "Cook a healthy dinner"
+    ],
+    "summary": "User feeling relieved with high energy after successful presentation, focusing on routine tasks and wellness activities"
+  }
+]
+
