@@ -1,6 +1,10 @@
+import json
 import logging
+from datetime import datetime
+from pathlib import Path
 
 from dotenv import load_dotenv
+
 from livekit.agents import (
     Agent,
     AgentSession,
@@ -12,94 +16,159 @@ from livekit.agents import (
     cli,
     metrics,
     tokenize,
-    # function_tool,
-    # RunContext
 )
-from livekit.plugins import murf, silero, google, deepgram, noise_cancellation
+from livekit.plugins import murf, deepgram, noise_cancellation, google, silero
 from livekit.plugins.turn_detector.multilingual import MultilingualModel
 
 logger = logging.getLogger("agent")
-
 load_dotenv(".env.local")
 
+# ---------------------------
+# JSON LOG FILE
+# ---------------------------
+LOG_FILE = Path("wellness_log.json")
 
-class Assistant(Agent):
-    def __init__(self) -> None:
+
+def load_logs():
+    if LOG_FILE.exists():
+        with open(LOG_FILE, "r") as f:
+            return json.load(f)
+    return []
+
+
+def save_log(data):
+    logs = load_logs()
+    logs.append(data)
+    with open(LOG_FILE, "w") as f:
+        json.dump(logs, f, indent=4)
+    logger.info("Saved wellness check-in to wellness_log.json")
+
+
+# ---------------------------
+# Health & Wellness State Machine
+# ---------------------------
+checkin_state = {
+    "mood": "",
+    "energy": "",
+    "stress": "",
+    "objectives": "",
+    "selfcare": ""
+}
+
+questions = {
+    "mood": "How are you feeling today?",
+    "energy": "What’s your energy like today?",
+    "stress": "Is anything stressing you out right now?",
+    "objectives": "What are 1–3 things you’d like to get done today?",
+    "selfcare": "Is there anything you want to do for yourself today? Maybe rest, exercise, or hobbies?"
+}
+
+
+def get_previous_reference():
+    logs = load_logs()
+    if not logs:
+        return ""
+
+    last = logs[-1]
+    return f"Last time we talked, you mentioned feeling '{last['mood']}' with energy '{last['energy']}'. How does today compare?"
+
+
+# ---------------------------
+# Agent
+# ---------------------------
+class WellnessCompanion(Agent):
+    def __init__(self):
         super().__init__(
-            instructions="""You are a helpful voice AI assistant. The user is interacting with you via voice, even if you perceive the conversation as text.
-            You eagerly assist users with their questions by providing information from your extensive knowledge.
-            Your responses are concise, to the point, and without any complex formatting or punctuation including emojis, asterisks, or other symbols.
-            You are curious, friendly, and have a sense of humor.""",
+            instructions="""
+            You are a supportive, grounded health & wellness companion.
+            You NEVER give medical advice or diagnoses.
+            You help the user check in daily about their mood, energy, stress and simple goals.
+            You give small, realistic, actionable advice only.
+            After gathering all answers, you give a recap.
+            """
         )
 
-    # To add tools, use the @function_tool decorator.
-    # Here's an example that adds a simple weather tool.
-    # You also have to add `from livekit.agents import function_tool, RunContext` to the top of this file
-    # @function_tool
-    # async def lookup_weather(self, context: RunContext, location: str):
-    #     """Use this tool to look up current weather information in the given location.
-    #
-    #     If the location is not supported by the weather service, the tool will indicate this. You must tell the user the location's weather is unavailable.
-    #
-    #     Args:
-    #         location: The location to look up weather information for (e.g. city name)
-    #     """
-    #
-    #     logger.info(f"Looking up weather for {location}")
-    #
-    #     return "sunny with a temperature of 70 degrees."
+    async def on_join(self, context):
+        reference = get_previous_reference()
+
+        if reference:
+            await context.send_speech(reference)
+
+        # ask first unanswered field
+        for field in checkin_state:
+            if not checkin_state[field]:
+                await context.send_speech(questions[field])
+                break
+
+    async def on_user_message(self, message, context):
+        # find next unanswered field
+        for field in checkin_state:
+            if not checkin_state[field]:
+                checkin_state[field] = message.text.strip()
+                break
+
+        # ask next unanswered field
+        for next_field in checkin_state:
+            if not checkin_state[next_field]:
+                await context.send_speech(questions[next_field])
+                return
+
+        # If we reach here → all fields done
+        recap = (
+            f"Here's your check-in summary:\n"
+            f"- Mood: {checkin_state['mood']}\n"
+            f"- Energy: {checkin_state['energy']}\n"
+            f"- Stress: {checkin_state['stress']}\n"
+            f"- Objectives: {checkin_state['objectives']}\n"
+            f"- Self-care plan: {checkin_state['selfcare']}\n\n"
+            "Does this sound correct?"
+        )
+
+        await context.send_speech(recap)
+
+        # Save data to JSON
+        entry = {
+            "datetime": datetime.now().isoformat(),
+            "mood": checkin_state["mood"],
+            "energy": checkin_state["energy"],
+            "stress": checkin_state["stress"],
+            "objectives": checkin_state["objectives"],
+            "selfcare": checkin_state["selfcare"],
+        }
+
+        save_log(entry)
+
+
+# ---------------------------
+# Load VAD on main thread
+# ---------------------------
+vad_model = silero.VAD.load()
 
 
 def prewarm(proc: JobProcess):
-    proc.userdata["vad"] = silero.VAD.load()
+    proc.userdata["vad"] = vad_model
 
 
+# ---------------------------
+# Entrypoint
+# ---------------------------
 async def entrypoint(ctx: JobContext):
-    # Logging setup
-    # Add any other context you want in all log entries here
-    ctx.log_context_fields = {
-        "room": ctx.room.name,
-    }
+    ctx.log_context_fields = {"room": ctx.room.name}
 
-    # Set up a voice AI pipeline using OpenAI, Cartesia, AssemblyAI, and the LiveKit turn detector
     session = AgentSession(
-        # Speech-to-text (STT) is your agent's ears, turning the user's speech into text that the LLM can understand
-        # See all available models at https://docs.livekit.io/agents/models/stt/
         stt=deepgram.STT(model="nova-3"),
-        # A Large Language Model (LLM) is your agent's brain, processing user input and generating a response
-        # See all available models at https://docs.livekit.io/agents/models/llm/
-        llm=google.LLM(
-                model="gemini-2.5-flash",
-            ),
-        # Text-to-speech (TTS) is your agent's voice, turning the LLM's text into speech that the user can hear
-        # See all available models as well as voice selections at https://docs.livekit.io/agents/models/tts/
+        llm=google.LLM(model="gemini-2.5-flash"),
         tts=murf.TTS(
-                voice="en-US-matthew", 
-                style="Conversation",
-                tokenizer=tokenize.basic.SentenceTokenizer(min_sentence_len=2),
-                text_pacing=True
-            ),
-        # VAD and turn detection are used to determine when the user is speaking and when the agent should respond
-        # See more at https://docs.livekit.io/agents/build/turns
+            voice="en-US-matthew",
+            style="Conversation",
+            tokenizer=tokenize.basic.SentenceTokenizer(min_sentence_len=2),
+            text_pacing=True,
+        ),
         turn_detection=MultilingualModel(),
         vad=ctx.proc.userdata["vad"],
-        # allow the LLM to generate a response while waiting for the end of turn
-        # See more at https://docs.livekit.io/agents/build/audio/#preemptive-generation
         preemptive_generation=True,
     )
 
-    # To use a realtime model instead of a voice pipeline, use the following session setup instead.
-    # (Note: This is for the OpenAI Realtime API. For other providers, see https://docs.livekit.io/agents/models/realtime/))
-    # 1. Install livekit-agents[openai]
-    # 2. Set OPENAI_API_KEY in .env.local
-    # 3. Add `from livekit.plugins import openai` to the top of this file
-    # 4. Use the following session setup instead of the version above
-    # session = AgentSession(
-    #     llm=openai.realtime.RealtimeModel(voice="marin")
-    # )
-
-    # Metrics collection, to measure pipeline performance
-    # For more information, see https://docs.livekit.io/agents/build/metrics/
     usage_collector = metrics.UsageCollector()
 
     @session.on("metrics_collected")
@@ -113,27 +182,19 @@ async def entrypoint(ctx: JobContext):
 
     ctx.add_shutdown_callback(log_usage)
 
-    # # Add a virtual avatar to the session, if desired
-    # # For other providers, see https://docs.livekit.io/agents/models/avatar/
-    # avatar = hedra.AvatarSession(
-    #   avatar_id="...",  # See https://docs.livekit.io/agents/models/avatar/plugins/hedra
-    # )
-    # # Start the avatar and wait for it to join
-    # await avatar.start(session, room=ctx.room)
-
-    # Start the session, which initializes the voice pipeline and warms up the models
     await session.start(
-        agent=Assistant(),
+        agent=WellnessCompanion(),
         room=ctx.room,
         room_input_options=RoomInputOptions(
-            # For telephony applications, use `BVCTelephony` for best results
             noise_cancellation=noise_cancellation.BVC(),
         ),
     )
 
-    # Join the room and connect to the user
     await ctx.connect()
 
 
+# ---------------------------
+# Run Agent
+# ---------------------------
 if __name__ == "__main__":
     cli.run_app(WorkerOptions(entrypoint_fnc=entrypoint, prewarm_fnc=prewarm))
