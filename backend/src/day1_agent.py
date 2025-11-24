@@ -22,38 +22,15 @@ logger = logging.getLogger("agent")
 
 load_dotenv(".env.local")
 
-import json
-import os
-os.makedirs("orders", exist_ok=True)
-
-async def save_order(order):
-    folder = "orders"
-    filepath = os.path.join(folder, f"order_{order['name']}.json")
-    with open(filepath, "w") as f:
-        json.dump(order, f, indent=2)
-    print("Order saved to", filepath)
-
-
 
 class Assistant(Agent):
     def __init__(self) -> None:
         super().__init__(
-             instructions="""You are a friendly barista working at Gaza Coffee.
-                Your job is to take coffee orders through a natural voice conversation.
-
-                Always follow these rules:
-                1. Ask questions one by one until the order is complete.
-                2. Maintain and update an order object with fields:
-                - drinkType
-                - size
-                - milk
-                - extras
-                - name
-                3. After confirming all details, say the final order summary out loud,
-                then tell the user that you are saving their order.
-                4. Do NOT provide random info; stay in character as a barista.
-                5. Keep responses short and friendly.""",
-     )
+            instructions="""You are a helpful voice AI assistant. The user is interacting with you via voice, even if you perceive the conversation as text.
+            You eagerly assist users with their questions by providing information from your extensive knowledge.
+            Your responses are concise, to the point, and without any complex formatting or punctuation including emojis, asterisks, or other symbols.
+            You are curious, friendly, and have a sense of humor.""",
+        )
 
     # To add tools, use the @function_tool decorator.
     # Here's an example that adds a simple weather tool.
@@ -86,79 +63,30 @@ async def entrypoint(ctx: JobContext):
 
     # Set up a voice AI pipeline using OpenAI, Cartesia, AssemblyAI, and the LiveKit turn detector
     session = AgentSession(
-        # Speech-to-text
+        # Speech-to-text (STT) is your agent's ears, turning the user's speech into text that the LLM can understand
+        # See all available models at https://docs.livekit.io/agents/models/stt/
         stt=deepgram.STT(model="nova-3"),
-
-        # Language model
+        # A Large Language Model (LLM) is your agent's brain, processing user input and generating a response
+        # See all available models at https://docs.livekit.io/agents/models/llm/
         llm=google.LLM(
-            model="gemini-2.5-flash",
-        ),
-
-        # Text-to-speech
+                model="gemini-2.5-flash",
+            ),
+        # Text-to-speech (TTS) is your agent's voice, turning the LLM's text into speech that the user can hear
+        # See all available models as well as voice selections at https://docs.livekit.io/agents/models/tts/
         tts=murf.TTS(
-            voice="en-US-matthew",
-            style="Conversation",
-            tokenizer=tokenize.basic.SentenceTokenizer(min_sentence_len=2),
-            text_pacing=True
-        ),
-
+                voice="en-US-matthew", 
+                style="Conversation",
+                tokenizer=tokenize.basic.SentenceTokenizer(min_sentence_len=2),
+                text_pacing=True
+            ),
+        # VAD and turn detection are used to determine when the user is speaking and when the agent should respond
+        # See more at https://docs.livekit.io/agents/build/turns
         turn_detection=MultilingualModel(),
         vad=ctx.proc.userdata["vad"],
+        # allow the LLM to generate a response while waiting for the end of turn
+        # See more at https://docs.livekit.io/agents/build/audio/#preemptive-generation
         preemptive_generation=True,
     )
-
-    #  DAY 2: Coffee Order State
-    order = {
-        "drinkType": None,
-        "size": None,
-        "milk": None,
-        "extras": [],
-        "name": None,
-    }
-
-    # DAY 2: Handle User Speech Input
-    async def handle_user_message(text: str):
-        t = text.lower()
-
-        # Extract drink type
-        for d in ["latte", "mocha", "espresso", "americano", "cappuccino"]:
-            if order["drinkType"] is None and d in t:
-                order["drinkType"] = d
-                return "Great choice! What size would you like? Small, medium, or large?"
-
-        # Extract size
-        for s in ["small", "medium", "large"]:
-            if order["size"] is None and s in t:
-                order["size"] = s
-                return "Got it! What kind of milk would you like? Whole, oat, almond, or soy?"
-
-        # Extract milk type
-        for m in ["oat", "almond", "soy", "whole"]:
-            if order["milk"] is None and m in t:
-                order["milk"] = m
-                return "Nice! Any extras? You can say whipped cream, caramel, or extra shot."
-
-        # Extract extras
-        for e in ["whipped cream", "caramel", "extra shot", "whipped", "shot"]:
-            if e in t:
-                order["extras"].append(e)
-                return "Added! What's your name for the order?"
-
-        # Extract name (single word)
-        if order["name"] is None and len(text.split()) == 1:
-            order["name"] = text.capitalize()
-            return "Perfect! Let me summarize your order."
-
-        # Final save
-        if order["drinkType"] and order["size"] and order["milk"] and order["name"]:
-            await save_order(order)
-
-            await session.say(
-                f"Thanks {order['name']}! Your {order['size']} {order['drinkType']} with {order['milk']} milk is ready. I have saved your order!"
-            )
-
-        return None
-
 
     # To use a realtime model instead of a voice pipeline, use the following session setup instead.
     # (Note: This is for the OpenAI Realtime API. For other providers, see https://docs.livekit.io/agents/models/realtime/))
@@ -203,22 +131,9 @@ async def entrypoint(ctx: JobContext):
         ),
     )
 
-     # 1 function that handles + responds
-    async def handle_and_respond(text: str):
-        reply = await handle_user_message(text)
-        if reply:
-            await session.say(reply)
+    # Join the room and connect to the user
+    await ctx.connect()
 
-    # 2 transcription event listener
-    def on_transcription(ev):
-        if not ev.text:
-            return
-        
-        import asyncio
-        asyncio.create_task(handle_and_respond(ev.text))
-
-    # 3 register event listener
-    session.on("transcription", on_transcription)
 
 if __name__ == "__main__":
     cli.run_app(WorkerOptions(entrypoint_fnc=entrypoint, prewarm_fnc=prewarm))
