@@ -1,4 +1,7 @@
 import logging
+import json
+import os
+from datetime import datetime
 
 from dotenv import load_dotenv
 from livekit.agents import (
@@ -24,72 +27,102 @@ load_dotenv(".env.local")
 
 
 class Assistant(Agent):
-    def __init__(self) -> None:
-        super().__init__(
-            instructions="""
-You are a friendly barista at Falcon Coffee Shop.
+    def __init__(self, history_note: str = "") -> None:
+        # Base system prompt
+        base_instructions = """
+You are a warm, supportive, realistic Health & Wellness voice companion.
+Every day, you check in with the user about their mood and goals.
 
-Your job:
-1. Greet customers warmly.
-2. Take coffee orders (e.g., latte, cappuccino, americano, espresso, cold brew, mocha).
-3. Ask follow-up questions until you know ALL of these:
-   - drink type
-   - size (small/medium/large)
-   - milk type
-   - sugar level
-4. AFTER you have all four details, you MUST call the `place_order` tool to calculate the bill.
-5. Never guess the price yourself. Always rely on the `place_order` tool.
-6. After the tool returns, clearly tell the user:
-   - their full order
-   - the total bill amount in rupees
-   - a friendly closing message.
+Conversation flow:
+1. Ask about mood and energy.
+   Examples: "How are you feeling today?", "What's your energy like?", "Anything stressing you out right now?"
+2. Ask about their intentions / goals for today.
+   Examples: "What are 1–3 things you'd like to get done today?", "Is there anything you want to do for yourself (rest, exercise, hobbies)?"
+3. Provide supportive reflection and simple advice.
+   Keep suggestions small and realistic (rest, a short walk, breaks, focus on one task at a time).
+4. End with a short recap:
+   - Mood summary
+   - 1–3 goals
+   - Ask: "Does this sound right?"
 
-Tone:
-- Warm, friendly, welcoming.
-- Example phrases: "Hey there!", "What can I get started for you today?"
-- Keep answers short and natural like a real barista.
+VERY IMPORTANT:
+- You are not a doctor and cannot diagnose or treat anything.
+- Avoid medical claims or diagnoses.
+- Do not mention JSON, files, logs, tools, or code to the user.
+- After you understand today's mood, energy, and goals, call the `log_checkin` tool ONCE to store the results.
+
+If past check-in history exists, reference it naturally:
+Examples:
+- "Last time you said your energy was low — how does today compare?"
+- "Previously you wanted to focus on deep work — how did that go?"
+
+Be non-judgmental, encouraging, and gentle. Keep responses short and conversational.
 """
-        )
 
-    # ------------- Coffee Order Tool (used by the LLM) -------------
-    @function_tool()
-    async def place_order(
+        # If we have any history note from JSON, append it as context
+        if history_note:
+            base_instructions += f"""
+
+Additional context from previous check-ins (do NOT read this directly to the user, just use it for memory):
+{history_note}
+
+Use this context to ask gentle follow-up questions like:
+- "Last time you mentioned: {history_note}. How are things today compared to then?"
+Remember: never say that you are reading from a file.
+"""
+
+        super().__init__(instructions=base_instructions)
+
+    # ------------- Wellness JSON Logging Tool (used by the LLM) -------------
+    @function_tool
+    async def log_checkin(
         self,
         context: RunContext,
-        item: str,
-        size: str,
-        milk: str,
-        sugar: str,
+        mood: str,
+        energy: str,
+        goals: list,
     ) -> str:
         """
-        Takes a coffee order and returns the final price.
+        Store the user's check-in in wellness_log.json and return a short recap string.
 
         Args:
-            item: Coffee type (latte, cappuccino, americano, espresso, mocha, cold brew)
-            size: small / medium / large
-            milk: milk type (e.g. regular, oat, almond, soy)
-            sugar: sugar preference (e.g. less, normal, extra)
+            mood: user-described mood (e.g. "anxious but hopeful")
+            energy: user-described energy level (e.g. "low", "medium", "high")
+            goals: list of 1–3 goals/intentions for today
         """
-        prices = {
-            "latte": 120,
-            "cappuccino": 130,
-            "americano": 100,
-            "espresso": 90,
-            "mocha": 150,
-            "cold brew": 160,
-        }
-        size_extra = {"small": 0, "medium": 20, "large": 40}
+        log_file = "wellness_log.json"
 
-        base_price = prices.get(item.lower(), 120)
-        total_price = base_price + size_extra.get(size.lower(), 0)
+        entry = {
+            "timestamp": datetime.now().isoformat(),
+            "mood": mood,
+            "energy": energy,
+            "goals": goals,
+            "summary": f"Mood: {mood}, energy: {energy}, goals: {', '.join(goals)}",
+        }
+
+        # Load existing data if file exists
+        try:
+            with open(log_file, "r", encoding="utf-8") as f:
+                data = json.load(f)
+        except FileNotFoundError:
+            data = []
+        except json.JSONDecodeError:
+            data = []
+
+        data.append(entry)
+
+        # Write back to JSON
+        with open(log_file, "w", encoding="utf-8") as f:
+            json.dump(data, f, indent=2, ensure_ascii=False)
 
         logger.info(
-            f"Placing order: item={item}, size={size}, milk={milk}, sugar={sugar}, total={total_price}"
+            f"Logged wellness check-in: mood={mood}, energy={energy}, goals={goals}"
         )
 
+        # This text is what the LLM can speak back to user
         return (
-            f"Order confirmed: {size} {item} with {milk} milk and {sugar} sugar. "
-            f"Your total bill is ₹{total_price}."
+            f"Thanks for sharing. I’ve logged that you’re feeling {mood} with {energy} energy, "
+            f"and today’s goals are: {', '.join(goals)}. Let’s keep it simple and kind to yourself today."
         )
 
 
@@ -101,6 +134,29 @@ def prewarm(proc: JobProcess):
 async def entrypoint(ctx: JobContext):
     ctx.log_context_fields = {"room": ctx.room.name}
 
+    # ---------- Read JSON history (if any) to pass as context ----------
+    history_note = ""
+    log_file = "wellness_log.json"
+    if os.path.exists(log_file):
+        try:
+            with open(log_file, "r", encoding="utf-8") as f:
+                past = json.load(f)
+                if isinstance(past, list) and len(past) > 0:
+                    last = past[-1]
+                    mood = last.get("mood", "unknown")
+                    energy = last.get("energy", "unknown")
+                    goals = last.get("goals", [])
+                    goals_str = ", ".join(goals) if goals else "no goals recorded"
+
+                    history_note = (
+                        f"Last check-in: mood='{mood}', energy='{energy}', "
+                        f"goals were: {goals_str}."
+                    )
+        except Exception as e:
+            logger.warning(f"Failed to read wellness_log.json: {e}")
+            history_note = ""
+
+    # ---------- Voice AI pipeline ----------
     session = AgentSession(
         stt=deepgram.STT(model="nova-3"),
         llm=google.LLM(model="gemini-2.5-flash"),
@@ -128,8 +184,9 @@ async def entrypoint(ctx: JobContext):
 
     ctx.add_shutdown_callback(log_usage)
 
+    # Start the session with our wellness Assistant, passing history
     await session.start(
-        agent=Assistant(),
+        agent=Assistant(history_note=history_note),
         room=ctx.room,
         room_input_options=RoomInputOptions(
             noise_cancellation=noise_cancellation.BVC(),
