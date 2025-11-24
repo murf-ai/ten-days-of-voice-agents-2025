@@ -1,5 +1,8 @@
 import json
 import logging
+from datetime import datetime
+from pathlib import Path
+
 from dotenv import load_dotenv
 
 from livekit.agents import (
@@ -21,106 +24,130 @@ logger = logging.getLogger("agent")
 load_dotenv(".env.local")
 
 # ---------------------------
-# Coffee Order State
+# JSON LOG FILE
 # ---------------------------
-order = {
-    "drinkType": "",
-    "size": "",
-    "milk": "",
-    "extras": [],
-    "name": ""
+LOG_FILE = Path("wellness_log.json")
+
+
+def load_logs():
+    if LOG_FILE.exists():
+        with open(LOG_FILE, "r") as f:
+            return json.load(f)
+    return []
+
+
+def save_log(data):
+    logs = load_logs()
+    logs.append(data)
+    with open(LOG_FILE, "w") as f:
+        json.dump(logs, f, indent=4)
+    logger.info("Saved wellness check-in to wellness_log.json")
+
+
+# ---------------------------
+# Health & Wellness State Machine
+# ---------------------------
+checkin_state = {
+    "mood": "",
+    "energy": "",
+    "stress": "",
+    "objectives": "",
+    "selfcare": ""
 }
 
-<<<<<<< HEAD
 questions = {
-    "drinkType": "Which drink would you like? Latte, Cappuccino, Americano, or something else?",
-    "size": "What size would you like? Small, Medium, or Large?",
-    "milk": "Which type of milk do you prefer? Whole, Skim, Almond, or Oat?",
-    "extras": "Any extras like whipped cream or syrup? (You can list multiple separated by commas)",
-    "name": "May I have your name for the order?"
+    "mood": "How are you feeling today?",
+    "energy": "What’s your energy like today?",
+    "stress": "Is anything stressing you out right now?",
+    "objectives": "What are 1–3 things you’d like to get done today?",
+    "selfcare": "Is there anything you want to do for yourself today? Maybe rest, exercise, or hobbies?"
 }
-=======
-class Assistant(Agent):
-    def __init__(self) -> None:
+
+
+def get_previous_reference():
+    logs = load_logs()
+    if not logs:
+        return ""
+
+    last = logs[-1]
+    return f"Last time we talked, you mentioned feeling '{last['mood']}' with energy '{last['energy']}'. How does today compare?"
+
+
+# ---------------------------
+# Agent
+# ---------------------------
+class WellnessCompanion(Agent):
+    def __init__(self):
         super().__init__(
-            instructions=""" You are a friendly voice AI assistant.
-            You answer questions clearly, politely, and with a touch of humor.""",
+            instructions="""
+            You are a supportive, grounded health & wellness companion.
+            You NEVER give medical advice or diagnoses.
+            You help the user check in daily about their mood, energy, stress and simple goals.
+            You give small, realistic, actionable advice only.
+            After gathering all answers, you give a recap.
+            """
         )
 
-    # To add tools, use the @function_tool decorator.
-    # Here's an example that adds a simple weather tool.
-    # You also have to add `from livekit.agents import function_tool, RunContext` to the top of this file
-    # @function_tool
-    # async def lookup_weather(self, context: RunContext, location: str):
-    #     """Use this tool to look up current weather information in the given location.
-    #
-    #     If the location is not supported by the weather service, the tool will indicate this. You must tell the user the location's weather is unavailable.
-    #
-    #     Args:
-    #         location: The location to look up weather information for (e.g. city name)
-    #     """
-    #
-    #     logger.info(f"Looking up weather for {location}")
-    #
-    #     return "sunny with a temperature of 70 degrees."
->>>>>>> 55efc1ba54ed8afc027a0b4a5053364be90f3c3f
+    async def on_join(self, context):
+        reference = get_previous_reference()
+
+        if reference:
+            await context.send_speech(reference)
+
+        # ask first unanswered field
+        for field in checkin_state:
+            if not checkin_state[field]:
+                await context.send_speech(questions[field])
+                break
+
+    async def on_user_message(self, message, context):
+        # find next unanswered field
+        for field in checkin_state:
+            if not checkin_state[field]:
+                checkin_state[field] = message.text.strip()
+                break
+
+        # ask next unanswered field
+        for next_field in checkin_state:
+            if not checkin_state[next_field]:
+                await context.send_speech(questions[next_field])
+                return
+
+        # If we reach here → all fields done
+        recap = (
+            f"Here's your check-in summary:\n"
+            f"- Mood: {checkin_state['mood']}\n"
+            f"- Energy: {checkin_state['energy']}\n"
+            f"- Stress: {checkin_state['stress']}\n"
+            f"- Objectives: {checkin_state['objectives']}\n"
+            f"- Self-care plan: {checkin_state['selfcare']}\n\n"
+            "Does this sound correct?"
+        )
+
+        await context.send_speech(recap)
+
+        # Save data to JSON
+        entry = {
+            "datetime": datetime.now().isoformat(),
+            "mood": checkin_state["mood"],
+            "energy": checkin_state["energy"],
+            "stress": checkin_state["stress"],
+            "objectives": checkin_state["objectives"],
+            "selfcare": checkin_state["selfcare"],
+        }
+
+        save_log(entry)
+
 
 # ---------------------------
 # Load VAD on main thread
 # ---------------------------
 vad_model = silero.VAD.load()
 
+
 def prewarm(proc: JobProcess):
     proc.userdata["vad"] = vad_model
 
-# ---------------------------
-# Barista Agent
-# ---------------------------
-class CoffeeBarista(Agent):
-    def __init__(self):
-        super().__init__(
-            instructions="""You are a friendly coffee shop barista.
-            Ask the customer about their order and take note of the drink type, size, milk preference, extras, and name.
-            Speak politely, ask clarifying questions, and save the completed order to a JSON file."""
-        )
-
-    async def on_join(self, context):
-        # Ask the first incomplete question when user joins
-        for field in order:
-            if not order[field]:
-                await context.send_speech(questions[field])
-                break
-
-    async def on_user_message(self, message, context):
-        # Fill incomplete fields one by one
-        for field in order:
-            if not order[field]:
-                response = message.text.strip()
-                if field == "extras":
-                    order[field] = [e.strip() for e in response.split(",") if e.strip()]
-                else:
-                    order[field] = response
-
-                # Ask next question
-                for next_field in order:
-                    if not order[next_field]:
-                        await context.send_speech(questions[next_field])
-                        return
-
-                # All fields completed
-                summary = "\n".join([f"{k}: {v}" for k, v in order.items()])
-                await context.send_speech(f"Thank you! Here is your order summary:\n{summary}")
-                save_order()
-                return
-
-# ---------------------------
-# Save Order
-# ---------------------------
-def save_order():
-    filename = f"{order['name']}_order.json"
-    with open(filename, "w") as f:
-        json.dump(order, f, indent=4)
-    logger.info(f"Order saved as {filename}")
 
 # ---------------------------
 # Entrypoint
@@ -128,15 +155,14 @@ def save_order():
 async def entrypoint(ctx: JobContext):
     ctx.log_context_fields = {"room": ctx.room.name}
 
-    # Create a session with an actual LLM for TTS
     session = AgentSession(
         stt=deepgram.STT(model="nova-3"),
-        llm=google.LLM(model="gemini-2.5-flash"),  # <-- needed for TTS
+        llm=google.LLM(model="gemini-2.5-flash"),
         tts=murf.TTS(
             voice="en-US-matthew",
             style="Conversation",
             tokenizer=tokenize.basic.SentenceTokenizer(min_sentence_len=2),
-            text_pacing=True
+            text_pacing=True,
         ),
         turn_detection=MultilingualModel(),
         vad=ctx.proc.userdata["vad"],
@@ -156,9 +182,8 @@ async def entrypoint(ctx: JobContext):
 
     ctx.add_shutdown_callback(log_usage)
 
-    # Start session with CoffeeBarista agent
     await session.start(
-        agent=CoffeeBarista(),
+        agent=WellnessCompanion(),
         room=ctx.room,
         room_input_options=RoomInputOptions(
             noise_cancellation=noise_cancellation.BVC(),
@@ -167,5 +192,9 @@ async def entrypoint(ctx: JobContext):
 
     await ctx.connect()
 
+
+# ---------------------------
+# Run Agent
+# ---------------------------
 if __name__ == "__main__":
     cli.run_app(WorkerOptions(entrypoint_fnc=entrypoint, prewarm_fnc=prewarm))
