@@ -1,11 +1,11 @@
 import logging
 import json
-import os
+# import os
 from datetime import datetime
 from pathlib import Path
 
 from dotenv import load_dotenv
-from livekit.agents import (
+from livekit.agents import ( #type: ignore
     Agent,
     AgentSession,
     JobContext,
@@ -19,8 +19,8 @@ from livekit.agents import (
     function_tool,
     RunContext
 )
-from livekit.plugins import murf, silero, google, deepgram, noise_cancellation
-from livekit.plugins.turn_detector.multilingual import MultilingualModel
+from livekit.plugins import murf, silero, google, deepgram, noise_cancellation #type: ignore
+from livekit.plugins.turn_detector.multilingual import MultilingualModel #type: ignore
 
 logger = logging.getLogger("agent")
 
@@ -29,150 +29,246 @@ load_dotenv(".env")
 
 class Assistant(Agent):
     def __init__(self) -> None:
-        super().__init__(
-            instructions="""You are a friendly and enthusiastic barista working at Imaginary Coffee Co., the finest coffee shop in town. 
-            You're passionate about coffee and love helping customers find their perfect drink.
-            Your goal is to take complete coffee orders by collecting all required information:
-            - Drink type (Latte, Cappuccino, Americano, Espresso, Macchiato, Mocha, Cold Brew, etc.)
-            - Size (Small, Medium, Large)
-            - Milk preference (Whole, 2%, Oat, Almond, Soy, Coconut, or None)
-            - Any extras (Extra shot, Decaf, Sugar, Honey, Whipped cream, Vanilla syrup, Caramel syrup, etc.)
-            - Customer's name
-            
-            Be conversational and ask clarifying questions until you have all the information needed.
-            When the order is complete, confirm all details with the customer before finalizing it.
-            Keep responses natural, friendly, and concise. No complex formatting or symbols.""",
-        )
+        # Build dynamic instructions that include past context
+        base_instructions = """You are a supportive and grounded daily wellness companion. Your role is to conduct short voice check-ins about the user's mood, energy, and daily goals, offering simple, realistic encouragement without any medical advice or diagnosis.
+
+            Each day, ask about:
+            - How they're feeling (mood and energy level)
+            - Any current stresses or positive notes
+            - 1–3 practical objectives or intentions for the day (e.g., work tasks, self-care like rest or exercise)
+
+            Offer small, actionable suggestions like breaking goals into steps or taking short breaks. Keep conversations natural, concise, and empathetic.
+
+            At the end of each check-in, recap the key points and confirm with the user. Use past check-in data to inform conversations.
+
+            Always be realistic, non-judgmental, and focused on support."""
         
-        # Initialize order state
-        self.order_state = {
-            "drinkType": None,
-            "size": None,
-            "milk": None,
-            "extras": [],
-            "name": None
+        # Add past context if available
+        full_instructions = base_instructions
+        if hasattr(self, 'past_context') and self.past_context:
+            full_instructions += f"\n\nContext from previous check-ins: {self.past_context}"
+        
+        super().__init__(instructions=full_instructions)
+        
+        # Initialize wellness state
+        self.wellness_state = {
+            "date": None,
+            "mood": None,
+            "energy": None,
+            "stressors": [],
+            "objectives": [],
+            "summary": None
         }
         
-        # Create orders directory if it doesn't exist
-        self.orders_dir = Path("orders")
-        self.orders_dir.mkdir(exist_ok=True)
+        # Create wellness logs directory if it doesn't exist - use absolute path
+        self.wellness_dir = Path(__file__).parent.parent / "wellness_logs"
+        self.wellness_dir.mkdir(exist_ok=True)
+
+        # Load past check-ins
+        self.wellness_log_file = self.wellness_dir / "wellness_log.json"
+        self.past_checkins = {}
+        self.load_past_checkins()
+        
+        # Prepare context from past check-ins for conversation
+        self.past_context = self.get_past_context()
 
     @function_tool
-    async def update_order(self, context: RunContext, drink_type: str = None, size: str = None, 
-                          milk: str = None, extras: str = None, name: str = None):
-        """Update the customer's coffee order with new information.
+    async def update_checkin(self, context: RunContext, mood: str = None, energy: str = None, 
+                            stressors: str = None, objectives: str = None):
+        """Update the user's daily wellness check-in with new information.
         
-        Use this tool whenever the customer provides information about their order.
+        Use this tool whenever the user provides information about their mood, energy, stressors, or objectives.
         You can update multiple fields at once or just one field at a time.
         
         Args:
-            drink_type: Type of coffee drink (e.g., Latte, Cappuccino, Americano, Espresso, Macchiato, Mocha, Cold Brew)
-            size: Size of the drink (Small, Medium, Large)
-            milk: Type of milk (Whole, 2%, Oat, Almond, Soy, Coconut, None)
-            extras: Any extras as a comma-separated string (e.g., "Extra shot, Vanilla syrup")
-            name: Customer's name
+            mood: User's self-reported mood (e.g., happy, tired, stressed)
+            energy: Energy level (e.g., high, medium, low)
+            stressors: Any current stressors as a comma-separated string (e.g., "work deadline, family issues")
+            objectives: Daily objectives as a comma-separated string (e.g., "finish report, take a walk, rest")
         """
         
-        logger.info(f"Updating order: drink_type={drink_type}, size={size}, milk={milk}, extras={extras}, name={name}")
+        logger.info(f"Updating check-in: mood={mood}, energy={energy}, stressors={stressors}, objectives={objectives}")
         
-        # Update order state
-        if drink_type:
-            self.order_state["drinkType"] = drink_type.strip()
-        if size:
-            self.order_state["size"] = size.strip()
-        if milk:
-            self.order_state["milk"] = milk.strip()
-        if extras:
-            # Parse extras and add to list
-            new_extras = [extra.strip() for extra in extras.split(",") if extra.strip()]
-            self.order_state["extras"].extend(new_extras)
+        # Update wellness state
+        if mood:
+            self.wellness_state["mood"] = mood.strip()
+        if energy:
+            self.wellness_state["energy"] = energy.strip()
+        if stressors:
+            # Parse stressors and add to list
+            new_stressors = [stressor.strip() for stressor in stressors.split(",") if stressor.strip()]
+            self.wellness_state["stressors"].extend(new_stressors)
             # Remove duplicates while preserving order
-            self.order_state["extras"] = list(dict.fromkeys(self.order_state["extras"]))
-        if name:
-            self.order_state["name"] = name.strip()
+            self.wellness_state["stressors"] = list(dict.fromkeys(self.wellness_state["stressors"]))
+        if objectives:
+            # Parse objectives and add to list
+            new_objectives = [obj.strip() for obj in objectives.split(",") if obj.strip()]
+            self.wellness_state["objectives"].extend(new_objectives)
+            # Remove duplicates while preserving order
+            self.wellness_state["objectives"] = list(dict.fromkeys(self.wellness_state["objectives"]))
             
         # Check what's still missing
         missing_fields = []
-        if not self.order_state["drinkType"]:
-            missing_fields.append("drink type")
-        if not self.order_state["size"]:
-            missing_fields.append("size")
-        if not self.order_state["milk"]:
-            missing_fields.append("milk preference")
-        if not self.order_state["name"]:
-            missing_fields.append("name")
+        if not self.wellness_state["mood"]:
+            missing_fields.append("mood")
+        if not self.wellness_state["energy"]:
+            missing_fields.append("energy")
+        if not self.wellness_state["objectives"]:
+            missing_fields.append("at least one objective")
             
-        current_order = f"Current order: {self.order_state['drinkType'] or 'TBD'} ({self.order_state['size'] or 'TBD'})"
-        if self.order_state['milk']:
-            current_order += f" with {self.order_state['milk']} milk"
-        if self.order_state['extras']:
-            current_order += f", extras: {', '.join(self.order_state['extras'])}"
-        if self.order_state['name']:
-            current_order += f" for {self.order_state['name']}"
+        current_checkin = f"Current check-in: Mood: {self.wellness_state['mood'] or 'TBD'}, Energy: {self.wellness_state['energy'] or 'TBD'}"
+        if self.wellness_state['stressors']:
+            current_checkin += f", Stressors: {', '.join(self.wellness_state['stressors'])}"
+        if self.wellness_state['objectives']:
+            current_checkin += f", Objectives: {', '.join(self.wellness_state['objectives'])}"
             
         if missing_fields:
-            return f"Got it! {current_order}. Still need: {', '.join(missing_fields)}."
+            return f"Got it! {current_checkin}. Still need: {', '.join(missing_fields)}."
         else:
-            return f"Perfect! {current_order}. Order is complete and ready to finalize!"
+            return f"Great! {current_checkin}. Check-in is complete and ready to finalize!"
     
     @function_tool
-    async def finalize_order(self, context: RunContext):
-        """Finalize and save the customer's complete order to a JSON file.
+    async def finalize_checkin(self, context: RunContext):
+        """Finalize and save the user's complete wellness check-in to a JSON file.
         
-        Only use this tool when all required fields are filled and customer confirms the order.
+        Only use this tool when all required fields are filled and user confirms the check-in.
         """
         
-        # Check if order is complete
-        required_fields = ["drinkType", "size", "milk", "name"]
-        missing_fields = [field for field in required_fields if not self.order_state[field]]
+        # Check if check-in is complete
+        required_fields = ["mood", "energy"]
+        missing_fields = [field for field in required_fields if not self.wellness_state[field]]
+        if not self.wellness_state["objectives"]:
+            missing_fields.append("at least one objective")
         
         if missing_fields:
-            return f"Cannot finalize order. Missing: {', '.join(missing_fields)}. Please collect this information first."
+            return f"Cannot finalize check-in. Missing: {', '.join(missing_fields)}. Please collect this information first."
         
-        # Create order with timestamp
-        final_order = {
-            "orderId": f"IMAGINE_{datetime.now().strftime('%Y%m%d_%H%M%S')}",
+        # Create check-in entry with timestamp
+        today = datetime.now().date().isoformat()
+        final_checkin = {
+            "date": today,
             "timestamp": datetime.now().isoformat(),
-            "customerName": self.order_state["name"],
-            "drinkType": self.order_state["drinkType"],
-            "size": self.order_state["size"],
-            "milk": self.order_state["milk"],
-            "extras": self.order_state["extras"],
-            "status": "ordered",
-            "location": "Imaginary Coffee Co."
+            "mood": self.wellness_state["mood"],
+            "energy": self.wellness_state["energy"],
+            "stressors": self.wellness_state["stressors"],
+            "objectives": self.wellness_state["objectives"],
+            "summary": f"Mood: {self.wellness_state['mood']}, Energy: {self.wellness_state['energy']}, Objectives: {', '.join(self.wellness_state['objectives'])}"
         }
         
-        # Save order to JSON file
-        filename = f"order_{final_order['orderId']}.json"
-        filepath = self.orders_dir / filename
-        
+        # Save to past check-ins and write to file
+        self.past_checkins[today] = final_checkin
         try:
-            with open(filepath, 'w') as f:
-                json.dump(final_order, f, indent=2)
+            # Ensure the directory exists
+            self.wellness_log_file.parent.mkdir(parents=True, exist_ok=True)
             
-            logger.info(f"Order saved to {filepath}")
+            # Write with proper encoding
+            with open(self.wellness_log_file, 'w', encoding='utf-8') as f:
+                json.dump(self.past_checkins, f, indent=2, ensure_ascii=False)
             
-            # Reset order state for next customer
-            self.order_state = {
-                "drinkType": None,
-                "size": None, 
-                "milk": None,
-                "extras": [],
-                "name": None
+            logger.info(f"Check-in saved to {self.wellness_log_file} (total entries: {len(self.past_checkins)})")
+            
+            # Reset wellness state for next check-in
+            self.wellness_state = {
+                "date": None,
+                "mood": None,
+                "energy": None,
+                "stressors": [],
+                "objectives": [],
+                "summary": None
             }
             
-            order_summary = f"{final_order['size']} {final_order['drinkType']}"
-            if final_order['milk'] != "None":
-                order_summary += f" with {final_order['milk']} milk"
-            if final_order['extras']:
-                order_summary += f" and {', '.join(final_order['extras'])}"
-            order_summary += f" for {final_order['customerName']}"
-            
-            return f"Order finalized! {order_summary}. Order ID: {final_order['orderId']}. Thank you for choosing Falcon Coffee Co.!"
+            return f"Check-in finalized! {final_checkin['summary']}. See you tomorrow!"
             
         except Exception as e:
-            logger.error(f"Failed to save order: {e}")
-            return f"Order completed but there was an issue saving it. Please contact a manager. Order details: {self.order_state}"
+            logger.error(f"Failed to save check-in: {e}")
+            return f"Check-in completed but there was an issue saving it. Please try again."
+    
+    def load_past_checkins(self):
+        """Load past check-ins from the JSON file with error handling."""
+        try:
+            if self.wellness_log_file.exists():
+                with open(self.wellness_log_file, 'r', encoding='utf-8') as f:
+                    content = f.read().strip()
+                    if content:
+                        self.past_checkins = json.loads(content)
+                        logger.info(f"Loaded {len(self.past_checkins)} past check-ins from {self.wellness_log_file}")
+                    else:
+                        logger.info("Wellness log file is empty, starting fresh")
+                        self.past_checkins = {}
+            else:
+                logger.info("No wellness log file found, starting fresh")
+                self.past_checkins = {}
+        except Exception as e:
+            logger.error(f"Error loading past check-ins: {e}")
+            self.past_checkins = {}
+    
+    def get_past_context(self):
+        """Generate conversation context from past check-ins."""
+        if not self.past_checkins:
+            return "This is our first check-in together! Let's start with how you're feeling today."
+        
+        # Get the most recent check-in
+        sorted_dates = sorted(self.past_checkins.keys(), reverse=True)
+        latest_date = sorted_dates[0]
+        latest_checkin = self.past_checkins[latest_date]
+        
+        context_parts = []
+        context_parts.append(f"Last time we talked on {latest_date}, you mentioned:")
+        context_parts.append(f"- Feeling {latest_checkin['mood']} with {latest_checkin['energy']} energy")
+        
+        if latest_checkin.get('stressors'):
+            context_parts.append(f"- Dealing with: {', '.join(latest_checkin['stressors'])}")
+        
+        if latest_checkin.get('objectives'):
+            context_parts.append(f"- Working on: {', '.join(latest_checkin['objectives'])}")
+        
+        context_parts.append("How are things going today compared to then?")
+        
+        return " ".join(context_parts)
+
+    @function_tool
+    async def get_past_checkins_info(self, context: RunContext, days_back: int = 7):
+        """Get information from past check-ins to help with conversation context.
+        
+        Args:
+            days_back: Number of days to look back (default 7)
+        """
+        if not self.past_checkins:
+            return "No past check-ins found. This seems to be our first conversation!"
+        
+        # Get recent check-ins
+        today = datetime.now().date()
+        recent_checkins = []
+        
+        for date_str, checkin in self.past_checkins.items():
+            try:
+                checkin_date = datetime.fromisoformat(date_str).date()
+                days_diff = (today - checkin_date).days
+                if days_diff <= days_back:
+                    recent_checkins.append((days_diff, checkin))
+            except ValueError:
+                continue
+        
+        if not recent_checkins:
+            return f"No check-ins found in the last {days_back} days."
+        
+        # Sort by recency (most recent first)
+        recent_checkins.sort(key=lambda x: x[0])
+        
+        summary_parts = [f"Recent check-ins (last {days_back} days):"]
+        for days_ago, checkin in recent_checkins:
+            if days_ago == 0:
+                day_desc = "today"
+            elif days_ago == 1:
+                day_desc = "yesterday"
+            else:
+                day_desc = f"{days_ago} days ago"
+            
+            summary_parts.append(f"- {day_desc.title()}: {checkin['mood']} mood, {checkin['energy']} energy")
+            if checkin.get('objectives'):
+                summary_parts.append(f"  Goals: {', '.join(checkin['objectives'])}")
+        
+        return "\n".join(summary_parts)
 
 
 def prewarm(proc: JobProcess):
