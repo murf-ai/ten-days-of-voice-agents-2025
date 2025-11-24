@@ -18,6 +18,8 @@ from livekit.agents import (
 from livekit.plugins import murf, silero, google, deepgram, noise_cancellation
 from livekit.plugins.turn_detector.multilingual import MultilingualModel
 from coffeeAgent import CoffeeAgent
+from wellNessAgent import WellnessAgent
+
 
 logger = logging.getLogger("agent")
 
@@ -124,7 +126,7 @@ async def entrypoint(ctx: JobContext):
 
     # Start the session, which initializes the voice pipeline and warms up the models
     await session.start(
-        agent=CoffeeAgent(),
+        agent=WellnessAgent(),
         room=ctx.room,
         room_input_options=RoomInputOptions(
             # For telephony applications, use `BVCTelephony` for best results

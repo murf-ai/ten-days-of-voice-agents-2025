@@ -1,0 +1,37 @@
+[
+    {
+        "datetime": "2025-11-24T20:37:22.912844",
+        "mood": "unknown",
+        "energy": "unknown",
+        "goals": [],
+        "raw_user_message": "Hi."
+    },
+    {
+        "datetime": "2025-11-24T20:37:34.279629",
+        "mood": "unknown",
+        "energy": "is low",
+        "goals": [],
+        "raw_user_message": "My energy is low."
+    },
+    {
+        "datetime": "2025-11-24T20:37:42.029644",
+        "mood": "unknown",
+        "energy": "unknown",
+        "goals": [],
+        "raw_user_message": "Exam."
+    },
+    {
+        "datetime": "2025-11-24T20:37:43.837725",
+        "mood": "unknown",
+        "energy": "unknown",
+        "goals": [],
+        "raw_user_message": "My exams are coming."
+    },
+    {
+        "datetime": "2025-11-24T20:38:03.599855",
+        "mood": "unknown",
+        "energy": "unknown",
+        "goals": [],
+        "raw_user_message": "Okay."
+    }
+]
