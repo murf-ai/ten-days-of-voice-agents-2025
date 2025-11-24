@@ -162,15 +162,34 @@ Then open http://localhost:3000 in your browser!
 
 ## Daily Challenge Tasks
 
-Each day, you'll receive a new task that builds upon your voice agent. The tasks will help you:
+### Day 1: Coffee Shop Barista ☕
+Build a friendly barista agent that takes coffee orders via voice.
+- [Task Description](./challenges/Day%201%20Task.md)
 
+### Day 2: [Coming Soon]
+
+### Day 3: Health & Wellness Voice Companion 🌟
+Build a supportive daily check-in companion for mood, energy, and intentions.
+- [Task Description](./challenges/Day%203%20Task.md)
+- [Quick Start Guide](./DAY3_QUICKSTART.md)
+- [Implementation Details](./backend/WELLNESS_COMPANION.md)
+- [Advanced Features](./backend/ADVANCED_FEATURES.md)
+- [Notion Integration](./backend/NOTION_INTEGRATION.md)
+- [Advanced Goals Complete](./DAY3_ADVANCED_COMPLETE.md)
+
+**Current Implementation:** Health & Wellness Voice Companion with:
+- ✅ Daily check-ins with mood & energy tracking
+- ✅ Task management (local + Notion)
+- ✅ Weekly reflection & analytics
+- ✅ Follow-up reminders
+- ✅ Full Notion MCP integration
+
+Each day's task helps you:
 - Implement different personas and conversation styles
 - Add custom tools and capabilities
 - Integrate with external APIs
-- Build domain-specific agents (customer service, tutoring, etc.)
+- Build domain-specific agents (customer service, tutoring, wellness, etc.)
 - Optimize performance and user experience
-
-**Stay tuned for daily task announcements!**
 
 ## Documentation & Resources
 
