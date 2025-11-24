@@ -1,0 +1,42 @@
+/*Day 3 – Health & Wellness Voice Companion (Murf AI Voice Agent Challenge)
+
+This update introduces a fully functional Health & Wellness Voice Companion designed to perform structured daily check-ins, provide actionable wellness suggestions, and persist user data across sessions.
+
+Core Features
+
+Real-time voice-to-text transcription integrated into the frontend.
+
+Persistent wellness logging using a JSON-based storage model.
+
+Context-aware dialogue, enabling the agent to reference previous check-ins.
+
+Automatic transcript clearing on the frontend while preserving backend history.
+
+Technical Highlights
+
+Implemented @function_tool decorators as instance methods for seamless integration with the LLM.
+
+Added read/write utilities for wellness_log.json with timestamped entries.
+
+Designed a grounded, non-clinical system prompt focusing on practical wellness guidance.
+
+Established stable communication between frontend and backend through the LiveKit Agent Framework.
+
+Integrated Murf Falcon TTS for fast, natural-sounding responses.
+
+What the Agent Can Do
+
+Conduct structured daily health/wellness check-ins.
+
+Suggest simple, actionable steps (e.g., taking a walk, breaking goals into small tasks).
+
+Persist each session to the JSON log for future reference.
+
+Provide a consistent conversational experience across days.
+
+Demo
+
+The included video shows the complete workflow, including real-time updates to wellness_log.json as the conversation progresses.
+
+
+  
