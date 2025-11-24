@@ -1,0 +1,18 @@
+[
+  {
+    "timestamp": "2025-11-24T17:37:01.792162",
+    "mood": "tired",
+    "objectives": [
+      "finish project"
+    ],
+    "summary": "The user is feeling a bit tired and wants to finish their project today. I advised them to take short breaks."
+  },
+  {
+    "timestamp": "2025-11-25T17:41:31.394030",
+    "mood": "happy",
+    "objectives": [
+      "finish project"
+    ],
+    "summary": "User is feeling happy and wants to finish their project. Suggested breaking down the project into smaller steps."
+  }
+]
