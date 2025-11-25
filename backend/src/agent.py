@@ -1,4 +1,8 @@
 import logging
+import os
+import json
+from datetime import datetime
+from typing import List, Optional
 
 from dotenv import load_dotenv
 from livekit.agents import (
@@ -12,8 +16,8 @@ from livekit.agents import (
     cli,
     metrics,
     tokenize,
-    # function_tool,
-    # RunContext
+    function_tool,
+    RunContext,
 )
 from livekit.plugins import murf, silero, google, deepgram, noise_cancellation
 from livekit.plugins.turn_detector.multilingual import MultilingualModel
@@ -23,14 +27,196 @@ logger = logging.getLogger("agent")
 load_dotenv(".env.local")
 
 
+@function_tool
+async def save_wellness(
+    ctx: RunContext,
+    mood: str,
+    energy: str,
+    objectives: List[str],
+    notes: Optional[str] = None,
+) -> str:
+    """Save a wellness check-in to `wellness_log.json` and return a short confirmation.
+
+    Schema (one entry):
+    {
+      "timestamp": "ISO string",
+      "mood": "user text",
+      "energy": "user text or scale",
+      "objectives": ["1..3 objectives"],
+      "notes": "optional agent summary"
+    }
+    """
+
+    entry = {
+        "timestamp": datetime.utcnow().isoformat(timespec="seconds"),
+        "mood": mood,
+        "energy": energy,
+        "objectives": objectives or [],
+        "notes": notes or "",
+    }
+
+    # Place file next to the backend folder (one level up from this file)
+    base_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+    path = os.path.join(base_dir, "wellness_log.json")
+    # Ensure file exists and is a JSON array
+    try:
+        if os.path.exists(path):
+            with open(path, "r", encoding="utf-8") as f:
+                data = json.load(f) or []
+        else:
+            data = []
+    except Exception:
+        data = []
+
+    data.append(entry)
+
+    with open(path, "w", encoding="utf-8") as f:
+        json.dump(data, f, indent=2, ensure_ascii=False)
+
+    return f"saved:{path}"
+
+
+@function_tool
+async def find_faq(ctx: RunContext, query: str) -> str:
+    """Find a best-effort FAQ answer from `company_data.json`.
+
+    This is a simple keyword-match search over FAQ entries. Returns the
+    matched answer or a fallback indicating no answer found.
+    """
+    base_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+    data_path = os.path.join(base_dir, "company_data.json")
+    try:
+        with open(data_path, "r", encoding="utf-8") as f:
+            data = json.load(f)
+    except Exception:
+        return "Sorry, I can't find the company FAQ right now."
+
+    faqs = data.get("faq", [])
+    q = (query or "").lower()
+    best = None
+    best_score = 0
+    for entry in faqs:
+        text = (entry.get("question", "") + " " + entry.get("answer", "")).lower()
+        # simple score: count of query words present
+        score = sum(1 for w in q.split() if w and w in text)
+        if score > best_score:
+            best_score = score
+            best = entry
+
+    if best and best_score > 0:
+        return f"FAQ: {best.get('question')}\nAnswer: {best.get('answer')}"
+    # fallback: if there's a short product summary, return that for general questions
+    summary = data.get("summary")
+    if summary and any(w in summary.lower() for w in q.split()):
+        return f"{summary}"
+
+    return "I don't have a direct answer in the FAQ for that — would you like me to connect you with a specialist or leave a message?"
+
+
+@function_tool
+async def save_lead(
+    ctx: RunContext,
+    name: Optional[str] = None,
+    company: Optional[str] = None,
+    email: Optional[str] = None,
+    role: Optional[str] = None,
+    use_case: Optional[str] = None,
+    team_size: Optional[str] = None,
+    timeline: Optional[str] = None,
+    notes: Optional[str] = None,
+) -> str:
+    """Persist a lead as JSON in `leads.json` and return confirmation path."""
+
+    entry = {
+        "timestamp": datetime.utcnow().isoformat(timespec="seconds"),
+        "name": name or "",
+        "company": company or "",
+        "email": email or "",
+        "role": role or "",
+        "use_case": use_case or "",
+        "team_size": team_size or "",
+        "timeline": timeline or "",
+        "notes": notes or "",
+    }
+
+    base_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+    path = os.path.join(base_dir, "leads.json")
+    try:
+        if os.path.exists(path):
+            with open(path, "r", encoding="utf-8") as f:
+                data = json.load(f) or []
+        else:
+            data = []
+    except Exception:
+        data = []
+
+    data.append(entry)
+
+    with open(path, "w", encoding="utf-8") as f:
+        json.dump(data, f, indent=2, ensure_ascii=False)
+
+    return f"saved:{path}"
+
+
 class Assistant(Agent):
-    def __init__(self) -> None:
-        super().__init__(
-            instructions="""You are a helpful voice AI assistant. The user is interacting with you via voice, even if you perceive the conversation as text.
-            You eagerly assist users with their questions by providing information from your extensive knowledge.
-            Your responses are concise, to the point, and without any complex formatting or punctuation including emojis, asterisks, or other symbols.
-            You are curious, friendly, and have a sense of humor.""",
+    def __init__(self, previous_entry: Optional[dict] = None) -> None:
+        # Wellness-focused companion: daily check-ins, non-diagnostic support
+        prev_note = ""
+        if previous_entry:
+            prev_ts = previous_entry.get("timestamp")
+            prev_mood = previous_entry.get("mood")
+            prev_energy = previous_entry.get("energy")
+            prev_obj = ", ".join(previous_entry.get("objectives", []))
+            prev_note = (
+                f"Last time ({prev_ts}) you said your mood was '{prev_mood}' and energy was '{prev_energy}'. "
+                f"You were focusing on: {prev_obj}."
+            )
+
+        instructions = (
+            "You are a calm, grounded, and supportive health & wellness companion. "
+            "You are NOT a clinician and must not provide medical advice or diagnosis. "
+            "Your role is to do a short daily check-in: ask about mood, energy, and any stressors; "
+            "ask for 1–3 practical objectives for the day; offer short, realistic, non-medical suggestions; "
+            "and close with a concise recap and confirmation. "
+            "Keep suggestions small and actionable (e.g., take a 5-minute walk, break tasks into steps, drink water, take short breaks). "
+            "When the user confirms goals, persist the check-in by calling the tool"
+            " `save_wellness(mood, energy, objectives, notes)` with a brief agent summary sentence. "
+            "Always politely refuse harmful or unsafe requests. "
         )
+
+        # If a previous entry exists, include a brief reference that the agent can use
+        if prev_note:
+            instructions = prev_note + " " + instructions
+
+        super().__init__(instructions=instructions, tools=[save_wellness])
+
+
+
+class SDRAgent(Agent):
+    def __init__(self) -> None:
+        # Load a short company summary if available and craft SDR instructions
+        base_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+        data_path = os.path.join(base_dir, "company_data.json")
+        summary = ""
+        try:
+            with open(data_path, "r", encoding="utf-8") as f:
+                data = json.load(f)
+                summary = data.get("summary", "")
+        except Exception:
+            summary = ""
+
+        instructions = (
+            "You are a friendly, professional Sales Development Representative (SDR) for the company described in the provided company data. "
+            "Greet visitors warmly, ask what brought them here, and focus the conversation on understanding their needs. "
+            "Use the FAQ tool when asked product/company/pricing questions, and do not invent details not present in the FAQ or company content. "
+            "Collect lead information naturally during the conversation: name, company, email, role, use case, team size, and timeline. "
+            "When the user indicates they are done (e.g., 'That's all', 'Thanks', 'I'm done'), summarize the lead concisely and persist the lead by calling the tool `save_lead(...)`. "
+        )
+
+        if summary:
+            instructions = f"Company summary: {summary}\n" + instructions
+
+        super().__init__(instructions=instructions, tools=[find_faq, save_lead])
 
     # To add tools, use the @function_tool decorator.
     # Here's an example that adds a simple weather tool.
@@ -121,9 +307,23 @@ async def entrypoint(ctx: JobContext):
     # # Start the avatar and wait for it to join
     # await avatar.start(session, room=ctx.room)
 
+    # Before starting, read the wellness log and pass the most recent entry to the Assistant
+    base_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+    wellness_path = os.path.join(base_dir, "wellness_log.json")
+    last_entry = None
+    try:
+        if os.path.exists(wellness_path):
+            with open(wellness_path, "r", encoding="utf-8") as f:
+                data = json.load(f) or []
+                if isinstance(data, list) and data:
+                    last_entry = data[-1]
+    except Exception:
+        last_entry = None
+
     # Start the session, which initializes the voice pipeline and warms up the models
+    # Use the SDR agent persona so the assistant behaves like an SDR for the chosen company
     await session.start(
-        agent=Assistant(),
+        agent=SDRAgent(),
         room=ctx.room,
         room_input_options=RoomInputOptions(
             # For telephony applications, use `BVCTelephony` for best results

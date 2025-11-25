@@ -1,0 +1,32 @@
+{
+  "company": "Freshworks",
+  "summary": "Freshworks provides customer engagement software including CRM, helpdesk, and sales tools designed for ease of use and fast deployment.",
+  "about": "Freshworks (founded in Chennai) builds cloud-based customer engagement software for businesses of all sizes. Their products include Freshdesk (support), Freshsales (CRM), and Freshservice (ITSM).",
+  "pricing": "Freshworks offers multiple tiers for different products: a Free or Starter tier for small teams, and paid tiers (Growth, Pro, Enterprise) that add automation, reporting, and integrations. Exact prices vary by product and seat count; see product pages for current pricing.",
+  "faq": [
+    {
+      "question": "What does Freshworks do?",
+      "answer": "Freshworks provides a suite of cloud-based tools for customer support, sales CRM, and IT service management to help teams manage customer conversations, track leads, and automate workflows."
+    },
+    {
+      "question": "Do you have a free tier?",
+      "answer": "Yes — many Freshworks products offer a free or starter tier for small teams, which includes basic ticketing, contact management, or service desk features."
+    },
+    {
+      "question": "Who is Freshworks for?",
+      "answer": "Freshworks serves small to mid-sized businesses and enterprises that need simple-to-deploy customer engagement software. Products are used by support teams, sales teams, and IT operations."
+    },
+    {
+      "question": "How does pricing work?",
+      "answer": "Pricing is typically per user per month and depends on the product and selected tier (Starter/ Growth/ Pro/ Enterprise). Add-ons and advanced features may cost extra. For accurate pricing, refer to the product pricing page or contact sales."
+    },
+    {
+      "question": "Can I integrate Freshworks with other tools?",
+      "answer": "Yes — Freshworks products offer integrations with popular tools like Slack, Zapier, Google Workspace, and other CRMs. The available integrations depend on the product and plan."
+    },
+    {
+      "question": "Is there a trial available?",
+      "answer": "Most Freshworks products offer a free trial period for paid tiers so teams can test features before purchasing."
+    }
+  ]
+}

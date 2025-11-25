@@ -1,0 +1,24 @@
+[
+  {
+    "timestamp": "2025-11-25T19:04:22",
+    "name": "Kartik",
+    "company": "Septo",
+    "email": "KartikShukla@gmail.com",
+    "role": "CEO",
+    "use_case": "Customer support inquiries and sales lead management",
+    "team_size": "100 people",
+    "timeline": "As soon as possible, ideally within 10 days",
+    "notes": "Startup focused on 10-minute delivery; needs tools for customer support and sales lead management for a team of 100."
+  },
+  {
+    "timestamp": "2025-11-25T19:09:36",
+    "name": "Kartik",
+    "company": "Septo",
+    "email": "Kartikconnect@gmail.com",
+    "role": "CEO",
+    "use_case": "Lead generation, streamlining manual customer support for 10-minute grocery delivery, and potentially integrating with their order tracking application.",
+    "team_size": "50 people",
+    "timeline": "ASAP, within 10 days",
+    "notes": "User operates a startup delivering grocery products in 10 minutes. Current challenges include lead generation and manual customer support. Wants to implement a solution quickly."
+  }
+]
