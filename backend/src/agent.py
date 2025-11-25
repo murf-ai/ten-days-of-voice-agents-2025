@@ -1,139 +1,200 @@
-import logging
+## Primary Goal – Simple FAQ SDR + Lead Capture
 
-from dotenv import load_dotenv
-from livekit.agents import (
-    Agent,
-    AgentSession,
-    JobContext,
-    JobProcess,
-    MetricsCollectedEvent,
-    RoomInputOptions,
-    WorkerOptions,
-    cli,
-    metrics,
-    tokenize,
-    # function_tool,
-    # RunContext
-)
-from livekit.plugins import murf, silero, google, deepgram, noise_cancellation
-from livekit.plugins.turn_detector.multilingual import MultilingualModel
+**Objective:**  
+Build a voice agent Sales Development Representative (SDR) that can answer basic company questions and then generate lead (potential customer details) and summary data at the end of the call.
 
-logger = logging.getLogger("agent")
+### Tasks
 
-load_dotenv(".env.local")
+1. **Pick a company**
+   - Pick any Indian company/startup
+   - Gather basic info (copy+paste), FAQ and pricing detail (if available) of the company in suitable format. (Text/JSON)
 
 
-class Assistant(Agent):
-    def __init__(self) -> None:
-        super().__init__(
-            instructions="""You are a helpful voice AI assistant. The user is interacting with you via voice, even if you perceive the conversation as text.
-            You eagerly assist users with their questions by providing information from your extensive knowledge.
-            Your responses are concise, to the point, and without any complex formatting or punctuation including emojis, asterisks, or other symbols.
-            You are curious, friendly, and have a sense of humor.""",
-        )
+2. **Set up the SDR persona (Prompt Designing)**
 
-    # To add tools, use the @function_tool decorator.
-    # Here's an example that adds a simple weather tool.
-    # You also have to add `from livekit.agents import function_tool, RunContext` to the top of this file
-    # @function_tool
-    # async def lookup_weather(self, context: RunContext, location: str):
-    #     """Use this tool to look up current weather information in the given location.
-    #
-    #     If the location is not supported by the weather service, the tool will indicate this. You must tell the user the location's weather is unavailable.
-    #
-    #     Args:
-    #         location: The location to look up weather information for (e.g. city name)
-    #     """
-    #
-    #     logger.info(f"Looking up weather for {location}")
-    #
-    #     return "sunny with a temperature of 70 degrees."
+   - Make the assistant act as an SDR for a chosen company/brand
+   - It should:
+     - Greet the visitor warmly.
+     - Ask what brought them here and what they're working on.
+     - Keep the conversation focused on understanding the user’s needs.
 
 
-def prewarm(proc: JobProcess):
-    proc.userdata["vad"] = silero.VAD.load()
+3. **Use the FAQ to answer questions with Agent**
+
+   - Load the provided company content. (prepared in Step 1)
+   - When the user asks product/company/pricing questions:
+     - Find relevant FAQ entries (even simple keyword search is fine).
+     - Answer based on that content (avoid making up details not in the FAQ).
+   - The agent should be able to handle questions like:
+     - “What does your product do?”
+     - “Do you have a free tier?”
+     - “Who is this for?”
 
 
-async def entrypoint(ctx: JobContext):
-    # Logging setup
-    # Add any other context you want in all log entries here
-    ctx.log_context_fields = {
-        "room": ctx.room.name,
-    }
+4. **Collect lead information**
 
-    # Set up a voice AI pipeline using OpenAI, Cartesia, AssemblyAI, and the LiveKit turn detector
-    session = AgentSession(
-        # Speech-to-text (STT) is your agent's ears, turning the user's speech into text that the LLM can understand
-        # See all available models at https://docs.livekit.io/agents/models/stt/
-        stt=deepgram.STT(model="nova-3"),
-        # A Large Language Model (LLM) is your agent's brain, processing user input and generating a response
-        # See all available models at https://docs.livekit.io/agents/models/llm/
-        llm=google.LLM(
-                model="gemini-2.5-flash",
-            ),
-        # Text-to-speech (TTS) is your agent's voice, turning the LLM's text into speech that the user can hear
-        # See all available models as well as voice selections at https://docs.livekit.io/agents/models/tts/
-        tts=murf.TTS(
-                voice="en-US-matthew", 
-                style="Conversation",
-                tokenizer=tokenize.basic.SentenceTokenizer(min_sentence_len=2),
-                text_pacing=True
-            ),
-        # VAD and turn detection are used to determine when the user is speaking and when the agent should respond
-        # See more at https://docs.livekit.io/agents/build/turns
-        turn_detection=MultilingualModel(),
-        vad=ctx.proc.userdata["vad"],
-        # allow the LLM to generate a response while waiting for the end of turn
-        # See more at https://docs.livekit.io/agents/build/audio/#preemptive-generation
-        preemptive_generation=True,
-    )
+   - Decide on the key lead fields to collect, for example:
+     - Name
+     - Company
+     - Email
+     - Role
+     - Use case (what they want to use this for)
+     - Team size
+     - Timeline (now / soon / later)
+   - Make the agent naturally ask for these during the conversation.
+   - Store the answers in a JSON file as the user responds.
 
-    # To use a realtime model instead of a voice pipeline, use the following session setup instead.
-    # (Note: This is for the OpenAI Realtime API. For other providers, see https://docs.livekit.io/agents/models/realtime/))
-    # 1. Install livekit-agents[openai]
-    # 2. Set OPENAI_API_KEY in .env.local
-    # 3. Add `from livekit.plugins import openai` to the top of this file
-    # 4. Use the following session setup instead of the version above
-    # session = AgentSession(
-    #     llm=openai.realtime.RealtimeModel(voice="marin")
-    # )
+5. **Create an end-of-call summary**
+   - Detect when the user is done (e.g. they say “That’s all”, “I’m done”, “Thanks”).
+   - Have the agent:
+     - Give a short verbal summary of the lead (who they are, what they want, rough timeline).
+   - Store the collected fields in a JSON file:
+     - Name, company, email
+     - Role
+     - Use case
+     - Team size
+     - Timeline
 
-    # Metrics collection, to measure pipeline performance
-    # For more information, see https://docs.livekit.io/agents/build/metrics/
-    usage_collector = metrics.UsageCollector()
+### MVP Completion Checklist
 
-    @session.on("metrics_collected")
-    def _on_metrics_collected(ev: MetricsCollectedEvent):
-        metrics.log_metrics(ev.metrics)
-        usage_collector.collect(ev.metrics)
+You’ve finished the primary goal if:
 
-    async def log_usage():
-        summary = usage_collector.get_summary()
-        logger.info(f"Usage: {summary}")
+- The agent clearly behaves like an SDR for a specific company/product.
+- It can answer “what do you do / who is this for / pricing basics” using the FAQ content.
+- It politely asks for and stores key lead details.
 
-    ctx.add_shutdown_callback(log_usage)
+Only the primary goal is required to complete the challenge.
 
-    # # Add a virtual avatar to the session, if desired
-    # # For other providers, see https://docs.livekit.io/agents/models/avatar/
-    # avatar = hedra.AvatarSession(
-    #   avatar_id="...",  # See https://docs.livekit.io/agents/models/avatar/plugins/hedra
-    # )
-    # # Start the avatar and wait for it to join
-    # await avatar.start(session, room=ctx.room)
+#### Resources:
+- https://docs.livekit.io/agents/build/turns/vad/#prewarm (Hint - Load FAQ and preprocess)
+- https://docs.livekit.io/agents/build/prompting/
+- https://docs.livekit.io/agents/build/tools/
+- https://github.com/livekit-examples/python-agents-examples/tree/main/rag (Advance example. You can just split the FAQ page into paragraph / JSON and do similarity search. Note - Pick any Indian company/startup)
+---
 
-    # Start the session, which initializes the voice pipeline and warms up the models
-    await session.start(
-        agent=Assistant(),
-        room=ctx.room,
-        room_input_options=RoomInputOptions(
-            # For telephony applications, use `BVCTelephony` for best results
-            noise_cancellation=noise_cancellation.BVC(),
-        ),
-    )
+## Advanced Goals (Optional, Higher Impact)
 
-    # Join the room and connect to the user
-    await ctx.connect()
+These are optional extensions. Each one makes the project more impressive and closer to a real-world SDR assistant. Pick any that you like ( or all of them if you want to go all out ).
 
+---
 
-if __name__ == "__main__":
-    cli.run_app(WorkerOptions(entrypoint_fnc=entrypoint, prewarm_fnc=prewarm))
+### Advanced Goal 1 – Mock Meeting Scheduler
+
+**Objective:**  
+Let the SDR propose and “book” a meeting time into a fake calendar.
+
+**Tasks:**
+
+- Prepare a list of available time slots (mock calendar data).
+- When the user asks to book a demo or meeting:
+  - Offer a few available time options.
+  - Let the user pick a slot by voice.
+  - Confirm the chosen time back to the user.
+- Keep track of the booked meeting details (date, time, lead name/email) in the to be used later.
+
+#### Resources:
+- Google Calender MCP - https://mcp.composio.dev/googlecalendar
+
+---
+
+### Advanced Goal 2 – CRM-Style Call Notes & Qualification Score
+
+**Objective:**  
+Generate structured notes and a simple qualification score from the conversation.
+
+**Tasks:**
+
+- After the call ends, process the conversation transcript and extract:
+  - Key pain points.
+  - Whether budget was mentioned.
+  - Whether the caller seems like a decision maker, an influencer, or unknown.
+  - How clear/urgent the need is.
+  - Optionally refine the lead timeline (now / soon / later) you captured in the primary goal, or infer it if it wasn’t collected.
+  - An overall “fit score” (e.g. 0–100).
+- Store these notes in a JSON file.
+- Make the notes concise and readable, like something you’d paste into a CRM.
+
+#### Resources:
+- https://docs.livekit.io/agents/build/prompting/
+- https://docs.livekit.io/agents/build/nodes/#on-exit
+- https://docs.livekit.io/agents/build/events/#conversation_item_added
+- https://platform.openai.com/docs/guides/structured-outputs
+
+---
+
+### Advanced Goal 3 – Persona-Aware Pitching
+
+**Objective:**  
+Adapt the SDR’s pitch depending on who the caller seems to be.
+
+**Tasks:**
+
+- Implement a web search tool to get the latest information about the prospect - their company, their role, their interests, etc.
+- While on call, infer a simple persona from the user’s language and self-description, for example:
+  - Developer
+  - Product manager
+  - Founder
+  - Marketer
+- Create tailored pitch angles for each persona:
+  - What matters most to developers?
+  - What matters most to PMs?
+  - Etc.
+- When explaining the product, have the SDR:
+  - Use the persona-specific angle and benefits.
+  - Adjust examples and language based on that persona.
+
+#### Resources:
+- https://docs.livekit.io/agents/build/tools/
+- https://platform.openai.com/docs/guides/tools-web-search?api-mode=chat
+
+---
+
+### Advanced Goal 4 – Follow-Up Email Draft
+
+**Objective:**  
+Automatically draft a follow-up email after the call.
+
+**Tasks:**
+
+- Use the call transcript and lead details to generate:
+  - A subject line.
+  - A short follow-up email body (2–3 paragraphs).
+  - A clear call-to-action (e.g. reply to book a time, or link placeholder).
+- Store this email draft in a JSON file.
+- Make it easy to copy the draft so it could be pasted into an email client.
+
+#### Resources:
+- https://docs.livekit.io/agents/build/prompting/
+- https://docs.livekit.io/agents/build/nodes/#on-exit
+- https://docs.livekit.io/agents/build/events/#conversation_item_added
+- https://platform.openai.com/docs/guides/structured-outputs
+
+---
+
+### Advanced Goal 5 – Return Visitor Recognition
+
+**Objective:**  
+Use session information to recognize repeat visitors (on the same device) and greet them differently.
+
+**Tasks:**
+
+- Reuse the lead information collected in the primary goal and store it in session state (e.g. based on email or name + company).
+- On a new session, check if this lead already exists.
+- If they are a returning lead:
+  - Greet them as a returning visitor.
+  - Briefly summarize what they were interested in last time.
+  - Skip questions you already know the answers to (like team size or basic use case).
+
+#### Resources:
+- https://docs.livekit.io/agents/build/prompting/
+- https://docs.livekit.io/agents/build/tools/
+- Hint - Use a database / JSON to store previous conversation details
+
+-----
+
+- Step 1: You only need the **primary goal** to complete Day 5; the **Advanced Goals** are for going the extra mile.
+- Step 2: **Successfully connect to SDR agent** in your browser and ask questions about company and answer questions to generate lead.
+- Step 3: **Record a short video** of your session with the agent and show the generated lead and summary.
+- Step 4: **Post the video on LinkedIn** with a description of what you did for the task on Day 5. Also, mention that you are building voice agent using the fastest TTS API - Murf Falcon. Mention that you are part of the **“Murf AI Voice Agent Challenge”** and don't forget to tag the official Murf AI handle. Also, use hashtags **#MurfAIVoiceAgentsChallenge** and **#10DaysofAIVoiceAgents**
+
+Once your agent is running and your LinkedIn post is live, you’ve completed Day 5.
