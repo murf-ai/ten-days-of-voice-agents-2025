@@ -1,0 +1,26 @@
+[
+    {
+        "id": "dna",
+        "title": "DNA",
+        "summary": "DNA (Deoxyribonucleic acid) is the molecule that carries genetic instructions for the development and functioning of all known living organisms. It is shaped like a double helix.",
+        "sample_question": "What is the full form of DNA and what is its structure called?"
+    },
+    {
+        "id": "cell",
+        "title": "The Cell",
+        "summary": "The cell is the basic structural, functional, and biological unit of all known organisms. It is often called the 'building block of life'. Organisms can be single-celled or multicellular.",
+        "sample_question": "What is the main difference between a Prokaryotic cell and a Eukaryotic cell?"
+    },
+    {
+        "id": "nucleus",
+        "title": "Nucleus",
+        "summary": "The nucleus is a membrane-bound organelle found in eukaryotic cells. It contains the cell's chromosomes (DNA) and controls the cell's growth and reproduction.",
+        "sample_question": "Why is the nucleus often referred to as the 'brain' or 'control center' of the cell?"
+    },
+    {
+        "id": "cell_cycle",
+        "title": "Cell Cycle",
+        "summary": "The cell cycle is a series of events that takes place in a cell as it grows and divides. It consists of Interphase (growth) and the Mitotic phase (division).",
+        "sample_question": "In which phase of the cell cycle does the cell spend the most time?"
+    }
+]
