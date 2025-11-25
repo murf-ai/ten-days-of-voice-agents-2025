@@ -1,0 +1,15 @@
+{
+  "check_ins": [
+    {
+      "date": "2025-11-24",
+      "timestamp": "2025-11-24T19:04:29.098418",
+      "mood": "Good",
+      "energy_level": "High",
+      "objectives": [
+        "Study"
+      ],
+      "self_care_intentions": "Listen to music",
+      "summary": "Feeling good with high energy, ready to dive into some studying today, and planning to listen to music for a bit of self-care."
+    }
+  ]
+}

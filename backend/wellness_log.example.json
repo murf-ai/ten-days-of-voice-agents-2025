@@ -1,0 +1,43 @@
+{
+  "check_ins": [
+    {
+      "date": "2025-11-24",
+      "timestamp": "2025-11-24T09:15:30.123456",
+      "mood": "good but a bit stressed",
+      "energy_level": "medium",
+      "objectives": [
+        "finish project report",
+        "go for a 30-minute walk",
+        "call mom"
+      ],
+      "self_care_intentions": "take a walk during lunch and read for 20 minutes before bed",
+      "summary": "User feeling good but stressed about work, planning to balance productivity with self-care activities"
+    },
+    {
+      "date": "2025-11-25",
+      "timestamp": "2025-11-25T08:45:12.654321",
+      "mood": "energized and optimistic",
+      "energy_level": "high",
+      "objectives": [
+        "complete code review",
+        "attend team meeting",
+        "start new feature implementation"
+      ],
+      "self_care_intentions": "morning yoga and evening meditation",
+      "summary": "User feeling energized with high energy, focused on work tasks while maintaining wellness routine"
+    },
+    {
+      "date": "2025-11-26",
+      "timestamp": "2025-11-26T10:30:45.789012",
+      "mood": "tired but content",
+      "energy_level": "low",
+      "objectives": [
+        "light work tasks only",
+        "rest and recover",
+        "meal prep for the week"
+      ],
+      "self_care_intentions": "take it easy, watch a movie, get to bed early",
+      "summary": "User feeling tired with low energy, prioritizing rest and recovery over intense work"
+    }
+  ]
+}
