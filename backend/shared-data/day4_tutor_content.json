@@ -1,0 +1,26 @@
+[
+  {
+    "id": "variables",
+    "title": "Variables",
+    "summary": "Variables are like containers that store information in programming. Think of them as labeled boxes where you can put different types of data - numbers, text, or even more complex information. You give them a name, and then you can use that name to access or change what's stored inside. For example, if you write 'age = 25', you're creating a variable called 'age' that stores the number 25. Variables are useful because they let you reuse values throughout your code without typing them repeatedly, and they make your code easier to understand and maintain.",
+    "sample_question": "What is a variable and why is it useful in programming?"
+  },
+  {
+    "id": "loops",
+    "title": "Loops",
+    "summary": "Loops are programming constructs that let you repeat an action multiple times without writing the same code over and over. There are two main types: 'for loops' and 'while loops'. A for loop runs a specific number of times - like counting from 1 to 10. A while loop keeps running as long as a certain condition is true - like 'while the user hasn't pressed quit'. Loops are powerful because they automate repetitive tasks. For example, if you want to print 'Hello' 100 times, instead of writing 100 print statements, you can write one loop that repeats 100 times.",
+    "sample_question": "Explain the difference between a for loop and a while loop, and give an example of when you'd use each."
+  },
+  {
+    "id": "functions",
+    "title": "Functions",
+    "summary": "Functions are reusable blocks of code that perform a specific task. You define a function once with a name, and then you can 'call' it whenever you need that task done. Functions can take inputs (called parameters) and return outputs (results). For example, you might create a function called 'calculate_total' that takes a list of prices and returns the sum. Functions help organize your code, make it more readable, reduce repetition, and make debugging easier because you only need to fix code in one place.",
+    "sample_question": "What is a function and what are the benefits of using functions in your code?"
+  },
+  {
+    "id": "conditionals",
+    "title": "Conditionals",
+    "summary": "Conditionals are decision-making structures in programming that let your code choose different paths based on certain conditions. The most common conditional is the 'if statement'. For example, 'if temperature is greater than 30, print hot, else print cold'. You can also chain conditions with 'else if' to check multiple possibilities. Conditionals are essential because they give your programs intelligence - the ability to respond differently to different situations, just like humans make decisions based on circumstances.",
+    "sample_question": "How do conditionals work and why are they important in programming?"
+  }
+]
