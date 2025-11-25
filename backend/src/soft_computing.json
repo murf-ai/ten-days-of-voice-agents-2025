@@ -1,0 +1,26 @@
+[
+  {
+    "id": "fuzzy_logic",
+    "title": "Fuzzy Logic",
+    "summary": "Fuzzy logic is a mathematical framework for dealing with uncertainty and approximate reasoning, allowing values between true and false.",
+    "sample_question": "What is fuzzy logic and how does it differ from classical binary logic?"
+  },
+  {
+    "id": "neural_networks",
+    "title": "Neural Networks",
+    "summary": "Neural networks are computational models inspired by the human brain, used in pattern recognition and machine learning.",
+    "sample_question": "Describe how a neural network learns from data."
+  },
+  {
+    "id": "genetic_algorithms",
+    "title": "Genetic Algorithms",
+    "summary": "Genetic algorithms are optimization techniques inspired by the process of natural selection, used to solve complex problems.",
+    "sample_question": "What are the main steps in a genetic algorithm?"
+  },
+  {
+    "id": "soft_computing_features",
+    "title": "Soft Computing Features",
+    "summary": "Soft Computing deals with approximate solutions, tolerance for imprecision, and the ability to handle uncertainty, unlike traditional hard computing.",
+    "sample_question": "List some key differences between soft computing and hard computing."
+  }
+]
