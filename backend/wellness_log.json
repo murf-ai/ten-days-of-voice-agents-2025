@@ -1,0 +1,34 @@
+[
+  {
+    "timestamp": "2025-11-22T08:00:00",
+    "mood": "tired",
+    "energy": "low",
+    "objectives": [
+      "finish a short walk",
+      "respond to 2 emails"
+    ],
+    "notes": "Focused on small wins and short breaks."
+  },
+  {
+    "timestamp": "2025-11-23T16:29:53",
+    "mood": "fine",
+    "energy": "moderate",
+    "objectives": [
+      "completing my code",
+      "doing exercise",
+      "preparing for exam"
+    ],
+    "notes": "User feels fine with moderate energy, focusing on coding, exercise, and exam prep."
+  },
+  {
+    "timestamp": "2025-11-23T16:36:46",
+    "mood": "mediocre",
+    "energy": "moderate",
+    "objectives": [
+      "prepare for my exams",
+      "finish up my code",
+      "go for running"
+    ],
+    "notes": "User feeling mediocre, moderate energy with no stress. Objectives are exam prep, coding, and running."
+  }
+]
