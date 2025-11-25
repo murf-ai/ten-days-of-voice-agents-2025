@@ -1,5 +1,5 @@
 version = 1
-revision = 2
+revision = 3
 requires-python = ">=3.9"
 resolution-markers = [
     "python_full_version >= '3.14'",
@@ -16,6 +16,7 @@ source = { editable = "." }
 dependencies = [
     { name = "livekit-agents", extra = ["assemblyai", "deepgram", "google", "silero", "turn-detector"] },
     { name = "livekit-murf" },
+    { name = "livekit-plugins-google" },
     { name = "livekit-plugins-noise-cancellation" },
     { name = "python-dotenv" },
 ]
@@ -33,6 +34,7 @@ dev = [
 requires-dist = [
     { name = "livekit-agents", extras = ["assemblyai", "deepgram", "google", "silero", "turn-detector"], specifier = "~=1.2" },
     { name = "livekit-murf", specifier = ">=0.1.0" },
+    { name = "livekit-plugins-google", specifier = ">=0.6.0" },
     { name = "livekit-plugins-noise-cancellation", specifier = "~=0.2" },
     { name = "python-dotenv" },
 ]
