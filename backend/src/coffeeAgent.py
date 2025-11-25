@@ -1,5 +1,5 @@
 import logging
-
+import json
 from dotenv import load_dotenv
 from livekit.agents import (
     Agent,
@@ -12,45 +12,105 @@ from livekit.agents import (
     cli,
     metrics,
     tokenize,
-    # function_tool,
-    # RunContext
 )
-from livekit.plugins import murf, silero, google, deepgram, noise_cancellation
-from livekit.plugins.turn_detector.multilingual import MultilingualModel
-from coffeeAgent import CoffeeAgent
 
-logger = logging.getLogger("agent")
+from livekit.plugins import murf,silero,google,deepgram,noise_cancellation
+from livekit.plugins.turn_detector.multilingual import MultilingualModel
+
+logger = logging.getLogger("coffeeAgent")
 
 load_dotenv(".env.local")
 
 
-class Assistant(Agent):
-    def __init__(self) -> None:
+class CoffeeAgent(Agent):
+    def __init__(self):
         super().__init__(
-            instructions="""You are a helpful voice AI assistant. The user is interacting with you via voice, even if you perceive the conversation as text.
-            You eagerly assist users with their questions by providing information from your extensive knowledge.
-            Your responses are concise, to the point, and without any complex formatting or punctuation including emojis, asterisks, or other symbols.
-            You are curious, friendly, and have a sense of humor.""",
+            instructions="""
+            You are a friendly barista at Coffee Haven.
+
+            You maintain an order object:
+
+            {
+              "drinkType": "",
+              "size": "",
+              "milk": "",
+              "extras": [],
+              "name": ""
+            }
+
+            Ask questions to fill all fields.
+            Once the order is complete, save it to a JSON file.
+            """
         )
 
-    # To add tools, use the @function_tool decorator.
-    # Here's an example that adds a simple weather tool.
-    # You also have to add `from livekit.agents import function_tool, RunContext` to the top of this file
-    # @function_tool
-    # async def lookup_weather(self, context: RunContext, location: str):
-    #     """Use this tool to look up current weather information in the given location.
-    #
-    #     If the location is not supported by the weather service, the tool will indicate this. You must tell the user the location's weather is unavailable.
-    #
-    #     Args:
-    #         location: The location to look up weather information for (e.g. city name)
-    #     """
-    #
-    #     logger.info(f"Looking up weather for {location}")
-    #
-    #     return "sunny with a temperature of 70 degrees."
+        self.order = {
+            "drinkType": "",
+            "size": "",
+            "milk": "",
+            "extras": [],
+            "name": ""
+        }
 
+    # Helper: check if order is complete
+    def order_complete(self):
+        return all([
+            self.order["drinkType"],
+            self.order["size"],
+            self.order["milk"],
+            self.order["name"]
+        ])
 
+    # Handle user messages
+    async def on_message(self, msg, ctx):
+        user_input = msg.text.strip().lower()
+
+        if not self.order["name"]:
+            self.order["name"] = msg.text
+            await ctx.send_message(f"Hi {self.order['name']}! What drink would you like?")
+            return
+
+        if not self.order["drinkType"]:
+            self.order["drinkType"] = msg.text
+            await ctx.send_message("What size would you like? Small, medium, or large?")
+            return
+
+        if not self.order["size"]:
+            self.order["size"] = msg.text
+            await ctx.send_message("What milk would you like? Regular, oat, soy, almond, or none?")
+            return
+
+        if not self.order["milk"]:
+            self.order["milk"] = msg.text
+            await ctx.send_message("Any extras? Say 'no' if none.")
+            return
+
+        if user_input != "no":
+            self.order["extras"].append(msg.text)
+
+        if self.order_complete():
+            await self.finish_order(ctx)
+        else:
+            await ctx.send_message("Anything else? Or say 'no' to finish.")
+
+    async def finish_order(self, ctx):
+        summary = (
+            f"Here's your order summary:\n"
+            f"Name: {self.order['name']}\n"
+            f"Drink: {self.order['drinkType']}\n"
+            f"Size: {self.order['size']}\n"
+            f"Milk: {self.order['milk']}\n"
+            f"Extras: {', '.join(self.order['extras']) if self.order['extras'] else 'None'}"
+        )
+
+        await ctx.send_message(summary)
+
+        filename = f"{self.order['name']}_order.json"
+        with open(filename, "w") as f:
+            json.dump(self.order, f, indent=4)
+
+        await ctx.send_message("Your order has been saved. Thanks for visiting Coffee Haven!")
+
+            
 def prewarm(proc: JobProcess):
     proc.userdata["vad"] = silero.VAD.load()
 
@@ -138,3 +198,5 @@ async def entrypoint(ctx: JobContext):
 
 if __name__ == "__main__":
     cli.run_app(WorkerOptions(entrypoint_fnc=entrypoint, prewarm_fnc=prewarm))
+
+                
