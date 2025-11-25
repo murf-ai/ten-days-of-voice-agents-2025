@@ -1,0 +1,80 @@
+[
+  {
+    "id": "variables",
+    "title": "Variables",
+    "summary": "Variables store values so you can reuse them later. They have names and can hold different types of values (like numbers, text, or booleans). You assign a value to a variable and then refer to that name to use the value elsewhere in your code.",
+    "sample_question": "What is a variable and why is it useful?"
+  },
+  {
+    "id": "loops",
+    "title": "Loops",
+    "summary": "Loops let you repeat an action multiple times. A 'for' loop typically repeats a known number of times (iterating over a range or collection), while a 'while' loop repeats as long as a condition remains true.",
+    "sample_question": "Explain the difference between a for loop and a while loop."
+  },
+  {
+    "id": "functions",
+    "title": "Functions",
+    "summary": "Functions bundle a set of instructions into a named block you can call multiple times. They help organize code, avoid repetition, and make programs easier to read and test.",
+    "sample_question": "What is a function and when should you create one?"
+  },
+  {
+    "id": "conditionals",
+    "title": "Conditionals",
+    "summary": "Conditionals allow your program to make decisions. Using 'if', 'else if', and 'else', you can run different blocks of code depending on whether certain conditions are true.",
+    "sample_question": "How do if-else statements help in decision-making in code?"
+  },
+  {
+    "id": "arrays",
+    "title": "Arrays / Lists",
+    "summary": "Arrays (or lists) store multiple values in a single variable. They keep items in order and let you access each value using an index. Useful when working with collections of data.",
+    "sample_question": "What is an array and when would you use one?"
+  },
+  {
+    "id": "objects",
+    "title": "Objects",
+    "summary": "Objects store data in key-value pairs and can also contain functions. They are used to model real-world things (like a user, product, or car) by grouping related data together.",
+    "sample_question": "How do objects help you structure data in your program?"
+  },
+  {
+    "id": "classes",
+    "title": "Classes",
+    "summary": "Classes define blueprints for creating objects. They help you write organized, reusable code following the principles of Object-Oriented Programming (OOP).",
+    "sample_question": "What is a class and how is it used in OOP?"
+  },
+  {
+    "id": "asynchronous",
+    "title": "Asynchronous Programming",
+    "summary": "Asynchronous programming allows code to run without blocking other operations. It uses concepts like callbacks, promises, and async/await to handle tasks such as API calls or file loading.",
+    "sample_question": "Why is asynchronous programming important, and what problems does it solve?"
+  },
+  {
+    "id": "error_handling",
+    "title": "Error Handling",
+    "summary": "Error handling helps your program react properly when something goes wrong. Techniques include try/catch blocks, custom error messages, and fallback behavior.",
+    "sample_question": "How does try-catch improve the reliability of a program?"
+  },
+  {
+    "id": "data_structures",
+    "title": "Data Structures",
+    "summary": "Data structures organize data efficiently so it can be accessed, modified, and stored effectively. Common ones include arrays, stacks, queues, trees, and hash maps.",
+    "sample_question": "What is a data structure and why are different types needed?"
+  },
+  {
+    "id": "apis",
+    "title": "APIs",
+    "summary": "APIs allow different software applications to communicate. They enable your program to request or send data to external services like weather data, payment systems, or databases.",
+    "sample_question": "What is an API and how is it used in modern applications?"
+  },
+  {
+    "id": "databases",
+    "title": "Databases",
+    "summary": "Databases store and manage large amounts of data. SQL databases organize data in tables, while NoSQL databases store more flexible, unstructured data formats.",
+    "sample_question": "What is the difference between SQL and NoSQL databases?"
+  },
+  {
+    "id": "version_control",
+    "title": "Version Control (Git)",
+    "summary": "Version control systems like Git track changes in your code. They help you collaborate, revert mistakes, and maintain clean code history across multiple versions.",
+    "sample_question": "Why is Git helpful in managing code in a team?"
+  }
+]
