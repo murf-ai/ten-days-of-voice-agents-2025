@@ -1,7 +1,9 @@
 'use client';
 
 import React, { useEffect, useRef, useState } from 'react';
+import { ConnectionState } from 'livekit-client';
 import { motion } from 'motion/react';
+import { useConnectionState } from '@livekit/components-react';
 import type { AppConfig } from '@/app-config';
 import { ChatTranscript } from '@/components/app/chat-transcript';
 import { PreConnectMessage } from '@/components/app/preconnect-message';
@@ -15,6 +17,7 @@ import { useConnectionTimeout } from '@/hooks/useConnectionTimout';
 import { useDebugMode } from '@/hooks/useDebug';
 import { cn } from '@/lib/utils';
 import { ScrollArea } from '../livekit/scroll-area/scroll-area';
+
 
 const MotionBottom = motion.create('div');
 
@@ -36,7 +39,7 @@ const BOTTOM_VIEW_MOTION_PROPS = {
   transition: {
     duration: 0.3,
     delay: 0.5,
-    ease: 'easeOut',
+    ease: [0.22, 1, 0.36, 1],
   },
 };
 
@@ -68,6 +71,7 @@ export const SessionView = ({
 }: React.ComponentProps<'section'> & SessionViewProps) => {
   useConnectionTimeout(200_000);
   useDebugMode({ enabled: IN_DEVELOPMENT });
+  
 
   const messages = useChatMessages();
   const [chatOpen, setChatOpen] = useState(false);

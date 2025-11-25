@@ -1,0 +1,9 @@
+{
+  "drinkType": "cappuccino",
+  "size": "small",
+  "milk": "almond milk",
+  "extras": [
+    "whipped cream"
+  ],
+  "name": "Void"
+}

@@ -1,0 +1,9 @@
+{
+  "drinkType": "latte",
+  "size": "small",
+  "milk": "oat milk",
+  "extras": [
+    "extra caramel"
+  ],
+  "name": "Bobbie"
+}
