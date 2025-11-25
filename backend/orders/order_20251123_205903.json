@@ -1,0 +1,11 @@
+{
+    "drinkType": "coffee",
+    "size": "medium",
+    "milk": "almond",
+    "extras": [
+        "sugar"
+    ],
+    "name": "Harshita",
+    "timestamp": "2025-11-23T20:59:03.418393",
+    "session_id": "session_20251123_205903"
+}

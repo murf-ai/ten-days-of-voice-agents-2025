@@ -1,0 +1,26 @@
+[
+    {
+        "id": "dna",
+        "title": "DNA",
+        "summary": "DNA (Deoxyribonucleic acid) carries genetic instructions for development and functioning of organisms; shaped like a double helix.",
+        "sample_question": "What is the full form of DNA and what is its structure called?"
+    },
+    {
+        "id": "cell",
+        "title": "The Cell",
+        "summary": "The cell is the basic structural and functional unit of organisms. It can be prokaryotic (no nucleus) or eukaryotic (has nucleus).",
+        "sample_question": "What is the main difference between a prokaryotic cell and a eukaryotic cell?"
+    },
+    {
+        "id": "nucleus",
+        "title": "Nucleus",
+        "summary": "The nucleus is a membrane-bound organelle containing chromosomes and controlling growth and reproduction in eukaryotic cells.",
+        "sample_question": "Why is the nucleus often referred to as the 'control center' of the cell?"
+    },
+    {
+        "id": "cell_cycle",
+        "title": "Cell Cycle",
+        "summary": "The cell cycle is the series of events in growth and cell division: interphase (growth) and mitotic phase (division).",
+        "sample_question": "In which phase of the cell cycle does the cell spend the most time?"
+    }
+]
