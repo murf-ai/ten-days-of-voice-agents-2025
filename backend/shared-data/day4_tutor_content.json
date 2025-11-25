@@ -1,0 +1,140 @@
+[
+  {
+    "id": "variables",
+    "title": "Variables",
+    "summary": "Variables store values so you can reuse them later. They have names and can hold numbers, text, booleans, and more. For example: x = 5. You can change the value of a variable any time.",
+    "sample_question": "What is a variable and why is it useful?",
+    "quiz": [
+      {
+        "question": "What does a variable do in a program?",
+        "options": ["Stores a value", "Repeats a loop", "Displays output", "Creates a function"],
+        "answer": 0
+      },
+      {
+        "question": "Which of the following is a valid variable assignment?",
+        "options": ["5 = x", "x == 5", "x = 5", "variable x 5"],
+        "answer": 2
+      },
+      {
+        "question": "Which data type can a variable NOT store?",
+        "options": ["Number", "String", "Boolean", "None of the above"],
+        "answer": 3
+      }
+    ]
+  },
+  {
+    "id": "loops",
+    "title": "Loops",
+    "summary": "Loops allow you to repeat a block of code multiple times. A for loop runs for a fixed number of iterations, while a while loop continues until a condition becomes false. Loops help with automation, processing lists, and repetitive tasks.",
+    "sample_question": "Explain the difference between a for loop and a while loop.",
+    "quiz": [
+      {
+        "question": "Which loop runs until a condition becomes false?",
+        "options": ["for loop", "function", "while loop", "if statement"],
+        "answer": 2
+      },
+      {
+        "question": "Which loop is best for iterating a known number of times?",
+        "options": ["while loop", "for loop", "infinite loop", "recursive function"],
+        "answer": 1
+      },
+      {
+        "question": "What keyword stops a loop immediately?",
+        "options": ["stop", "quit", "break", "end"],
+        "answer": 2
+      }
+    ]
+  },
+  {
+    "id": "conditions",
+    "title": "Conditions & If-Else",
+    "summary": "Conditions allow programs to make decisions using if, elif, and else. They execute different blocks based on whether conditions are true or false. They enable logic like login checks, eligibility testing, and input validation.",
+    "sample_question": "What is the purpose of an if statement?",
+    "quiz": [
+      {
+        "question": "Which operator checks equality?",
+        "options": ["=", "==", "!=", ">"],
+        "answer": 1
+      },
+      {
+        "question": "Which part runs when previous conditions are false?",
+        "options": ["if", "elif", "else", "return"],
+        "answer": 2
+      },
+      {
+        "question": "What type of value do conditions evaluate to?",
+        "options": ["String", "Boolean", "Integer", "Float"],
+        "answer": 1
+      }
+    ]
+  },
+  {
+    "id": "functions",
+    "title": "Functions",
+    "summary": "Functions are reusable blocks of code designed to perform specific tasks. Defined using 'def', they may accept parameters and optionally return values. Functions make programs modular, organized, and reusable.",
+    "sample_question": "Why are functions useful in programming?",
+    "quiz": [
+      {
+        "question": "Which keyword is used to define a function?",
+        "options": ["func", "def", "function", "create"],
+        "answer": 1
+      },
+      {
+        "question": "What is returned by a function with no return statement?",
+        "options": ["0", "False", "None", "Undefined"],
+        "answer": 2
+      },
+      {
+        "question": "What are function parameters?",
+        "options": ["Values returned by a function", "Variables passed into a function", "Loops inside a function", "Constants"],
+        "answer": 1
+      }
+    ]
+  },
+  {
+    "id": "datatypes",
+    "title": "Data Types",
+    "summary": "Data types specify what kind of values variables can store: integers, floats, strings, booleans, lists, tuples, and dictionaries. Understanding data types helps in choosing correct operations and storage structures.",
+    "sample_question": "What is the difference between a list and a dictionary?",
+    "quiz": [
+      {
+        "question": "Which of these is a mutable data type?",
+        "options": ["Tuple", "String", "List", "Integer"],
+        "answer": 2
+      },
+      {
+        "question": "Which type represents True/False values?",
+        "options": ["String", "Boolean", "Integer", "Float"],
+        "answer": 1
+      },
+      {
+        "question": "How is a dictionary structured?",
+        "options": ["Ordered collection of values", "Key-value pairs", "Single string", "Character sequence"],
+        "answer": 1
+      }
+    ]
+  },
+  {
+    "id": "oop",
+    "title": "Object-Oriented Programming",
+    "summary": "OOP focuses on organizing programs using objects and classes. It uses principles like encapsulation, inheritance, and polymorphism to build modular, scalable applications.",
+    "sample_question": "What is the purpose of a class in OOP?",
+    "quiz": [
+      {
+        "question": "What is an object?",
+        "options": ["A function", "A loop", "An instance of a class", "A data type"],
+        "answer": 2
+      },
+      {
+        "question": "Which of these is NOT an OOP principle?",
+        "options": ["Encapsulation", "Inheritance", "Polymorphism", "Iteration"],
+        "answer": 3
+      },
+      {
+        "question": "Which keyword defines a class?",
+        "options": ["class", "define", "object", "struct"],
+        "answer": 0
+      }
+    ]
+  }
+]
