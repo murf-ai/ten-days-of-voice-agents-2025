@@ -1,0 +1,9 @@
+{
+  "drinkType": "cappuccino",
+  "size": "large",
+  "milk": "almond",
+  "extras": [
+    "chocolate"
+  ],
+  "name": "Yasti"
+}
