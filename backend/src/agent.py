@@ -1,7 +1,9 @@
 import logging
 import json
+import os
 from dataclasses import dataclass, asdict, field
-from typing import List, Optional
+from datetime import datetime
+from typing import List, Optional, Dict, Any
 
 from dotenv import load_dotenv
 from livekit.agents import (
@@ -23,164 +25,184 @@ from livekit.plugins.turn_detector.multilingual import MultilingualModel
 
 logger = logging.getLogger("agent")
 
+# --- Configuration ---
 load_dotenv(".env.local")
+LOG_FILE = "wellness_log.json"
 
-# --- 1. DEFINE ORDER STATE ---
+# --- 1. DEFINE LOG ENTRY STATE ---
+
+
 @dataclass
-class CoffeeOrder:
-    """The state object for the user's coffee order."""
-    drinkType: Optional[str] = None
-    size: Optional[str] = None
-    milk: Optional[str] = None
-    extras: List[str] = field(default_factory=list)
-    name: Optional[str] = None
+class CheckinLogEntry:
+    """The data structure for a single daily check-in."""
+    timestamp: str = field(default_factory=lambda: datetime.now().isoformat())
+    mood_summary: Optional[str] = None
+    energy_level: Optional[str] = None
+    objectives: List[str] = field(default_factory=list)
+    agent_summary: Optional[str] = None
 
-    def is_complete(self) -> bool:
-        """Checks if all required fields are filled."""
-        return all([self.drinkType, self.size, self.milk, self.name])
-    
-    def to_json_file(self) -> str:
-        """Writes the complete order to a JSON file."""
-        name_part = self.name.replace(' ', '_') if self.name else "unknown"
-        filename = f"order_{name_part}.json"
-        
-        order_data = asdict(self)
-        
-        with open(filename, 'w') as f:
-            json.dump(order_data, indent=4, fp=f)
-        
-        logger.info(f"Order saved to {filename}")
-        return filename
+# --- Persistence Functions ---
 
-# --- 2. DEFINE THE BARISTA TOOL ---
+
+def _load_log() -> List[Dict[str, Any]]:
+    """Loads the wellness log from the JSON file."""
+    if not os.path.exists(LOG_FILE):
+        return []
+    try:
+        with open(LOG_FILE, 'r') as f:
+            return json.load(f)
+    except (json.JSONDecodeError, IOError):
+        logger.warning(
+            f"Could not read or parse {LOG_FILE}. Starting a new log.")
+        return []
+
+
+def _save_entry(entry: CheckinLogEntry):
+    """Saves a new entry to the wellness log file."""
+    log = _load_log()
+    log.append(asdict(entry))
+    with open(LOG_FILE, 'w') as f:
+        json.dump(log, f, indent=4)
+    logger.info(f"New check-in logged to {LOG_FILE}")
+
+# --- 2. DEFINE THE LOGGING TOOL ---
+
+
 @function_tool
-async def take_order(
+async def log_checkin(
     context: RunContext,
-    drinkType: Optional[str] = None,
-    size: Optional[str] = None,
-    milk: Optional[str] = None,
-    extras: Optional[List[str]] = None,
-    name: Optional[str] = None,
+    mood_summary: Optional[str] = None,
+    energy_level: Optional[str] = None,
+    objectives: Optional[List[str]] = None,
+    agent_summary: Optional[str] = None,
 ) -> str:
     """
-    Called when the user is placing or modifying a coffee order. 
-    Use this tool to update the order state with information provided by the customer.
-    
-    Args:
-        drinkType: The type of coffee (e.g., latte, cappuccino, espresso, americano).
-        size: The size of the drink (small, medium, or large).
-        milk: The type of milk (whole, skim, oat, almond, soy).
-        extras: Additional items like whipped cream, extra shot, vanilla syrup, caramel.
-        name: The customer's name for the order.
-    """
-    
-    # Access the shared state object
-    order: CoffeeOrder = context.userdata["order"]
-    
-    # Update the order state with any provided arguments
-    if drinkType is not None:
-        order.drinkType = drinkType
-    if size is not None:
-        order.size = size
-    if milk is not None:
-        order.milk = milk
-    if extras is not None:
-        order.extras = extras if extras else []
-    if name is not None:
-        order.name = name
+    Called when the daily check-in is complete to persist the results.
+    Use this tool once the agent has captured the user's mood, energy, and objectives.
 
-    # Check if order is complete
-    if order.is_complete():
-        # Save the order
-        filename = order.to_json_file()
-        
-        # Send order data to frontend (Advanced Challenge)
-        try:
-            await context.room.local_participant.publish_data(
-                json.dumps({
-                    "type": "ORDER_COMPLETE",
-                    "order": asdict(order)
-                }).encode('utf-8'),
-                topic="order_state"
-            )
-            logger.info("Order data sent to frontend")
-        except Exception as e:
-            logger.error(f"Failed to send order data: {e}")
-        
-        total = 4.50 + len(order.extras) * 0.50
-        return (
-            f"ORDER COMPLETE! The order has been saved to {filename}. "
-            f"Confirm with enthusiasm: '{order.size} {order.drinkType} with {order.milk} milk"
-            f"{', with ' + ', '.join(order.extras) if order.extras else ''}. "
-            f"Order for {order.name}. Your total is ${total:.2f}. Thank you for choosing CodeBrew Coffee!'"
-        )
-    
-    # Identify missing fields
-    missing_fields = []
-    if not order.drinkType:
-        missing_fields.append("drink type")
-    if not order.size:
-        missing_fields.append("size")
-    if not order.milk:
-        missing_fields.append("milk type")
-    if not order.name:
-        missing_fields.append("name for the order")
-    
-    return (
-        f"ORDER PENDING. Still need: {', '.join(missing_fields)}. "
-        f"Ask the customer for the next missing item in a friendly, conversational way."
+    Args:
+        mood_summary: A short description of the user's overall mood (e.g., 'stressed but hopeful').
+        energy_level: The user's self-reported energy level (e.g., 'low', 'medium', 'high').
+        objectives: A list of 1-3 concrete goals or intentions for the day.
+        agent_summary: A brief summary sentence generated by the agent for the recap.
+    """
+
+    # 1. Create the new log entry
+    new_entry = CheckinLogEntry(
+        mood_summary=mood_summary,
+        energy_level=energy_level,
+        objectives=objectives if objectives else [],
+        agent_summary=agent_summary
     )
 
-# --- 3. DEFINE THE BARISTA AGENT ---
-class BaristaAgent(Agent):
-    def __init__(self, llm) -> None:
+    # 2. Save the entry to the JSON file
+    _save_entry(new_entry)
+
+    # 3. Send data to frontend for visualization
+    try:
+        await context.room.local_participant.publish_data(
+            json.dumps({
+                "type": "CHECKIN_COMPLETE",
+                "entry": asdict(new_entry)
+            }).encode('utf-8'),
+            topic="checkin_complete"
+        )
+        logger.info("Check-in data sent to frontend")
+    except Exception as e:
+        logger.error(f"Failed to send check-in data: {e}")
+
+    # 4. Formulate the final recap message
+    obj_list = ", ".join(new_entry.objectives) if new_entry.objectives else "no specific goals"
+
+    return (
+        f"LOGGING COMPLETE. Confirmation: Your mood summary is '{new_entry.mood_summary}', "
+        f"energy level is '{new_entry.energy_level}', "
+        f"and your main objectives are: {obj_list}. "
+        f"Your log has been updated. Provide a final, supportive closing statement "
+        f"and wish the user a successful day."
+    )
+
+# --- 3. DEFINE THE WELLNESS AGENT ---
+
+
+class WellnessAgent(Agent):
+    def __init__(self, llm, historical_context: str) -> None:
+
+        # Craft a dynamic instruction set using historical data
+        base_instructions = (
+            "You are Kai, a supportive, non-clinical, and grounded health & wellness companion. "
+            "Your goal is to conduct a short daily check-in, set 1-3 simple goals, and provide realistic encouragement. "
+            "\n\n"
+            "**GREETING:** Start every new session with: 'Good morning! I'm Kai, your wellness companion. How are you feeling today?'"
+            "\n\n"
+            "**CHECK-IN FLOW (Mandatory Steps):**\n"
+            "1. Ask about **Mood and Energy** (e.g., 'How are you feeling today?' 'What's your energy like?').\n"
+            "2. Ask about **Objectives/Intentions** for the day (1-3 small, actionable goals).\n"
+            "3. Offer **Simple, Realistic Advice or Reflection** (e.g., break goals down, encourage short breaks, or offer a grounding idea).\n"
+            "4. When all info is gathered (Mood, Energy, Objectives), call the **log_checkin tool IMMEDIATELY** to persist the data and get the final recap prompt.\n"
+            "\n"
+            "**RULES:**\n"
+            "- AVOID all medical claims, diagnosis, or clinical terms. Stick to supportive language.\n"
+            "- Keep responses brief, empathetic, and conversational.\n"
+            "- Only ask for ONE piece of missing information at a time.\n"
+            "- If the user provides a lot of info at once, call the tool with all arguments filled.\n"
+            "- Generate a brief agent_summary (1 sentence) that captures the essence of the check-in before calling the tool.\n"
+        )
+
+        # Add historical context for personalization
+        if historical_context:
+            instructions = (
+                f"{base_instructions}\n\n"
+                f"**HISTORICAL CONTEXT for this user:**\n"
+                f"{historical_context}\n"
+                f"**USE THIS CONTEXT** to reference a previous check-in in your opening or a follow-up question. "
+                f"Example: 'Last time we talked, you mentioned finding energy low. How does today compare?'"
+            )
+        else:
+            instructions = base_instructions
+
         super().__init__(
-            instructions=(
-                "You are A.Y. Ushi, a friendly and enthusiastic barista at CodeBrew Coffee. "
-                "Your goal is to take complete coffee orders from customers. "
-                "\n\n"
-                "GREETING: Start every new conversation with: 'Welcome to CodeBrew Coffee! I'm A.Y. Ushi. What can I get started for you today?'"
-                "\n\n"
-                "IMPORTANT RULES:\n"
-                "- Call the take_order tool IMMEDIATELY after the customer provides ANY order information\n"
-                "- Ask for ONE piece of missing information at a time\n"
-                "- Be conversational and friendly, not robotic\n"
-                "- If the customer mentions multiple things at once, call take_order with all of them\n"
-                "- Once the order is complete, enthusiastically confirm all details and the total\n"
-                "\n"
-                "Example flow:\n"
-                "Customer: 'I'd like a latte'\n"
-                "You: [calls take_order with drinkType='latte'] 'Great choice! What size would you like - small, medium, or large?'\n"
-                "\n"
-                "Keep responses brief and natural. You're a barista, not a robot!"
-            ),
-            tools=[take_order],
+            instructions=instructions,
+            tools=[log_checkin],
             llm=llm
         )
 
 
 def prewarm(proc: JobProcess):
+    """Loads the VAD model once per worker process."""
     proc.userdata["vad"] = silero.VAD.load()
+
+# --- 4. ENTRYPOINT WITH PERSISTENCE LOGIC ---
 
 
 async def entrypoint(ctx: JobContext):
-    # Set up the initial state for the session
-    initial_order = CoffeeOrder()
-    
-    # Logging setup
-    ctx.log_context_fields = {
-        "room": ctx.room.name,
-    }
 
-    # Create the LLM once
+    # 1. Load Historical Data for Context
+    log = _load_log()
+    historical_context = ""
+    if log:
+        # Get the most recent log entry
+        latest_entry = log[-1]
+        historical_context = (
+            f"The user's last check-in ({latest_entry['timestamp'][:10]}): "
+            f"Mood: '{latest_entry.get('mood_summary', 'N/A')}', "
+            f"Energy: '{latest_entry.get('energy_level', 'N/A')}', "
+            f"Objectives: {', '.join(latest_entry.get('objectives', [])) if latest_entry.get('objectives') else 'none set'}"
+        )
+        logger.info(f"Loaded historical context: {historical_context}")
+
+    # 2. Setup LLM and Agent
+    ctx.log_context_fields = {"room": ctx.room.name}
     llm = google.LLM(model="gemini-2.5-flash")
+    agent_instance = WellnessAgent(
+        llm=llm, historical_context=historical_context)
 
-    # Set up a voice AI pipeline
+    # 3. Setup Voice AI Pipeline
     session = AgentSession(
         stt=deepgram.STT(model="nova-3"),
         llm=llm,
         tts=murf.TTS(
-            voice="en-US-matthew", 
+            voice="en-US-matthew",
             style="Conversation",
             tokenizer=tokenize.basic.SentenceTokenizer(min_sentence_len=2),
             text_pacing=True
@@ -189,11 +211,8 @@ async def entrypoint(ctx: JobContext):
         vad=ctx.proc.userdata["vad"],
         preemptive_generation=True,
     )
-    
-    # Store order in session userdata
-    session.userdata = {"order": initial_order}
 
-    # Metrics collection
+    # 4. Metrics & Shutdown Setup
     usage_collector = metrics.UsageCollector()
 
     @session.on("metrics_collected")
@@ -207,16 +226,16 @@ async def entrypoint(ctx: JobContext):
 
     ctx.add_shutdown_callback(log_usage)
 
-    # Start the session
+    # 5. Start the session
     await session.start(
-        agent=BaristaAgent(llm=llm),
+        agent=agent_instance,
         room=ctx.room,
         room_input_options=RoomInputOptions(
             noise_cancellation=noise_cancellation.BVC(),
         ),
     )
 
-    # Join the room and connect
+    # 6. Join the room
     await ctx.connect()
 
 
