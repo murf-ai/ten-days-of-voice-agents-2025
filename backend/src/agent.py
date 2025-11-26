@@ -159,6 +159,10 @@ Be helpful, professional, and consultative!
         company_name = COMPANY_DATA.get("company_info", {}).get("name", "our company")
         await self.session.generate_reply(
             instructions=f"Greet the visitor warmly. Introduce yourself as an SDR from {company_name}. Ask what brought them here today and what they're working on."
+            instructions="""You are a helpful voice AI assistant. The user is interacting with you via voice, even if you perceive the conversation as text.
+            You eagerly assist users with their questions by providing information from your extensive knowledge.
+            Your responses are concise, to the point, and without any complex formatting including emojis, asterisks, or other weird symbols.
+            You are curious, friendly, and have a sense of humor.""",
         )
     
     @function_tool
