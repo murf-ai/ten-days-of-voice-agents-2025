@@ -1,425 +1,254 @@
+# backend/src/agent.py
 import logging
 import os
 import json
-from typing import Optional, List, Dict, Any, Literal
+import re
+import uuid
+import datetime
+from typing import Dict, Any, List, Optional
 
 from dotenv import load_dotenv
-from livekit import rtc
+
 from livekit.agents import (
     Agent,
-    AgentServer,
     AgentSession,
     JobContext,
     JobProcess,
-    RunContext,
-    MetricsCollectedEvent,
     RoomInputOptions,
     WorkerOptions,
-    inference,
     cli,
     metrics,
     tokenize,
-    room_io,
     function_tool,
+    RunContext,
+    MetricsCollectedEvent,
 )
 from livekit.plugins import murf, silero, google, deepgram, noise_cancellation
 from livekit.plugins.turn_detector.multilingual import MultilingualModel
 
 logger = logging.getLogger("agent")
+logger.setLevel(logging.INFO)
 
+# Load env vars from .env.local
 load_dotenv(".env.local")
 
-# ---------- Paths ---------- #
-
+# ------- Paths & constants -------
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-TUTOR_CONTENT_PATH = os.path.join(BASE_DIR, "shared-data", "day4_tutor_content.json")
+DATA_DIR = os.path.join(BASE_DIR, "shared-data")
+os.makedirs(DATA_DIR, exist_ok=True)
 
-# ---------- Load tutor content from JSON ---------- #
+FAQ_FILE = os.path.join(DATA_DIR, "company_faq_lenskart.json")
+LEADS_FILE = os.path.join(DATA_DIR, "leads_lenskart.json")
 
-TUTOR_CONCEPTS: List[Dict[str, str]] = []
-TUTOR_BY_ID: Dict[str, Dict[str, str]] = {}
-TUTOR_CONTENT_STR: str = ""
+# Developer-uploaded screenshot (included in prompts / demo)
+FILE_URL = "/mnt/data/Screenshot 2025-11-22 222905.png"
 
+# ------- Ensure files exist & load FAQ -------
+DEFAULT_FAQ = {
+    "company": "Lenskart",
+    "overview": "Lenskart is India's leading eyewear brand offering eyeglasses, sunglasses, contact lenses, and home eye check-ups.",
+    "faq": [
+        {"q": "What products do you offer?", "a": "We offer prescription eyeglasses, sunglasses, contact lenses, powered sunglasses, and accessories. We also provide home eye check-ups."},
+        {"q": "Do you offer a free eye test?", "a": "Yes! Lenskart provides a free home eye test in multiple cities with certified optometrists."},
+        {"q": "What is your pricing?", "a": "Eyeglasses start from ₹499, premium collections from ₹1500+, sunglasses from ₹599, and contact lenses from ₹199 onwards."},
+        {"q": "Do you have a return or exchange policy?", "a": "Yes, Lenskart offers a 14-day no-questions-asked return or exchange policy on most products."},
+        {"q": "How fast is delivery?", "a": "Standard eyeglasses are delivered within 3–7 days. Contact lenses and ready stock items ship faster."},
+        {"q": "Do you have a free trial?", "a": "Yes! You can use the 3D Try-On on the app or website. Some frames also support Home Try-On."},
+        {"q": "Who is Lenskart for?", "a": "Anyone who wants stylish, durable eyewear — students, professionals, seniors, or kids."}
+    ]
+}
 
-def _load_tutor_content() -> None:
-    global TUTOR_CONCEPTS, TUTOR_BY_ID, TUTOR_CONTENT_STR
+def load_faq() -> Dict[str, Any]:
+    if not os.path.exists(FAQ_FILE):
+        with open(FAQ_FILE, "w", encoding="utf-8") as f:
+            json.dump(DEFAULT_FAQ, f, indent=2, ensure_ascii=False)
+        return DEFAULT_FAQ
+    with open(FAQ_FILE, "r", encoding="utf-8") as f:
+        return json.load(f)
 
-    if not os.path.exists(TUTOR_CONTENT_PATH):
-        raise FileNotFoundError(
-            f"Tutor content JSON not found at {TUTOR_CONTENT_PATH}. "
-            f"Create it with the concepts for Day 4."
-        )
+FAQ = load_faq()
 
-    with open(TUTOR_CONTENT_PATH, "r", encoding="utf-8") as f:
-        data = json.load(f)
+def ensure_leads_file():
+    if not os.path.exists(LEADS_FILE):
+        with open(LEADS_FILE, "w", encoding="utf-8") as f:
+            json.dump([], f, indent=2, ensure_ascii=False)
 
-    if not isinstance(data, list):
-        raise ValueError("day4_tutor_content.json must be a list of concept objects.")
+ensure_leads_file()
 
-    TUTOR_CONCEPTS = []
-    for item in data:
-        if not all(k in item for k in ("id", "title", "summary", "sample_question")):
-            raise ValueError("Each concept must have id, title, summary, sample_question.")
-        TUTOR_CONCEPTS.append(
-            {
-                "id": item["id"],
-                "title": item["title"],
-                "summary": item["summary"],
-                "sample_question": item["sample_question"],
-            }
-        )
+# ------- Simple keyword FAQ lookup -------
+def _normalize(s: str) -> str:
+    return re.sub(r"\s+", " ", (s or "").strip().lower())
 
-    TUTOR_BY_ID = {c["id"]: c for c in TUTOR_CONCEPTS}
+def keyword_search_faq(query: str, top_n: int = 3) -> List[Dict[str, str]]:
+    qnorm = _normalize(query)
+    tokens = [t for t in re.split(r"\W+", qnorm) if t and len(t) > 2]
+    matches = []
+    overview = _normalize(FAQ.get("overview", ""))
+    if any(tok in overview for tok in tokens):
+        matches.append({"q": "About Lenskart", "a": FAQ.get("overview", "")})
+    for item in FAQ.get("faq", []):
+        cand = _normalize(item.get("q", "") + " " + item.get("a", ""))
+        if any(tok in cand for tok in tokens):
+            matches.append(item)
+    # dedupe and limit
+    seen = set()
+    out = []
+    for m in matches:
+        key = m.get("q", "")
+        if key not in seen:
+            out.append(m)
+            seen.add(key)
+        if len(out) >= top_n:
+            break
+    if not out:
+        out = FAQ.get("faq", [])[:top_n]
+    return out
 
-    lines = []
-    for c in TUTOR_CONCEPTS:
-        lines.append(
-            f"- id: {c['id']}\n"
-            f"  title: {c['title']}\n"
-            f"  summary: {c['summary']}\n"
-            f"  sample_question: {c['sample_question']}"
-        )
-    TUTOR_CONTENT_STR = "\n".join(lines)
+# ------- Validators -------
+EMAIL_RE = re.compile(r"[^@]+@[^@]+\.[^@]+")
+def is_valid_email(e: str) -> bool:
+    return bool(EMAIL_RE.match((e or "").strip()))
 
+# ------- Tools exposed to the LLM -------
+@function_tool
+async def find_faq(ctx: RunContext, question: str) -> Dict[str, Any]:
+    """Return top-matching FAQ entries. MUST be used for product/company questions."""
+    matches = keyword_search_faq(question)
+    return {"matches": matches}
 
-def _default_concept_id() -> str:
-    return TUTOR_CONCEPTS[0]["id"] if TUTOR_CONCEPTS else "variables"
-
-
-_load_tutor_content()
-
-
-# ---------- Tutor state helpers (stored in session.userdata["tutor"]) ---------- #
-
-def _ensure_tutor_state(session) -> Dict[str, Any]:
-    ud = session.userdata
-    tutor = ud.get("tutor")
-    if not isinstance(tutor, dict):
-        tutor = {}
-        ud["tutor"] = tutor
-
-    if "mode" not in tutor:
-        tutor["mode"] = "welcome"
-    if "concept_id" not in tutor:
-        tutor["concept_id"] = _default_concept_id()
-
-    return tutor
-
-
-def _set_tutor_mode(session, mode: str, concept_id: Optional[str] = None) -> Dict[str, Any]:
-    tutor = _ensure_tutor_state(session)
-    tutor["mode"] = mode
-    if concept_id is not None:
-        if concept_id in TUTOR_BY_ID:
-            tutor["concept_id"] = concept_id
-        else:
-            tutor["concept_id"] = _default_concept_id()
-    return tutor
-
-
-def _set_tutor_concept(session, concept_id: str) -> Dict[str, Any]:
-    tutor = _ensure_tutor_state(session)
-    if concept_id in TUTOR_BY_ID:
-        tutor["concept_id"] = concept_id
-    else:
-        tutor["concept_id"] = _default_concept_id()
-    return tutor
-
-
-def _get_active_concept(session) -> Dict[str, str]:
-    tutor = _ensure_tutor_state(session)
-    cid = tutor.get("concept_id") or _default_concept_id()
-    return TUTOR_BY_ID.get(cid, TUTOR_CONCEPTS[0])
-
-
-# ---------- Murf Falcon TTS voices ---------- #
-# NOTE: If your actual Murf voice IDs differ, just change the `voice=` strings.
-
-TTS_MATTHEW = murf.TTS(
-    voice="en-US-matthew",  # Learn mode voice
-    style="Conversation",
-    tokenizer=tokenize.basic.SentenceTokenizer(min_sentence_len=2),
-    text_pacing=True,
-)
-
-TTS_ALICIA = murf.TTS(
-    voice="en-US-alicia",  # Quiz mode voice
-    style="Conversation",
-    tokenizer=tokenize.basic.SentenceTokenizer(min_sentence_len=2),
-    text_pacing=True,
-)
-
-TTS_KEN = murf.TTS(
-    voice="en-US-ken",  # Teach-back mode voice
-    style="Conversation",
-    tokenizer=tokenize.basic.SentenceTokenizer(min_sentence_len=2),
-    text_pacing=True,
-)
-
-TTS_ROUTER = TTS_MATTHEW  # router / greeting voice
-
-
-# ---------- Base tutor agent with tools ---------- #
-
-class BaseTutorAgent(Agent):
+@function_tool
+async def fill_lead_field(ctx: RunContext, field: str, value: str) -> Dict[str, Any]:
     """
-    Shared logic for the three modes + router.
-    Handles:
-      - access to JSON content
-      - tools: switch_mode, set_concept
+    Deterministically fill one lead field in session.userdata['lead'].
+    Use synonyms mapping; returns updated lead.
     """
+    session = ctx.session
+    ud = getattr(session, "userdata", {})
+    lead = ud.get("lead", {"name": None, "email": None, "company": None, "role": None, "use_case": None, "team_size": None, "timeline": None})
+    f = field.strip().lower()
+    synonyms = {
+        "name": "name", "fullname": "name",
+        "email": "email", "e-mail": "email",
+        "company": "company", "org": "company",
+        "role": "role", "position": "role",
+        "usecase": "use_case", "use case": "use_case", "use_case": "use_case",
+        "team size": "team_size", "teamsize": "team_size", "team_size": "team_size",
+        "timeline": "timeline", "when": "timeline"
+    }
+    f = synonyms.get(f, f)
+    lead[f] = value.strip()
+    ud["lead"] = lead
+    asked = ud.get("asked", [])
+    if f not in asked:
+        asked.append(f)
+        ud["asked"] = asked
+    session.userdata = ud
+    return {"lead": lead}
 
-    def __init__(
-        self,
-        mode: Literal["welcome", "learn", "quiz", "teach_back"],
-        *,
-        tts,
-        extra_mode_instructions: str = "",
-        **kwargs,
-    ) -> None:
-        base_instructions = f"""
-You are part of a multi-agent **Teach-the-Tutor: Active Recall Coach**.
+@function_tool
+async def save_lead(ctx: RunContext, lead: Dict[str, Any]) -> Dict[str, str]:
+    """Persist lead to JSON and return ID."""
+    ensure_leads_file()
+    with open(LEADS_FILE, "r", encoding="utf-8") as f:
+        arr = json.load(f)
+    entry = dict(lead)
+    entry["_id"] = str(uuid.uuid4())[:8]
+    entry["created_at"] = datetime.datetime.utcnow().isoformat() + "Z"
+    arr.append(entry)
+    with open(LEADS_FILE, "w", encoding="utf-8") as f:
+        json.dump(arr, f, indent=2, ensure_ascii=False)
+    return {"id": entry["_id"]}
 
-There are three learning modes:
-- learn      → explain a concept clearly using the JSON content.
-- quiz       → ask short questions and give feedback.
-- teach_back → the user explains the concept back, you give qualitative feedback.
+@function_tool
+async def get_lead_summary(ctx: RunContext, lead: Dict[str, Any]) -> str:
+    """Return a compact spoken summary string for recap."""
+    name = lead.get("name") or "(unknown)"
+    email = lead.get("email") or "(unknown)"
+    use_case = lead.get("use_case") or "(not provided)"
+    team = lead.get("team_size") or "(unknown)"
+    timeline = lead.get("timeline") or "(unspecified)"
+    return f"{name} ({email}) is interested in {use_case}. Team size: {team}. Timeline: {timeline}."
 
-Course content (DO NOT invent new concepts; only use these):
+@function_tool
+async def ask_next_field(ctx: RunContext) -> Dict[str, Any]:
+    """
+    Server-side helper the LLM can call to get the next missing lead field and a suggested question.
+    Returns: {field: str, question: str, required: bool}
+    """
+    session = ctx.session
+    ud = getattr(session, "userdata", {})
+    lead = ud.get("lead", {"name": None, "email": None, "company": None, "role": None, "use_case": None, "team_size": None, "timeline": None})
+    order = ["name", "email", "company", "role", "use_case", "team_size", "timeline"]
+    labels = {
+        "name": "Could I get your full name?",
+        "email": "What's the best email to reach you at?",
+        "company": "Which company are you with (if any)?",
+        "role": "What's your role there?",
+        "use_case": "What would you use Lenskart for (e.g., team purchase, personal prescription, contact lenses)?",
+        "team_size": "How many people are in your team?",
+        "timeline": "What's your expected timeline? (now / soon / later)"
+    }
+    for f in order:
+        if not lead.get(f):
+            return {"field": f, "question": labels[f], "required": True}
+    # all present
+    return {"field": "", "question": "", "required": False}
 
-{TUTOR_CONTENT_STR}
+# ------- Murf TTS voices (session-level TTS intentionally NOT set) ------
+TTS_SDR = murf.TTS(
+    voice="en-US-matthew",
+    style="Conversation",
+    tokenizer=tokenize.basic.SentenceTokenizer(min_sentence_len=2),
+    text_pacing=True,
+)
 
-General rules:
-- Always focus on ONE concept at a time.
-- Respect the active concept from state unless the user explicitly asks to switch.
-- Keep responses short and conversational, 1 main idea per turn.
-- If the user asks to "learn", "quiz me", "let me teach it back", or "switch to X",
-  then call the `switch_mode` tool.
-- If the user names a specific concept (e.g. 'variables', 'loops'), call `set_concept`.
+# ------- SDR Agent class -------
+class LenskartSDRAgent(Agent):
+    def __init__(self):
+        instructions = f"""
+You are a friendly Lenskart SDR (voice-first). Use the provided tools—find_faq, fill_lead_field, ask_next_field, save_lead, get_lead_summary—to answer product questions and capture leads.
 
-Current mode: {mode}
+Important rules:
+- For any product/company/pricing question, call `find_faq(question)` and answer ONLY using returned FAQ entries.
+- Fill lead fields deterministically using `fill_lead_field(field, value)`.
+- If you need to solicit missing lead data, call `ask_next_field()`; it returns a (field, question).
+- When all required fields are collected or the user says 'thanks' / 'that's all' / 'i'm done' / 'bye', call `save_lead(lead)` then `get_lead_summary(lead)` and speak the recap.
+- Keep responses short and polite, and confirm important values (e.g., repeat email back for confirmation).
 
-Mode-specific behavior:
-{extra_mode_instructions}
+You can reference the demo screenshot at: {FILE_URL}
 """
-        super().__init__(instructions=base_instructions, tts=tts, **kwargs)
-
-    # ---------------- TOOLS (shared in all modes) ---------------- #
-
-    @function_tool()
-    async def switch_mode(
-        self,
-        context: RunContext,
-        mode: Literal["learn", "quiz", "teach_back"],
-        concept_id: Optional[str] = None,
-    ):
-        """
-        Switch between learn, quiz, and teach_back modes.
-        Use this whenever the user asks to change modes.
-        """
-
-        session = context.session
-        tutor = _ensure_tutor_state(session)
-
-        # Decide which concept to use
-        if concept_id is None:
-            concept_id = tutor.get("concept_id") or _default_concept_id()
-
-        if concept_id not in TUTOR_BY_ID:
-            concept_id = _default_concept_id()
-
-        # Update state
-        _set_tutor_mode(session, mode, concept_id)
-
-        # Decide new agent
-        if mode == "learn":
-            new_agent = LearnAgent()
-        elif mode == "quiz":
-            new_agent = QuizAgent()
-        else:
-            new_agent = TeachBackAgent()
-
-        # Return BOTH the new agent (handoff) and a small textual result
-        # (the text is visible to the LLM, the agent handoff is handled by LiveKit)
-        return new_agent, f"Switching to {mode} mode for concept '{concept_id}'."
-
-
-    @function_tool()
-    async def set_concept(
-        self,
-        context: RunContext,
-        concept_id: str,
-    ) -> str:
-        """
-        Set the active concept by id ('variables', 'loops', etc.).
-        Call when the user explicitly asks for a concept.
-        """
-        session = context.session
-        if concept_id not in TUTOR_BY_ID:
-            valid = ", ".join(TUTOR_BY_ID.keys())
-            return f"Unknown concept id '{concept_id}'. Valid ids: {valid}."
-
-        _set_tutor_concept(session, concept_id)
-        return f"Great, we'll focus on '{concept_id}' now."
-
-
-# ---------- Router agent (entrypoint) ---------- #
-
-class RouterAgent(BaseTutorAgent):
-    """
-    First agent the user meets.
-    Greets, explains modes, asks what they want, then hands off.
-    """
-
-    def __init__(self, **kwargs):
-        super().__init__(
-            mode="welcome",
-            tts=TTS_ROUTER,
-            extra_mode_instructions="""
-- Greet the learner.
-- Briefly describe the three modes: learn, quiz, teach_back.
-- Ask which mode they want to start with and which concept (e.g. 'variables' or 'loops').
-- After they reply, call `switch_mode` with their chosen mode and concept_id.
-- Once you call `switch_mode`, you don't continue talking; the new agent takes over.
-""",
-            **kwargs,
-        )
+        super().__init__(instructions=instructions, tts=TTS_SDR)
 
     async def on_enter(self) -> None:
-        # Kick off the greeting turn
-        await self.session.generate_reply(
-            instructions=(
-                "Greet the learner. Explain that you have three modes: "
-                "learn (I explain), quiz (I question you), and teach_back (you explain). "
-                "Ask: which mode do you want to start with, and which concept — "
-                "variables or loops?"
-            )
+        greeting = (
+            f"Hi — welcome to {FAQ.get('company')}. I'm here to help with frames, sunglasses, contact lenses and home eye check-ups. "
+            "What brought you here today?"
         )
+        await self.session.generate_reply(instructions=greeting)
 
-
-# ---------- Learn mode agent (Matthew) ---------- #
-
-class LearnAgent(BaseTutorAgent):
-    def __init__(self, **kwargs):
-        super().__init__(
-            mode="learn",
-            tts=TTS_MATTHEW,
-            extra_mode_instructions="""
-In learn mode:
-- Focus on the active concept from state.
-- Use that concept's `summary` as the backbone of your explanation.
-- Explain in clear, friendly language with 1–2 short, concrete examples.
-- After a short explanation, ask something like:
-  - "Want me to quiz you on this?"
-  - "Should we switch to teach-back so you explain it to me?"
-""",
-            **kwargs,
-        )
-
-    async def on_enter(self) -> None:
-        concept = _get_active_concept(self.session)
-        await self.session.generate_reply(
-            instructions=(
-                "Introduce yourself as the Learn mode tutor using Matthew's voice. "
-                f"Tell the learner you'll start with the concept '{concept['title']}'. "
-                "Give a short, high-level explanation of the concept and ask if "
-                "they want more detail or would like to be quizzed."
-            )
-        )
-
-
-# ---------- Quiz mode agent (Alicia) ---------- #
-
-class QuizAgent(BaseTutorAgent):
-    def __init__(self, **kwargs):
-        super().__init__(
-            mode="quiz",
-            tts=TTS_ALICIA,
-            extra_mode_instructions="""
-In quiz mode:
-- Ask ONE short question at a time, based on the concept's `sample_question`
-  and small variations of it.
-- Wait for the user's answer before giving feedback.
-- Feedback should be brief: what they got right, what they missed.
-- Then either:
-  - ask a follow-up question, or
-  - suggest switching to teach_back or learn if they seem unsure.
-""",
-            **kwargs,
-        )
-
-    async def on_enter(self) -> None:
-        concept = _get_active_concept(self.session)
-        await self.session.generate_reply(
-            instructions=(
-                "Introduce yourself as the Quiz mode tutor using Alicia's voice. "
-                f"Confirm you're quizzing them on '{concept['title']}'. "
-                "Ask one short question based on the concept's sample_question, "
-                "and wait for their answer."
-            )
-        )
-
-
-# ---------- Teach-back mode agent (Ken) ---------- #
-
-class TeachBackAgent(BaseTutorAgent):
-    def __init__(self, **kwargs):
-        super().__init__(
-            mode="teach_back",
-            tts=TTS_KEN,
-            extra_mode_instructions="""
-In teach_back mode:
-- Ask the learner to explain the concept in their own words.
-- Let them finish before responding.
-- Give 1–3 sentences of qualitative feedback:
-  - What they explained well.
-  - What they missed or could clarify.
-- Optionally suggest whether they should:
-  - go back to learn for more explanation, or
-  - keep quizzing.
-""",
-            **kwargs,
-        )
-
-    async def on_enter(self) -> None:
-        concept = _get_active_concept(self.session)
-        await self.session.generate_reply(
-            instructions=(
-                "Introduce yourself as the Teach-back coach using Ken's voice. "
-                f"Ask the learner to explain '{concept['title']}' in their own words. "
-                "Encourage them to cover the main idea and at least one example."
-            )
-        )
-
-
-# ---------- Prewarm (VAD) ---------- #
-
+# ------- Prewarm VAD -------
 def prewarm(proc: JobProcess):
     proc.userdata["vad"] = silero.VAD.load()
 
-
-# ---------- Entrypoint ---------- #
-
+# ------- Entrypoint -------
 async def entrypoint(ctx: JobContext):
-    # Logging context
-    ctx.log_context_fields = {
-        "room": ctx.room.name,
-    }
+    ctx.log_context_fields = {"room": ctx.room.name}
 
     session = AgentSession(
         stt=deepgram.STT(model="nova-3"),
-        llm=google.LLM(
-            model="gemini-2.5-flash",
-        ),
-        # Default TTS (router / fallback) – individual agents override this
-        tts=TTS_MATTHEW,
+        llm=google.LLM(model="gemini-2.5-flash"),
+        # DO NOT set session-level tts so agent-level TTS is used
         turn_detection=MultilingualModel(),
         vad=ctx.proc.userdata["vad"],
         preemptive_generation=True,
+        tools=[find_faq, fill_lead_field, ask_next_field, save_lead, get_lead_summary],
     )
 
-    # Initialize userdata; tutor state lives under session.userdata["tutor"]
-    session.userdata = {}
+    # initialize deterministic lead state
+    session.userdata = {
+        "lead": {"name": None, "email": None, "company": None, "role": None, "use_case": None, "team_size": None, "timeline": None},
+        "asked": []
+    }
 
     usage_collector = metrics.UsageCollector()
 
@@ -429,22 +258,12 @@ async def entrypoint(ctx: JobContext):
         usage_collector.collect(ev.metrics)
 
     async def log_usage():
-        summary = usage_collector.get_summary()
-        logger.info(f"Usage: {summary}")
+        logger.info("Usage summary: %s", usage_collector.get_summary())
 
     ctx.add_shutdown_callback(log_usage)
 
-    # Start with RouterAgent → it will hand off to learn/quiz/teach_back
-    await session.start(
-        agent=RouterAgent(),
-        room=ctx.room,
-        room_input_options=RoomInputOptions(
-            noise_cancellation=noise_cancellation.BVC(),
-        ),
-    )
-
+    await session.start(agent=LenskartSDRAgent(), room=ctx.room, room_input_options=RoomInputOptions(noise_cancellation=noise_cancellation.BVC()))
     await ctx.connect()
-
 
 if __name__ == "__main__":
     cli.run_app(WorkerOptions(entrypoint_fnc=entrypoint, prewarm_fnc=prewarm))
