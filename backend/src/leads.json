@@ -1,0 +1,32 @@
+[
+  {
+    "name": "Alex",
+    "company": "WellTracker",
+    "email": "alex123@gmail.com",
+    "role": "Founder",
+    "use_case": "",
+    "team_size": "",
+    "timeline": "",
+    "timestamp": 170449.64
+  },
+  {
+    "name": "",
+    "company": "Software service for small businesses",
+    "email": "",
+    "role": "Developer",
+    "use_case": "Online platform for small businesses to boost sales with machine learning, accepting UPI, credit card, and net banking payments.",
+    "team_size": "",
+    "timeline": "",
+    "timestamp": 174296.203
+  },
+  {
+    "name": "Jimmy",
+    "company": "Software service for small businesses",
+    "email": "jimmy@directgmail.com",
+    "role": "Developer",
+    "use_case": "Online platform for small businesses to boost sales with machine learning, accepting UPI, credit card, and net banking payments.",
+    "team_size": "",
+    "timeline": "",
+    "timestamp": 174949.953
+  }
+]
