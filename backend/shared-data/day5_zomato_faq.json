@@ -1,0 +1,61 @@
+{
+  "company": "Zomato",
+  "website": "https://www.zomato.com",
+  "description": "Zomato is an Indian food-tech platform that connects consumers, restaurants, and delivery partners. Customers use Zomato to discover restaurants, read reviews, order food for delivery, and find dining offers. Restaurants use Zomato to reach more customers, get online orders, and grow their business.",
+  "faqs": [
+    {
+      "id": "what_is_zomato",
+      "q": "What does Zomato do?",
+      "a": "Zomato is a food delivery and restaurant discovery platform. Customers use the Zomato app or website to browse nearby restaurants, see menus and ratings, place food delivery orders, and find dining offers. Restaurants use Zomato to get listed, receive online orders, and reach more customers in their city.",
+      "tags": ["what", "product", "do", "zomato", "food delivery", "restaurant discovery"]
+    },
+    {
+      "id": "who_is_it_for",
+      "q": "Who is Zomato for?",
+      "a": "Zomato is for both customers and restaurant businesses. Customers use it to discover and order food. Restaurants, cloud kitchens, and cafes use Zomato to get more orders, improve visibility, and manage delivery with Zomato's logistics network.",
+      "tags": ["who", "for", "target", "restaurants", "customers", "cloud kitchen"]
+    },
+    {
+      "id": "services",
+      "q": "What services does Zomato offer?",
+      "a": "For customers, Zomato offers online food ordering, restaurant search and discovery, reviews, and membership benefits under Zomato Gold in many cities. For businesses, Zomato offers listing and discovery, online ordering, marketing, and supply solutions like Hyperpure for ingredients in select locations.",
+      "tags": ["services", "features", "delivery", "dining", "gold", "hyperpure"]
+    },
+    {
+      "id": "gold",
+      "q": "What is Zomato Gold?",
+      "a": "Zomato Gold is a paid membership for customers that offers benefits like free delivery on eligible orders and additional discounts at partner restaurants in many cities. Exact benefits, eligibility, and fees can change over time and may vary by city, so customers should always check the Zomato app for current details.",
+      "tags": ["zomato gold", "membership", "subscription", "benefits", "pricing"]
+    },
+    {
+      "id": "customer_pricing",
+      "q": "Is there a free tier for customers?",
+      "a": "Yes. Using the Zomato app or website to browse restaurants and place orders is free for customers. You only pay for the food, taxes, delivery fee, and any platform fees shown at checkout. Zomato Gold is an optional paid membership that provides extra benefits but is not required to order.",
+      "tags": ["free", "free tier", "pricing", "customers", "app", "cost"]
+    },
+    {
+      "id": "restaurant_pricing",
+      "q": "How does Zomato charge restaurants?",
+      "a": "Zomato generally charges restaurants a commission on each order placed through the platform, along with applicable delivery and payment gateway charges. The exact commission percentage and fees depend on the restaurant type, location, and agreement with Zomato, so restaurants usually discuss pricing directly with the Zomato sales team.",
+      "tags": ["pricing", "commission", "fees", "restaurants", "partners", "charges"]
+    },
+    {
+      "id": "where_available",
+      "q": "Where is Zomato available?",
+      "a": "Zomato operates across hundreds of cities in India. Availability of specific features like Zomato Gold or Hyperpure can vary by city. The best way to check active coverage and services is to open the Zomato app and see which products are available in your area.",
+      "tags": ["cities", "availability", "where", "india", "coverage"]
+    },
+    {
+      "id": "partner_signup",
+      "q": "How can a restaurant partner with Zomato?",
+      "a": "Restaurants and cloud kitchens can partner with Zomato by filling out the form on the 'Partner with us' page on Zomato's website or app. After basic details are submitted, a Zomato representative typically reaches out to discuss onboarding, menu listing, and pricing.",
+      "tags": ["partner", "sign up", "join", "restaurant on zomato", "onboard"]
+    },
+    {
+      "id": "support",
+      "q": "How do restaurants get support?",
+      "a": "Once onboarded, restaurant partners can access a partner dashboard for order management, menu updates, and analytics. They also have access to Zomato partner support through in-app chat, email, or phone, depending on the region.",
+      "tags": ["support", "help", "partner support", "dashboard"]
+    }
+  ]
+}

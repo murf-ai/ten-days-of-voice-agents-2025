@@ -1,0 +1,22 @@
+[
+  {
+    "name": "Aditya",
+    "company": "Noah Kitchen",
+    "email": "aditya@nova.n",
+    "role": "Founder",
+    "use_case": "grow online delivery orders in Bangalore",
+    "team_size": "8",
+    "timeline": "within next one month",
+    "timestamp": "2025-11-26T14:17:12.401969"
+  },
+  {
+    "name": "Ishwar",
+    "company": "Hyderabad Kitchen",
+    "email": "ishwar@nova.n",
+    "role": "CEO of hotel management",
+    "use_case": null,
+    "team_size": null,
+    "timeline": "now",
+    "timestamp": "2025-11-26T14:23:28.296599"
+  }
+]

@@ -1,7 +1,8 @@
 import logging
 import json
-import os
 from pathlib import Path
+from datetime import datetime
+from typing import List, Dict, Any
 
 from dotenv import load_dotenv
 from livekit.agents import (
@@ -25,188 +26,228 @@ logger = logging.getLogger("agent")
 
 load_dotenv(".env.local")
 
-# ---------- Helper to load tutor content ----------
+# ---------- Helper: load Zomato FAQ content ----------
 
 
-def load_tutor_content() -> list[dict]:
+def load_zomato_faq() -> Dict[str, Any]:
     """
-    Load concepts from shared-data/day4_tutor_content.json.
-    Falls back to a small default list if file is missing.
+    Load Zomato FAQ content from shared-data/day5_zomato_faq.json.
     """
     try:
         base_dir = Path(__file__).resolve().parent.parent  # backend/
-        content_path = base_dir / "shared-data" / "day4_tutor_content.json"
-        with content_path.open("r", encoding="utf-8") as f:
+        path = base_dir / "shared-data" / "day5_zomato_faq.json"
+        with path.open("r", encoding="utf-8") as f:
             data = json.load(f)
-            if isinstance(data, list):
+            if isinstance(data, dict) and "faqs" in data:
                 return data
     except Exception as e:
-        logger.warning(f"Could not load day4_tutor_content.json, using defaults. Error: {e}")
+        logger.warning(f"Failed to load day5_zomato_faq.json: {e}")
 
-    # Fallback content
-    return [
-        {
-            "id": "variables",
-            "title": "Variables",
-            "summary": "Variables store values so you can reuse or change them later.",
-            "sample_question": "What is a variable and why is it useful?",
-        },
-        {
-            "id": "loops",
-            "title": "Loops",
-            "summary": "Loops let you repeat an action multiple times.",
-            "sample_question": "Explain the difference between a for loop and a while loop.",
-        },
-    ]
+    # Very small fallback if file missing
+    return {
+        "company": "Zomato",
+        "description": "Zomato is an Indian food delivery and restaurant discovery platform.",
+        "faqs": [
+            {
+                "id": "fallback",
+                "q": "What does Zomato do?",
+                "a": "Zomato helps customers discover restaurants and order food online, and helps restaurants get more orders.",
+                "tags": ["zomato", "product"]
+            }
+        ],
+    }
 
 
-class TutorAgent(Agent):
-    def __init__(self, tutor_content: list[dict]) -> None:
-        self.tutor_content = tutor_content
-        self.current_mode: str | None = None
-        self.current_concept_id: str | None = None
+class ZomatoSDR(Agent):
+    def __init__(self, faq_data: Dict[str, Any]) -> None:
+        self.faq_data = faq_data
+        self.faq_list: List[Dict[str, Any]] = faq_data.get("faqs", [])
+        self.company_name: str = faq_data.get("company", "Zomato")
+        self.company_desc: str = faq_data.get("description", "")
 
-        concepts_list = ", ".join(c["title"] for c in tutor_content)
+        # Lead state kept in memory during the call
+        self.current_lead: Dict[str, Any] = {
+            "name": None,
+            "company": None,
+            "email": None,
+            "role": None,
+            "use_case": None,
+            "team_size": None,
+            "timeline": None,
+        }
+
+        # Where to store leads
+        base_dir = Path(__file__).resolve().parent.parent  # backend/
+        leads_dir = base_dir / "leads"
+        leads_dir.mkdir(parents=True, exist_ok=True)
+        self.leads_path = leads_dir / "day5_leads.json"
 
         instructions = f"""
-You are an Active Recall Programming Tutor for beginners.
+You are a warm, professional Sales Development Representative (SDR) for {self.company_name}.
 
-Your role:
-- Help the user learn basic programming concepts by using the “teach-the-tutor” method.
-- You always speak in a friendly, encouraging tone.
+Company overview:
+{self.company_desc}
 
-Available concepts (from our small course file):
-{concepts_list}
+Your goals:
+1. Greet visitors warmly and explain that you are an SDR for {self.company_name}.
+2. Ask what brought them here and what they are working on.
+3. Keep the conversation focused on understanding their business and whether {self.company_name} is a good fit.
+4. Answer questions about the company, product, and pricing ONLY using the FAQ content and the `answer_faq` tool.
+5. Collect key lead details naturally during the conversation:
+   - Name
+   - Company
+   - Email
+   - Role
+   - Use case (what they want to use {self.company_name} for)
+   - Team size
+   - Timeline (now / soon / later)
+   When the user gives any of these, call the `save_lead_field` tool to store them.
 
-There are THREE learning modes:
+FAQ usage:
+- When the user asks things like:
+  - "What does your product do?"
+  - "Who is this for?"
+  - "Do you have a free tier?"
+  - "How does pricing work for restaurants?"
+  Use the `answer_faq` tool with their question.
+- Do NOT make up product or pricing details beyond what the FAQ provides.
+- If the FAQ does not contain the answer, say you are not sure and that a human teammate can share more details later.
 
-1) learn mode (voice: Matthew)
-   - Explain the chosen concept in simple language.
-   - Use the summary from the content file, then expand with examples.
-   - Check understanding with 1–2 quick questions.
+End-of-call behavior:
+- When the user says phrases like:
+  "That's all", "I'm done", "Thanks, that's it", or clearly ends the conversation:
+  1. Make sure you have collected as many lead fields as possible.
+  2. Call the `finalize_lead` tool ONCE to store the lead in JSON.
+  3. Then give a short verbal summary including:
+     - Their name and company (if known)
+     - Use case
+     - Team size
+     - Timeline
+  4. End politely and thank them for their time.
 
-2) quiz mode (voice: Alicia)
-   - You ask the user questions about the chosen concept.
-   - Use the sample_question field as a starting point.
-   - Ask follow-up questions and give quick feedback on each answer.
-
-3) teach_back mode (voice: Ken)
-   - Ask the user to explain the concept back to you in their own words.
-   - Listen, then give short, qualitative feedback:
-     * what they did well
-     * what’s missing, in 1–2 sentences
-   - Optionally suggest what to review.
-
-VERY IMPORTANT BEHAVIOR:
-- At the beginning of the session:
-  1) Greet the user.
-  2) Ask which concept they want to work on (e.g., "variables" or "loops").
-  3) Ask which mode they want: "learn", "quiz", or "teach_back".
-- After the user chooses, call the tool `set_mode_and_voice` with the mode and concept id.
-- Then behave according to that mode.
-- The user can SWITCH MODES at any time by saying things like:
-  - "Quiz me on loops"
-  - "Let’s learn variables"
-  - "Let me teach back variables"
-  When they do, call `set_mode_and_voice` again.
-
-TOOL USAGE:
-- Use:
-  - `set_mode_and_voice` to switch modes and set the concept.
-  - `get_concept_summary` to get the concept explanation.
-  - `get_concept_question` to get a question for quiz or teach_back prompts.
-
-RULES:
-- Never mention tools, JSON, files, or code to the user.
-- Do not output code like `tool_code` or function calls in your spoken response.
-- Keep explanations and questions short and clear.
-- Stay focused on one concept at a time.
+Important rules:
+- You are not a support agent; you are an SDR focusing on qualification and basic FAQs.
+- Be concise, friendly, and professional.
+- Never talk about tools, JSON, files, or internal implementation.
+- Do not show raw function calls or code like `tool_code` in your replies.
 """
-
         super().__init__(instructions=instructions)
 
-    # ---------- Internal helpers ----------
+    # ---------- Internal: simple FAQ search ----------
 
-    def _find_concept(self, concept_id: str | None) -> dict:
-        if concept_id:
-            for c in self.tutor_content:
-                if c.get("id") == concept_id:
-                    return c
-        # default to first concept
-        return self.tutor_content[0]
+    def _best_faq_match(self, question: str) -> Dict[str, Any] | None:
+        q_lower = question.lower()
+        best_score = 0
+        best_entry = None
+
+        for entry in self.faq_list:
+            text = (
+                (entry.get("q") or "") + " "
+                + (entry.get("a") or "") + " "
+                + " ".join(entry.get("tags") or [])
+            ).lower()
+            score = 0
+            # simple keyword overlap
+            for token in q_lower.split():
+                if token in text:
+                    score += 1
+            if score > best_score:
+                best_score = score
+                best_entry = entry
+
+        # if nothing matched, just return first entry
+        if best_entry is None and self.faq_list:
+            return self.faq_list[0]
+        return best_entry
 
     # ---------- Tools ----------
 
     @function_tool()
-    async def set_mode_and_voice(
+    async def answer_faq(
         self,
         context: RunContext,
-        mode: str,
-        concept_id: str | None = None,
+        question: str,
     ) -> str:
         """
-        Set the tutor mode (learn, quiz, teach_back) and picked concept.
-        Also updates the Murf Falcon voice depending on the mode.
+        Look up an answer in the Zomato FAQ based on the user's question.
+        Only use this to answer product / company / pricing / who-is-it-for type questions.
+        """
+        entry = self._best_faq_match(question)
+        if not entry:
+            return (
+                "I'm not completely sure about that specific detail. A teammate from Zomato can share more information with you later."
+            )
+        return entry.get("a", "")
+
+    @function_tool()
+    async def save_lead_field(
+        self,
+        context: RunContext,
+        field: str,
+        value: str,
+    ) -> str:
+        """
+        Save a single lead field during the conversation.
 
         Args:
-            mode: "learn", "quiz", or "teach_back"
-            concept_id: one of the IDs from the content file, e.g. "variables", "loops"
+            field: one of: name, company, email, role, use_case, team_size, timeline
+            value: the value user provided
         """
-        mode = mode.lower().strip()
-        valid_modes = ["learn", "quiz", "teach_back"]
-        if mode not in valid_modes:
-            return (
-                "Invalid mode. Please choose one of: learn, quiz, or teach_back."
-            )
+        field = field.strip().lower()
+        if field not in self.current_lead:
+            return "I can't store that field, but thank you for sharing."
 
-        concept = self._find_concept(concept_id)
-        self.current_mode = mode
-        self.current_concept_id = concept.get("id")
+        self.current_lead[field] = value.strip()
+        logger.info(f"[Lead] Updated field {field} = {value}")
+        return f"Got it, I've noted your {field} as {value}."
 
-        # Try to switch Murf voice depending on mode.
-        # Voice names follow the same pattern as your Day 1 setup.
+    @function_tool()
+    async def finalize_lead(self, context: RunContext) -> str:
+        """
+        Write the collected lead information to a JSON file and return a short summary.
+        """
+        lead = self.current_lead.copy()
+        lead["timestamp"] = datetime.utcnow().isoformat()
+
+        # Load existing leads
         try:
-            if mode == "learn":
-                # Matthew
-                context.session.tts.update_options(voice="en-US-matthew")
-            elif mode == "quiz":
-                # Alicia
-                context.session.tts.update_options(voice="en-US-alicia")
+            if self.leads_path.exists():
+                with self.leads_path.open("r", encoding="utf-8") as f:
+                    data = json.load(f)
             else:
-                # teach_back -> Ken
-                context.session.tts.update_options(voice="en-US-ken")
+                data = []
         except Exception as e:
-            logger.warning(f"Failed to update TTS voice for mode={mode}: {e}")
+            logger.warning(f"Failed to read leads file, starting new list. Error: {e}")
+            data = []
 
-        return f"Switched to {mode} mode for concept '{concept.get('title', 'Unknown')}'."
+        if not isinstance(data, list):
+            data = []
 
-    @function_tool()
-    async def get_concept_summary(
-        self,
-        context: RunContext,
-        concept_id: str | None = None,
-    ) -> str:
-        """
-        Get a short summary of the given concept to explain in learn mode.
-        """
-        concept = self._find_concept(concept_id or self.current_concept_id)
-        title = concept.get("title", "Unknown concept")
-        summary = concept.get("summary", "No summary available.")
-        return f"{title}: {summary}"
+        data.append(lead)
 
-    @function_tool()
-    async def get_concept_question(
-        self,
-        context: RunContext,
-        concept_id: str | None = None,
-    ) -> str:
-        """
-        Get a sample question for quiz or teach_back modes.
-        """
-        concept = self._find_concept(concept_id or self.current_concept_id)
-        title = concept.get("title", "Unknown concept")
-        question = concept.get("sample_question", "No question available.")
-        return f"For {title}: {question}"
+        # Write back
+        with self.leads_path.open("w", encoding="utf-8") as f:
+            json.dump(data, f, indent=2, ensure_ascii=False)
+
+        logger.info(f"[Lead] Saved lead: {lead}")
+
+        name = lead.get("name") or "Unknown name"
+        company = lead.get("company") or "Unknown company"
+        email = lead.get("email") or "No email provided"
+        role = lead.get("role") or "Unknown role"
+        use_case = lead.get("use_case") or "Not clearly specified yet"
+        team_size = lead.get("team_size") or "Not specified"
+        timeline = lead.get("timeline") or "No timeline mentioned"
+
+        summary = (
+            f"Here is the summary I captured: "
+            f"{name} from {company}, role {role}. "
+            f"Use case: {use_case}. Team size: {team_size}. "
+            f"Timeline: {timeline}. Contact email: {email}. "
+            "I'll share this with the Zomato team so they can follow up."
+        )
+
+        return summary
 
 
 # ----------------------- Session Setup -----------------------
@@ -219,15 +260,16 @@ def prewarm(proc: JobProcess):
 async def entrypoint(ctx: JobContext):
     ctx.log_context_fields = {"room": ctx.room.name}
 
-    # Load tutor content once per process
-    tutor_content = load_tutor_content()
-    logger.info(f"Loaded {len(tutor_content)} tutor concepts for Day 4 tutor.")
+    faq_data = load_zomato_faq()
+    logger.info(
+        f"Day 5 SDR – loaded {len(faq_data.get('faqs', []))} FAQ entries for {faq_data.get('company')}."
+    )
 
     session = AgentSession(
         stt=deepgram.STT(model="nova-3"),
         llm=google.LLM(model="gemini-2.5-flash"),
         tts=murf.TTS(
-            voice="en-US-matthew",  # default; will switch per mode
+            voice="en-US-matthew",
             style="Conversation",
             tokenizer=tokenize.basic.SentenceTokenizer(min_sentence_len=2),
             text_pacing=True,
@@ -251,7 +293,7 @@ async def entrypoint(ctx: JobContext):
     ctx.add_shutdown_callback(log_usage)
 
     await session.start(
-        agent=TutorAgent(tutor_content=tutor_content),
+        agent=ZomatoSDR(faq_data=faq_data),
         room=ctx.room,
         room_input_options=RoomInputOptions(
             noise_cancellation=noise_cancellation.BVC(),
