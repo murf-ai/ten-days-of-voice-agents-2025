@@ -1,0 +1,51 @@
+{
+  "company": {
+    "name": "Razorpay",
+    "description": "India's leading payment gateway and financial services platform",
+    "founded": "2014",
+    "headquarters": "Bangalore, India",
+    "website": "https://razorpay.com"
+  },
+  "faq": [
+    {
+      "id": "what_is_razorpay",
+      "question": "What does Razorpay do?",
+      "answer": "Razorpay is India's leading payment gateway that enables businesses to accept, process and disburse payments online. We offer a complete suite of financial products including payment gateway, payment links, subscriptions, marketplace solutions, and banking services."
+    },
+    {
+      "id": "pricing",
+      "question": "What are your pricing plans?",
+      "answer": "We offer competitive pricing starting at 2% per transaction for payment gateway. For high-volume businesses, we provide custom pricing. Our payment links are free to create, and we also offer enterprise solutions with dedicated support."
+    },
+    {
+      "id": "free_tier",
+      "question": "Do you have a free tier?",
+      "answer": "Yes! You can create payment links for free and only pay when you receive payments. We also offer a sandbox environment for testing at no cost. New businesses get special onboarding support."
+    },
+    {
+      "id": "target_audience",
+      "question": "Who is Razorpay for?",
+      "answer": "Razorpay serves everyone from small startups to large enterprises. Our customers include e-commerce stores, SaaS companies, educational institutions, healthcare providers, and any business that needs to accept digital payments in India."
+    },
+    {
+      "id": "integration",
+      "question": "How easy is it to integrate?",
+      "answer": "Very easy! We provide SDKs for all major programming languages, detailed documentation, and can be integrated in under 30 minutes. Our technical team provides 24/7 support during integration."
+    },
+    {
+      "id": "security",
+      "question": "Is Razorpay secure?",
+      "answer": "Absolutely! We are PCI DSS Level 1 certified and RBI approved. We use bank-grade security with 256-bit SSL encryption and fraud detection algorithms to protect all transactions."
+    },
+    {
+      "id": "payment_methods",
+      "question": "What payment methods do you support?",
+      "answer": "We support 100+ payment methods including all major credit/debit cards, UPI, net banking, wallets like Paytm, PhonePe, and international cards. We also support EMI and Pay Later options."
+    },
+    {
+      "id": "settlement",
+      "question": "How fast are settlements?",
+      "answer": "We offer instant settlements! Funds can be settled to your bank account within minutes. For regular settlements, it's T+1 working day. Enterprise customers get even faster settlement options."
+    }
+  ]
+}
