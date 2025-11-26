@@ -1,0 +1,74 @@
+{
+    "company": "Razorpay",
+    "tagline": "India's Leading Payment Gateway",
+    "faqs": [
+      {
+        "id": "what_is_razorpay",
+        "question": "What is Razorpay?",
+        "keywords": ["what is", "about razorpay", "tell me about", "explain razorpay"],
+        "answer": "Razorpay is India's leading payment gateway that enables businesses to accept, process, and disburse payments online. We support over 100 payment methods including credit cards, debit cards, UPI, wallets, and net banking. We serve over 10 million businesses across India."
+      },
+      {
+        "id": "pricing",
+        "question": "What are Razorpay's pricing plans?",
+        "keywords": ["pricing", "cost", "fees", "charges", "how much", "price"],
+        "answer": "Razorpay offers flexible pricing starting at 2% per transaction for standard plans. We have three main plans: Starter (2% + GST), Scale (custom pricing for high volume), and Enterprise (tailored solutions). There are no setup fees or annual maintenance charges. Volume discounts are available for businesses processing over 1 crore monthly."
+      },
+      {
+        "id": "integration",
+        "question": "How long does integration take?",
+        "keywords": ["integrate", "integration", "setup", "how long", "time to setup", "implementation"],
+        "answer": "Integration is quick and developer-friendly. Most businesses go live within 2-3 days. We provide SDKs for all major platforms including web, Android, iOS, and popular e-commerce platforms like Shopify, WooCommerce, and Magento. Our technical documentation and support team make integration seamless."
+      },
+      {
+        "id": "payment_methods",
+        "question": "What payment methods do you support?",
+        "keywords": ["payment methods", "accept payments", "upi", "credit card", "debit card", "wallets", "netbanking"],
+        "answer": "We support 100+ payment methods including: Credit/Debit Cards (Visa, Mastercard, RuPay), UPI (GPay, PhonePe, Paytm), Wallets (Paytm, Mobikwik, Freecharge), Net Banking (all major banks), EMI options, Buy Now Pay Later (LazyPay, SimPl), and International cards."
+      },
+      {
+        "id": "settlement",
+        "question": "How fast are settlements?",
+        "keywords": ["settlement", "payout", "money transfer", "how fast", "when will i get money", "payment settlement"],
+        "answer": "We offer instant settlements! Funds are settled to your bank account within T+1 day (next working day) as standard. For eligible businesses, we also offer Instant Settlements where you can access your funds within minutes, 24x7, even on weekends and holidays."
+      },
+      {
+        "id": "security",
+        "question": "Is Razorpay secure and compliant?",
+        "keywords": ["secure", "security", "safe", "pci dss", "compliant", "compliance", "data protection"],
+        "answer": "Yes, security is our top priority. Razorpay is PCI DSS Level 1 certified, the highest security standard in the payments industry. We use 256-bit SSL encryption, tokenization, and fraud detection systems. We're also compliant with RBI guidelines and have never had a security breach."
+      },
+      {
+        "id": "signup",
+        "question": "How do I sign up for Razorpay?",
+        "keywords": ["sign up", "signup", "register", "create account", "get started", "onboard", "join"],
+        "answer": "Signing up is easy! Visit razorpay.com/signup, provide your business details, and complete KYC verification. You'll need your business PAN, bank account details, and incorporation documents. The entire process takes 15 minutes, and our team verifies your account within 24-48 hours."
+      },
+      {
+        "id": "support",
+        "question": "What kind of support do you provide?",
+        "keywords": ["support", "help", "customer service", "contact", "assistance", "helpdesk"],
+        "answer": "We provide 24x7 customer support via email, phone, and chat. You'll have access to a dedicated account manager for business accounts. We also offer comprehensive documentation, integration guides, API references, and a developer community forum."
+      },
+      {
+        "id": "business_types",
+        "question": "What types of businesses can use Razorpay?",
+        "keywords": ["business type", "who can use", "eligible", "suitable for", "industries", "sectors"],
+        "answer": "Razorpay works for all types of businesses - from startups to enterprises. We serve e-commerce, SaaS, education, healthcare, food delivery, logistics, travel, fintech, and more. Whether you're a freelancer, SME, or large corporation, we have solutions tailored to your needs."
+      },
+      {
+        "id": "international",
+        "question": "Can I accept international payments?",
+        "keywords": ["international", "global", "foreign", "overseas", "export", "cross border"],
+        "answer": "Yes! With Razorpay, you can accept payments from customers worldwide. We support 100+ currencies and international credit/debit cards. You'll need to activate international payments in your dashboard and complete additional KYC for cross-border transactions."
+      }
+    ],
+    "no_match_response": "I don't have specific information about that in my knowledge base. However, I'd be happy to connect you with our sales team who can provide detailed answers. Can I collect your contact information?",
+    "lead_fields": {
+      "name": "What's your name?",
+      "email": "What's your email address?",
+      "company": "What's your company name?",
+      "monthly_volume": "What's your expected monthly transaction volume? (e.g., 10 lakhs, 1 crore)",
+      "use_case": "What's your primary use case? (e.g., e-commerce, subscriptions, marketplace)"
+    }
+  }
