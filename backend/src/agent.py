@@ -1,6 +1,7 @@
 import logging
 import json
 from pathlib import Path
+from datetime import datetime
 
 from dotenv import load_dotenv
 from livekit.agents import (
@@ -24,307 +25,347 @@ logger = logging.getLogger("agent")
 
 load_dotenv(".env.local")
 
-# Load tutor content
-def load_tutor_content():
-    """Load concepts from the JSON file"""
-    content_file = Path("shared-data/day4_tutor_content.json")
+# Load company FAQ data
+FAQ_FILE = Path("shared-data/day5_razorpay_faq.json")
+LEADS_DIR = Path("shared-data/leads")
+LEADS_DIR.mkdir(exist_ok=True)
+
+def load_company_data():
+    """Load company info, FAQs, and pricing from JSON file"""
     try:
-        with open(content_file, "r") as f:
+        with open(FAQ_FILE, "r") as f:
             return json.load(f)
     except Exception as e:
-        logger.error(f"Error loading tutor content: {e}")
-        return []
+        logger.error(f"Error loading company data: {e}")
+        return {"company_info": {}, "products": [], "pricing": {}, "faqs": []}
 
-CONCEPTS = load_tutor_content()
+COMPANY_DATA = load_company_data()
 
-# Session state
-session_state = {
-    "current_concept_id": None
-}
+# Lead tracking
+class LeadTracker:
+    """Track and manage lead information"""
+    
+    def __init__(self):
+        self.data = {
+            "name": None,
+            "company": None,
+            "email": None,
+            "role": None,
+            "use_case": None,
+            "team_size": None,
+            "timeline": None,
+            "timestamp": datetime.now().isoformat(),
+            "questions_asked": []
+        }
+    
+    def update_field(self, field: str, value: str):
+        """Update a lead field"""
+        if field in self.data:
+            self.data[field] = value
+            logger.info(f"Updated lead field {field}: {value}")
+    
+    def add_question(self, question: str):
+        """Track questions asked during the conversation"""
+        if question not in self.data["questions_asked"]:
+            self.data["questions_asked"].append(question)
+    
+    def get_missing_fields(self):
+        """Return list of fields that haven't been collected"""
+        return [k for k, v in self.data.items() 
+                if k not in ["timestamp", "questions_asked"] and v is None]
+    
+    def is_complete(self):
+        """Check if all required fields are collected"""
+        return len(self.get_missing_fields()) == 0
+    
+    def save_to_file(self):
+        """Save lead data to JSON file"""
+        name = self.data.get("name", "unknown").replace(" ", "_").lower()
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        filename = LEADS_DIR / f"lead_{name}_{timestamp}.json"
+        
+        try:
+            with open(filename, "w") as f:
+                json.dump(self.data, f, indent=2)
+            logger.info(f"Lead saved to {filename}")
+            return str(filename)
+        except Exception as e:
+            logger.error(f"Error saving lead: {e}")
+            return None
 
 
 
-class GreeterAgent(Agent):
-    """Initial agent that greets and routes to learning mode agents"""
+class SDRAgent(Agent):
+    """Sales Development Representative for Razorpay - answers FAQs and captures leads"""
     
     def __init__(self) -> None:
-        concept_list = "\n".join([f"- {c['title']}" for c in CONCEPTS])
+        company_name = COMPANY_DATA.get("company_info", {}).get("name", "our company")
+        company_tagline = COMPANY_DATA.get("company_info", {}).get("tagline", "")
+        
+        products_list = "\n".join([f"- {p['name']}: {p['description']}" for p in COMPANY_DATA.get("products", [])])
         
         super().__init__(
-            instructions=f"""You are a friendly Active Recall Coach greeter. Your job is to:
+            instructions=f"""You are a warm and helpful Sales Development Representative for {company_name} - {company_tagline}.
 
-1. Greet warmly: "Hi! I'm your Active Recall Coach. I help you learn programming concepts effectively through active recall."
+Your role:
+1. GREET warmly and introduce yourself as an SDR from {company_name}
+2. ASK what brought them here and what they're working on
+3. UNDERSTAND their needs and business context
+4. ANSWER questions about our products, pricing, and features using the search_faq tool
+5. NATURALLY COLLECT lead information during the conversation:
+   - Name
+   - Company name
+   - Email address
+   - Role/job title
+   - Use case (what they want to build/solve)
+   - Team size
+   - Timeline (when they're looking to implement)
+6. DETECT when they're done (phrases like "That's all", "I'm done", "Thanks, goodbye")
+7. SUMMARIZE the conversation and collected information before ending
 
-2. Explain the THREE learning modes:
-   - LEARN mode: I'll explain concepts to you clearly
-   - QUIZ mode: I'll ask you questions to test your knowledge
-   - TEACH_BACK mode: You teach concepts back to me and I give feedback
+Our products:
+{products_list}
 
-3. Ask which mode they'd like to start with
+CRITICAL GUIDELINES FOR ANSWERING QUESTIONS:
+- ALWAYS use search_faq tool for ANY product, pricing, feature, or company questions
+- The search_faq tool is smart - it will find relevant answers even if the query doesn't match exactly
+- Pass the user's question directly to search_faq - don't try to answer from memory
+- After getting results from search_faq, read the answer naturally and conversationally
+- If the user asks follow-up questions, use search_faq again with the follow-up query
+- NEVER say "I cannot fetch" or "I don't have information" without calling search_faq first
 
-4. Once they choose, use the appropriate handoff tool to connect them to that mode's agent
+LEAD COLLECTION TIPS:
+- Be conversational and natural - don't make it feel like a form
+- Use the update_lead_* tools to save information as you learn it
+- Weave lead questions into the natural flow of conversation
+- Focus on understanding their needs first, then suggesting solutions
 
-Available concepts: {concept_list}
+END-OF-CALL HANDLING:
+- When you detect they're done (goodbye phrases), use end_call tool to summarize
+- The summary should be warm, concise, and confirm what you learned
 
-Keep it brief and friendly. Once they choose a mode, immediately use the handoff tool!
+Be helpful, professional, and consultative!
 """,
-        )
-    
-    @function_tool
-    async def handoff_to_learn(self, context: RunContext):
-        """Transfer to Learn mode with Matthew voice"""
-        logger.info("Handing off to Learn mode (Matthew)")
-        return LearnAgent(chat_ctx=self.chat_ctx)
-    
-    @function_tool
-    async def handoff_to_quiz(self, context: RunContext):
-        """Transfer to Quiz mode with Alicia voice"""
-        logger.info("Handing off to Quiz mode (Alicia)")
-        return QuizAgent(chat_ctx=self.chat_ctx)
-    
-    @function_tool
-    async def handoff_to_teach_back(self, context: RunContext):
-        """Transfer to Teach Back mode with Ken voice"""
-        logger.info("Handing off to Teach Back mode (Ken)")
-        return TeachBackAgent(chat_ctx=self.chat_ctx)
-
-
-class LearnAgent(Agent):
-    """Learn mode agent - explains concepts (Matthew voice)"""
-    
-    def __init__(self, chat_ctx=None) -> None:
-        concept_list = "\n".join([f"- {c['title']} ({c['id']})" for c in CONCEPTS])
-        
-        super().__init__(
-            instructions=f"""You are in LEARN mode. You're a patient teacher who explains programming concepts clearly.
-
-Available concepts:
-{concept_list}
-
-Your process:
-1. Ask which concept they'd like to learn about
-2. Use explain_concept tool to get the explanation
-3. Read the explanation from the tool EXACTLY as provided - do NOT add extra information beyond what the tool returns
-4. After explaining, ask if they want to learn another concept or switch modes
-5. If switching modes, use the appropriate handoff tool
-
-IMPORTANT: Only explain what is provided in the tool's response. Do not elaborate or add your own explanations.
-
-Be friendly and clear. You're Matthew, the teacher!
-""",
-            chat_ctx=chat_ctx,
             tts=murf.TTS(
-                voice="en-US-matthew", 
+                voice="en-IN-priya",
                 style="Conversation",
                 tokenizer=tokenize.basic.SentenceTokenizer(min_sentence_len=8)
             )
         )
+        self.lead_tracker = LeadTracker()
     
     async def on_enter(self) -> None:
-        """Called when entering Learn mode"""
+        """Called when agent starts"""
+        company_name = COMPANY_DATA.get("company_info", {}).get("name", "our company")
         await self.session.generate_reply(
-            instructions="Welcome to Learn mode! I'm Matthew, your teacher. Which concept would you like to learn about?"
+            instructions=f"Greet the visitor warmly. Introduce yourself as an SDR from {company_name}. Ask what brought them here today and what they're working on."
         )
     
     @function_tool
-    async def explain_concept(self, context: RunContext, concept_id: str):
-        """Get the explanation for a concept (LEARN mode)
+    async def search_faq(self, context: RunContext, query: str):
+        """Search FAQs for relevant information about products, pricing, or features
         
         Args:
-            concept_id: The ID of the concept to explain (e.g., 'variables', 'loops', 'functions')
+            query: The question or topic to search for (e.g., "pricing", "payment gateway", "settlement time")
         """
-        global session_state
-        concept = next((c for c in CONCEPTS if c["id"] == concept_id), None)
-        if concept:
-            session_state["current_concept_id"] = concept_id
-            session_state["current_mode"] = "learn"
-            return f"Concept: {concept['title']}\n\nExplanation: {concept['summary']}"
-        return "I don't have information about that concept. Available concepts are: " + ", ".join([c['id'] for c in CONCEPTS])
-    
-    @function_tool
-    async def handoff_to_quiz(self, context: RunContext):
-        """Switch to Quiz mode"""
-        logger.info("Handing off from Learn to Quiz mode")
-        return QuizAgent(chat_ctx=self.chat_ctx)
-    
-    @function_tool
-    async def handoff_to_teach_back(self, context: RunContext):
-        """Switch to Teach Back mode"""
-        logger.info("Handing off from Learn to Teach Back mode")
-        return TeachBackAgent(chat_ctx=self.chat_ctx)
-
-
-class QuizAgent(Agent):
-    """Quiz mode agent - asks questions (Alicia voice)"""
-    
-    def __init__(self, chat_ctx=None) -> None:
-        concept_list = "\n".join([f"- {c['title']} ({c['id']})" for c in CONCEPTS])
+        query_lower = query.lower()
+        faqs = COMPANY_DATA.get("faqs", [])
         
-        super().__init__(
-            instructions=f"""You are in QUIZ mode. You're an engaging quiz master who tests knowledge with encouragement.
+        # Extract keywords from query (split and clean)
+        query_words = set(word.strip("?,.:;!") for word in query_lower.split() if len(word) > 3)
+        
+        # Score-based search - find most relevant FAQs
+        scored_matches = []
+        for faq in faqs:
+            question = faq.get("question", "").lower()
+            answer = faq.get("answer", "").lower()
+            category = faq.get("category", "")
+            
+            score = 0
+            # Exact phrase match gets highest score
+            if query_lower in question:
+                score += 10
+            if query_lower in answer:
+                score += 5
+            
+            # Word-based matching
+            question_words = set(question.split())
+            answer_words = set(answer.split())
+            
+            for word in query_words:
+                if word in question_words:
+                    score += 3
+                if word in answer_words:
+                    score += 1
+            
+            if score > 0:
+                scored_matches.append({
+                    "question": faq.get("question"),
+                    "answer": faq.get("answer"),
+                    "category": category,
+                    "score": score
+                })
+        
+        # Sort by score (highest first)
+        scored_matches.sort(key=lambda x: x["score"], reverse=True)
+        
+        # Track the question
+        self.lead_tracker.add_question(query)
+        
+        if scored_matches:
+            # Return top 3 most relevant matches
+            top_matches = scored_matches[:3]
+            result = f"Here's what I found:\n\n"
+            for i, match in enumerate(top_matches, 1):
+                result += f"{i}. Q: {match['question']}\n   A: {match['answer']}\n\n"
+            return result
+        
+        # If no FAQ matches, search in products and pricing
+        products = COMPANY_DATA.get("products", [])
+        for product in products:
+            product_name = product.get("name", "").lower()
+            product_desc = product.get("description", "").lower()
+            
+            # Check if any query word matches product
+            if any(word in product_name or word in product_desc for word in query_words):
+                features = product.get("features", [])
+                feature_text = "\nKey Features:\n" + "\n".join(f"- {f}" for f in features) if features else ""
+                return f"About {product.get('name')}:\n{product.get('description')}{feature_text}"
+        
+        # Search in pricing if query contains price-related keywords
+        price_keywords = {"price", "pricing", "cost", "fee", "charge", "rate", "payment"}
+        if any(keyword in query_lower for keyword in price_keywords):
+            pricing = COMPANY_DATA.get("pricing", {})
+            gateway_pricing = pricing.get("payment_gateway", {})
+            if gateway_pricing:
+                return f"""Here's our pricing information:
 
-Available concepts:
-{concept_list}
+Payment Gateway:
+- Domestic cards: {gateway_pricing.get('domestic_cards', 'N/A')}
+- International cards: {gateway_pricing.get('international_cards', 'N/A')}
+- UPI: {gateway_pricing.get('upi', 'N/A')}
+- Netbanking: {gateway_pricing.get('netbanking', 'N/A')}
+- Wallets: {gateway_pricing.get('wallets', 'N/A')}
 
-Your process:
-1. Ask which concept they'd like to be quizzed on
-2. Use get_quiz_question tool to get a question
-3. Ask the question and listen to their answer
-4. Give encouraging, constructive feedback on their answer
-5. Ask if they want another question or to switch modes
-6. If switching modes, use the appropriate handoff tool
+No setup fee or annual fee!
 
-Be positive and encouraging. You're Alicia, the quiz master!
-""",
-            chat_ctx=chat_ctx,
-            tts=murf.TTS(
-                voice="en-US-alicia", 
-                style="Conversation",
-                tokenizer=tokenize.basic.SentenceTokenizer(min_sentence_len=8)
-            )
-        )
-    
-    async def on_enter(self) -> None:
-        """Called when entering Quiz mode"""
-        await self.session.generate_reply(
-            instructions="Welcome to Quiz mode! I'm Alicia, your quiz master. Which concept would you like to be quizzed on?"
-        )
+Payment Links and Pages follow the same pricing as the gateway."""
+        
+        # Last resort - return general company info
+        company_info = COMPANY_DATA.get("company_info", {})
+        return f"""I'd be happy to help! Let me tell you about {company_info.get('name', 'us')}:
+
+{company_info.get('description', '')}
+
+We serve: {company_info.get('target_customers', 'businesses across India')}
+
+Feel free to ask me about:
+- Our products (Payment Gateway, Payment Links, Subscriptions, etc.)
+- Pricing and fees
+- Technical integration
+- Settlements and payouts
+- Security and compliance
+
+What would you like to know more about?"""
     
     @function_tool
-    async def get_quiz_question(self, context: RunContext, concept_id: str):
-        """Get a quiz question for a concept
+    async def update_lead_name(self, context: RunContext, name: str):
+        """Save the lead's name
         
         Args:
-            concept_id: The ID of the concept to quiz on (e.g., 'variables', 'loops')
+            name: The person's full name
         """
-        global session_state
-        concept = next((c for c in CONCEPTS if c["id"] == concept_id), None)
-        if concept:
-            session_state["current_concept_id"] = concept_id
-            return f"Quiz question for {concept['title']}: {concept['sample_question']}"
-        return "I don't have a quiz for that concept. Available concepts are: " + ", ".join([c['id'] for c in CONCEPTS])
+        self.lead_tracker.update_field("name", name)
+        return f"Got it, {name}! Nice to meet you."
     
     @function_tool
-    async def handoff_to_learn(self, context: RunContext):
-        """Switch to Learn mode"""
-        logger.info("Handing off from Quiz to Learn mode")
-        return LearnAgent(chat_ctx=self.chat_ctx)
-    
-    @function_tool
-    async def handoff_to_teach_back(self, context: RunContext):
-        """Switch to Teach Back mode"""
-        logger.info("Handing off from Quiz to Teach Back mode")
-        return TeachBackAgent(chat_ctx=self.chat_ctx)
-
-
-class TeachBackAgent(Agent):
-    """Teach Back mode agent - user teaches, agent evaluates (Ken voice)"""
-    
-    def __init__(self, chat_ctx=None) -> None:
-        concept_list = "\n".join([f"- {c['title']} ({c['id']})" for c in CONCEPTS])
-        
-        super().__init__(
-            instructions=f"""You are in TEACH_BACK mode. You're a supportive coach who learns from the user.
-
-Available concepts:
-{concept_list}
-
-Your process:
-1. Ask which concept they'd like to teach you
-2. Use get_teach_back_prompt tool to prompt them
-3. Listen carefully to their explanation
-4. Use evaluate_explanation tool to assess it
-5. Give encouraging feedback based on the evaluation
-6. Ask if they want to teach another concept or switch modes
-7. If switching modes, use the appropriate handoff tool
-
-Be supportive and encouraging. You're Ken, the learning coach!
-Remember: Teaching is the best way to learn!
-""",
-            chat_ctx=chat_ctx,
-            tts=murf.TTS(
-                voice="en-US-ken", 
-                style="Conversation",
-                tokenizer=tokenize.basic.SentenceTokenizer(min_sentence_len=8)
-            )
-        )
-    
-    async def on_enter(self) -> None:
-        """Called when entering Teach Back mode"""
-        await self.session.generate_reply(
-            instructions="Welcome to Teach Back mode! I'm Ken, your learning coach. Which concept would you like to teach me about?"
-        )
-    
-    @function_tool
-    async def get_teach_back_prompt(self, context: RunContext, concept_id: str):
-        """Get the prompt for teaching back a concept
+    async def update_lead_company(self, context: RunContext, company: str):
+        """Save the lead's company name
         
         Args:
-            concept_id: The ID of the concept they'll teach (e.g., 'variables', 'loops')
+            company: The company name
         """
-        global session_state
-        concept = next((c for c in CONCEPTS if c["id"] == concept_id), None)
-        if concept:
-            session_state["current_concept_id"] = concept_id
-            return f"Great! Please teach me about {concept['title']}. Explain it as if I'm a complete beginner. I'm listening!"
-        return "I don't have that concept. Available concepts are: " + ", ".join([c['id'] for c in CONCEPTS])
+        self.lead_tracker.update_field("company", company)
+        return f"Great, noted that you're with {company}."
     
     @function_tool
-    async def evaluate_explanation(
-        self, 
-        context: RunContext, 
-        concept_id: str,
-        user_explanation: str
-    ):
-        """Evaluate the user's explanation and provide feedback
+    async def update_lead_email(self, context: RunContext, email: str):
+        """Save the lead's email address
         
         Args:
-            concept_id: The concept they explained
-            user_explanation: What the user said
+            email: Email address
         """
-        concept = next((c for c in CONCEPTS if c["id"] == concept_id), None)
-        if not concept:
-            return "I couldn't find that concept to evaluate."
-        
-        # Simple keyword-based evaluation
-        explanation = user_explanation.lower()
-        
-        key_terms = {
-            "variables": ["store", "value", "name", "reuse"],
-            "loops": ["repeat", "for", "while", "multiple"],
-            "functions": ["reusable", "block", "code", "task", "call"],
-            "conditionals": ["if", "condition", "decision", "true", "false"],
-            "data_types": ["integer", "string", "float", "boolean", "type"]
-        }
-        
-        terms = key_terms.get(concept_id, [])
-        matches = sum(1 for term in terms if term in explanation)
-        coverage = matches / len(terms) if terms else 0.5
-        
-        # Generate qualitative feedback
-        if coverage >= 0.75:
-            assessment = "Excellent"
-            feedback = "You covered the key concepts really well! Your explanation was clear and comprehensive."
-        elif coverage >= 0.5:
-            assessment = "Good"
-            feedback = "You got the main ideas! You could strengthen your explanation by mentioning a few more details."
-        else:
-            assessment = "Needs improvement"
-            feedback = "You're on the right track, but try to include more of the core concepts. Would you like to switch to Learn mode first?"
-        
-        return f"Assessment: {assessment}\n\nFeedback: {feedback}\n\nKeep teaching - you're learning by doing!"
+        self.lead_tracker.update_field("email", email)
+        return f"Perfect, I've got {email} on file."
     
     @function_tool
-    async def handoff_to_learn(self, context: RunContext):
-        """Switch to Learn mode"""
-        logger.info("Handing off from Teach Back to Learn mode")
-        return LearnAgent(chat_ctx=self.chat_ctx)
+    async def update_lead_role(self, context: RunContext, role: str):
+        """Save the lead's job title/role
+        
+        Args:
+            role: Job title or role
+        """
+        self.lead_tracker.update_field("role", role)
+        return f"Understood, you're a {role}."
     
     @function_tool
-    async def handoff_to_quiz(self, context: RunContext):
-        """Switch to Quiz mode"""
-        logger.info("Handing off from Teach Back to Quiz mode")
-        return QuizAgent(chat_ctx=self.chat_ctx)
+    async def update_lead_use_case(self, context: RunContext, use_case: str):
+        """Save what the lead wants to build or solve
+        
+        Args:
+            use_case: Description of their use case or problem
+        """
+        self.lead_tracker.update_field("use_case", use_case)
+        return f"Got it, you want to {use_case}. That makes sense."
+    
+    @function_tool
+    async def update_lead_team_size(self, context: RunContext, team_size: str):
+        """Save the team size
+        
+        Args:
+            team_size: Number of people on the team (e.g., "5-10", "just me", "50+")
+        """
+        self.lead_tracker.update_field("team_size", team_size)
+        return f"Noted, team size is {team_size}."
+    
+    @function_tool
+    async def update_lead_timeline(self, context: RunContext, timeline: str):
+        """Save when they're looking to implement
+        
+        Args:
+            timeline: Implementation timeline (e.g., "next month", "Q2", "ASAP")
+        """
+        self.lead_tracker.update_field("timeline", timeline)
+        return f"Perfect, looking at {timeline} for implementation."
+    
+    @function_tool
+    async def end_call(self, context: RunContext):
+        """End the call and provide a summary - use when customer says goodbye or indicates they're done
+        
+        No arguments needed - just call when the conversation is wrapping up
+        """
+        # Save the lead data
+        filename = self.lead_tracker.save_to_file()
+        
+        # Generate summary
+        lead = self.lead_tracker.data
+        name = lead.get("name", "there")
+        company = lead.get("company", "your company")
+        use_case = lead.get("use_case", "your needs")
+        timeline = lead.get("timeline", "soon")
+        
+        summary = f"""Thank you for your time, {name}! Let me quickly summarize:
+
+- You're with {company}
+- Looking to {use_case}
+- Timeline: {timeline}
+
+I've captured all your information and our team will reach out to {lead.get('email', 'you')} shortly to help you get started. 
+
+Feel free to reach out anytime if you have more questions. Have a great day!"""
+        
+        logger.info(f"Call ended. Lead saved to: {filename}")
+        return summary
 
 
 
@@ -367,9 +408,9 @@ async def entrypoint(ctx: JobContext):
     
     ctx.add_shutdown_callback(log_usage)
     
-    # Start with greeter agent
+    # Start with SDR agent
     await session.start(
-        agent=GreeterAgent(),
+        agent=SDRAgent(),
         room=ctx.room,
         room_input_options=RoomInputOptions(
             noise_cancellation=noise_cancellation.BVC(),

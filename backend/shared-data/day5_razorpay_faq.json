@@ -1,0 +1,137 @@
+{
+  "company_info": {
+    "name": "Razorpay",
+    "tagline": "India's Leading Payment Gateway",
+    "description": "Razorpay is a full-stack financial solutions company that enables businesses to accept, process, and disburse payments with its product suite. We provide payment gateway, payment links, payment pages, subscriptions, smart collect, and banking solutions.",
+    "founded": "2014",
+    "headquarters": "Bangalore, India",
+    "target_customers": "Startups, SMEs, Large Enterprises, E-commerce businesses, SaaS companies, Educational institutions"
+  },
+  "products": [
+    {
+      "name": "Payment Gateway",
+      "description": "Accept online payments via 100+ payment modes including cards, UPI, netbanking, wallets. Single API integration with automatic settlements.",
+      "use_cases": ["E-commerce websites", "Online marketplaces", "SaaS platforms", "Educational portals"]
+    },
+    {
+      "name": "Payment Links",
+      "description": "Create and share payment links instantly without website or app. No coding required. Share via SMS, email, WhatsApp.",
+      "use_cases": ["Quick invoicing", "Remote collections", "Social media sales", "No-code payments"]
+    },
+    {
+      "name": "Payment Pages",
+      "description": "Build customizable checkout pages without coding. Mobile-optimized, brandable payment pages.",
+      "use_cases": ["Course registrations", "Event tickets", "Donations", "Product sales"]
+    },
+    {
+      "name": "Subscriptions",
+      "description": "Automate recurring payments with smart retry logic. Support for trial periods, proration, addons.",
+      "use_cases": ["SaaS billing", "Membership subscriptions", "OTT platforms", "Digital services"]
+    },
+    {
+      "name": "Razorpay X (Banking)",
+      "description": "Complete business banking solution with current accounts, payroll, vendor payments, corporate cards.",
+      "use_cases": ["Payroll management", "Vendor payments", "Expense management", "Business banking"]
+    }
+  ],
+  "pricing": {
+    "payment_gateway": {
+      "domestic_cards": "2% per transaction",
+      "international_cards": "3% per transaction",
+      "upi": "Free for first 10,000 transactions, then 0.7%",
+      "netbanking": "₹3 to ₹10 per transaction",
+      "wallets": "2% per transaction",
+      "no_setup_fee": true,
+      "no_annual_fee": true
+    },
+    "payment_links": {
+      "pricing": "Same as payment gateway pricing",
+      "free_to_create": true
+    },
+    "subscriptions": {
+      "pricing": "Same as payment gateway + ₹2 per invoice"
+    },
+    "razorpay_x": {
+      "current_account": "₹999/month (waived with ₹25L average monthly balance)",
+      "payouts": "₹2 to ₹5 per payout",
+      "bulk_payouts": "Discounted rates available"
+    }
+  },
+  "faqs": [
+    {
+      "question": "What does Razorpay do?",
+      "answer": "Razorpay is India's leading payment gateway that helps businesses accept online payments through 100+ payment modes including credit cards, debit cards, UPI, netbanking, and wallets. We also offer banking solutions, subscriptions, and payment links.",
+      "category": "general"
+    },
+    {
+      "question": "Who is Razorpay for?",
+      "answer": "Razorpay is perfect for startups, SMEs, large enterprises, e-commerce businesses, SaaS companies, educational institutions, and anyone who needs to accept online payments in India. From freelancers to Fortune 500 companies, we serve all business sizes.",
+      "category": "general"
+    },
+    {
+      "question": "Do you have a free tier or trial?",
+      "answer": "Yes! There's no setup fee, no annual maintenance fee, and UPI transactions are free for the first 10,000 transactions. You only pay per successful transaction. You can sign up and start testing immediately in test mode for free.",
+      "category": "pricing"
+    },
+    {
+      "question": "What are the transaction charges?",
+      "answer": "Domestic cards cost 2% per transaction, international cards 3%, UPI is free for first 10,000 transactions then 0.7%, netbanking costs ₹3 to ₹10 per transaction, and wallets are 2%. No setup or annual fees.",
+      "category": "pricing"
+    },
+    {
+      "question": "How long does integration take?",
+      "answer": "Integration is very quick! With our standard API, most developers complete integration in 2-3 hours. For no-code solutions like Payment Links and Payment Pages, you can start accepting payments in under 10 minutes.",
+      "category": "technical"
+    },
+    {
+      "question": "What payment modes do you support?",
+      "answer": "We support 100+ payment modes including all major credit and debit cards (Visa, Mastercard, RuPay), UPI (Google Pay, PhonePe, Paytm), 50+ netbanking options, popular wallets like Paytm, PhonePe, and even EMI options.",
+      "category": "features"
+    },
+    {
+      "question": "When do I get my money?",
+      "answer": "Settlements are automatic and typically happen within 2-3 business days (T+2 or T+3). For verified businesses with good transaction history, we offer instant settlements where you can withdraw funds within minutes.",
+      "category": "settlements"
+    },
+    {
+      "question": "Is Razorpay secure?",
+      "answer": "Absolutely! We are PCI-DSS Level 1 compliant, the highest security certification in payments. All transactions are encrypted, and we never store sensitive card data. We also have fraud detection systems and 3D Secure authentication.",
+      "category": "security"
+    },
+    {
+      "question": "Can I use Razorpay without a website?",
+      "answer": "Yes! You can use Payment Links to accept payments via SMS, email, WhatsApp, or social media without any website or app. Payment Pages let you create mobile-optimized checkout pages without coding.",
+      "category": "features"
+    },
+    {
+      "question": "Do you support recurring payments?",
+      "answer": "Yes, our Subscriptions product handles all recurring billing needs. It supports trial periods, automatic retries for failed payments, proration, plan changes, and addons. Perfect for SaaS, memberships, and subscription businesses.",
+      "category": "features"
+    },
+    {
+      "question": "What is Razorpay X?",
+      "answer": "Razorpay X is our business banking platform. It includes current accounts, bulk payroll and vendor payments, corporate cards, automated accounting, and cash flow management. It's designed to help businesses manage their money better.",
+      "category": "products"
+    },
+    {
+      "question": "Do you provide developer support?",
+      "answer": "Yes! We have comprehensive documentation, SDKs in multiple languages (Python, PHP, Node.js, Java, .NET), sample code, and a dedicated developer support team available via email and chat.",
+      "category": "support"
+    },
+    {
+      "question": "What's the minimum team size to use Razorpay?",
+      "answer": "There's no minimum! We serve everyone from solo freelancers and individual sellers to large enterprises with thousands of employees. Our solutions scale with your business.",
+      "category": "general"
+    },
+    {
+      "question": "Can I get a demo?",
+      "answer": "Absolutely! We'd be happy to schedule a personalized demo to show you how Razorpay can work for your specific use case. Our team can walk you through the dashboard, integration process, and answer all your questions.",
+      "category": "sales"
+    },
+    {
+      "question": "Do you support international payments?",
+      "answer": "Yes, we support international card payments from 150+ countries. International transactions are charged at 3% per transaction. We handle multi-currency settlements in USD, EUR, GBP and convert to INR.",
+      "category": "features"
+    }
+  ]
+}
