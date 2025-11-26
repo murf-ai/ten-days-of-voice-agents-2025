@@ -1,0 +1,34 @@
+{
+  "company": "Lenskart",
+  "overview": "Lenskart is India's leading eyewear brand offering eyeglasses, sunglasses, contact lenses, and home eye check-ups.",
+  "faq": [
+    {
+      "q": "What products do you offer?",
+      "a": "We offer prescription eyeglasses, sunglasses, contact lenses, powered sunglasses, and accessories. We also provide home eye check-ups."
+    },
+    {
+      "q": "Do you offer a free eye test?",
+      "a": "Yes! Lenskart provides a free home eye test in multiple cities with certified optometrists."
+    },
+    {
+      "q": "What is your pricing?",
+      "a": "Eyeglasses start from ₹499, premium collections from ₹1500+, sunglasses from ₹599, and contact lenses from ₹199 onwards."
+    },
+    {
+      "q": "Do you have a return or exchange policy?",
+      "a": "Yes, Lenskart offers a 14-day no-questions-asked return or exchange policy on most products."
+    },
+    {
+      "q": "How fast is delivery?",
+      "a": "Standard eyeglasses are delivered within 3-7 days. Contact lenses and ready stock items ship faster."
+    },
+    {
+      "q": "Do you have a free trial?",
+      "a": "Yes! You can use the 3D Try-On on the app or website. Some frames also support Home Try-On."
+    },
+    {
+      "q": "Who is Lenskart for?",
+      "a": "Anyone who wants stylish, durable eyewear — students, professionals, seniors, or kids."
+    }
+  ]
+}
