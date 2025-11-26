@@ -1,0 +1,60 @@
+[
+  {
+    "id": "what_is_razorpay",
+    "question": "What is Razorpay?",
+    "answer": "Razorpay is a full-stack financial solutions company that enables businesses in India to accept, process and disburse payments across multiple modes including cards, UPI, netbanking and wallets.",
+    "keywords": [
+      "what is razorpay",
+      "razorpay",
+      "what do you do",
+      "payments"
+    ]
+  },
+  {
+    "id": "pricing_basic",
+    "question": "How much does Razorpay charge?",
+    "answer": "Razorpay publishes simple and transparent pricing. Platform fees typically start around 2% per transaction (GST extra). Enterprise/custom pricing is available for high volume merchants.",
+    "keywords": [
+      "price",
+      "pricing",
+      "charges",
+      "fee",
+      "cost"
+    ]
+  },
+  {
+    "id": "products_overview",
+    "question": "Which products does Razorpay offer?",
+    "answer": "Razorpay's product suite includes Payment Gateway, Payment Links, Payment Pages, Subscriptions, Invoices, RazorpayX payouts and corporate cards, and lending/Capital offerings.",
+    "keywords": [
+      "products",
+      "offer",
+      "payment gateway",
+      "subscriptions",
+      "invoices",
+      "razorpayx"
+    ]
+  },
+  {
+    "id": "sandbox",
+    "question": "Can I test integrations?",
+    "answer": "Yes \u2014 Razorpay provides a sandbox environment with test API keys so you can test integrations before going live.",
+    "keywords": [
+      "sandbox",
+      "test",
+      "test mode",
+      "integration"
+    ]
+  },
+  {
+    "id": "free_tier",
+    "question": "Do you have a free tier?",
+    "answer": "Razorpay does not charge setup or maintenance fees for many of its core products; pricing is typically transaction-based. For exact details, consult the pricing page or contact sales for Enterprise plans.",
+    "keywords": [
+      "free",
+      "free tier",
+      "trial",
+      "no setup fee"
+    ]
+  }
+]
