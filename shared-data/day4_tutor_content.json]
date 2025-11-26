@@ -1,0 +1,16 @@
+[
+  {
+    "id": "variables",
+    "title": "Variables",
+    "summary": "Variables are named storage locations that hold values. They are essential because they allow you to store data, reuse that data throughout your program, and make your code more readable and flexible. In programming, a variable often has a specific data type, like an integer, a string, or a boolean.",
+    "sample_question": "What is a variable and why is it useful in programming?",
+    "sample_teach_back_prompt": "Okay, please explain the concept of variables back to me. How would you describe a variable to a beginner, and what are the main types?"
+  },
+  {
+    "id": "loops",
+    "title": "Loops",
+    "summary": "Loops are control flow statements that allow code to be executed repeatedly based on a given boolean condition. The two main types are 'for' loops, which iterate over a sequence (like a list or range) a fixed number of times, and 'while' loops, which repeat as long as a condition remains true. They are critical for automating repetitive tasks.",
+    "sample_question": "Explain the difference between a for loop and a while loop.",
+    "sample_teach_back_prompt": "Now, it's your turn to teach me. Explain the concept of loops, making sure to highlight the difference between 'for' and 'while' loops."
+  }
+]
