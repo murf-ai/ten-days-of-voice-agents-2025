@@ -1,0 +1,31 @@
+[
+    {
+        "timestamp": "2025-11-24T17:34:57.247574",
+        "mood": "Happy",
+        "energy": "High",
+        "objectives": [
+            "Finish report",
+            "Go for a twenty minute walk"
+        ],
+        "summary": "Break the report into smaller sections and enjoy the twenty-minute walk, leveraging your high energy."
+    },
+    {
+        "timestamp": "2025-11-24T17:35:07.324113",
+        "mood": "Happy",
+        "energy": "High",
+        "objectives": [
+            "Finish report",
+            "Go for a twenty minute walk"
+        ],
+        "summary": "We discussed using your high energy to finish your report by breaking it into smaller parts, and enjoying your twenty-minute walk."
+    },
+    {
+        "timestamp": "2025-11-24T17:46:05.285347",
+        "mood": "calm",
+        "energy": "moderate",
+        "objectives": [
+            "reply to two emails"
+        ],
+        "summary": "Break down the goal of replying to two emails into two smaller steps."
+    }
+]
