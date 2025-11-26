@@ -1,0 +1,11 @@
+{
+    "drinkType": "coffee",
+    "size": "small",
+    "milk": "coconut",
+    "extras": [
+        "vanilla"
+    ],
+    "name": "H Patel",
+    "timestamp": "2025-11-23T16:53:19.836047",
+    "session_id": "session_20251123_165319"
+}
