@@ -1,6 +1,8 @@
 import logging
 import json
 from pathlib import Path
+from datetime import datetime
+from typing import Optional
 
 from dotenv import load_dotenv
 from livekit.agents import (
@@ -23,71 +25,153 @@ from livekit.plugins.turn_detector.multilingual import MultilingualModel
 logger = logging.getLogger("agent")
 load_dotenv(".env.local")
 
-# ------------ Content Management ------------
+# ------------ Company FAQ & Content Management ------------
 
-CONTENT_FILE = Path(__file__).parent.parent / "shared-data" / "day4_tutor_content.json"
+FAQ_FILE = Path(__file__).parent.parent / "shared-data" / "day5_company_faq.json"
+LEADS_FILE = Path(__file__).parent.parent / "leads_captured.json"
 
-class TutorContent:
+class CompanyKnowledgeBase:
     def __init__(self):
-        self.concepts = self._load_content()
+        self.data = self._load_faq()
+        self.company_name = self.data.get("company", {}).get("name", "our company")
     
-    def _load_content(self):
-        """Load tutor content from JSON file"""
-        if not CONTENT_FILE.exists():
-            logger.error(f"Content file not found: {CONTENT_FILE}")
-            # Create directory if it doesn't exist
-            CONTENT_FILE.parent.mkdir(parents=True, exist_ok=True)
-            # Create default content
-            default_content = [
-                {
-                    "id": "variables",
-                    "title": "Variables",
-                    "summary": "Variables are like containers that store information in programming. You give them a name and store data in them.",
-                    "sample_question": "What is a variable and why is it useful?"
+    def _load_faq(self):
+        """Load company FAQ and content from JSON file"""
+        if not FAQ_FILE.exists():
+            logger.error(f"FAQ file not found: {FAQ_FILE}")
+            FAQ_FILE.parent.mkdir(parents=True, exist_ok=True)
+            # Create minimal default
+            default_data = {
+                "company": {
+                    "name": "Razorpay",
+                    "tagline": "India's Leading Payment Gateway",
+                    "description": "Payment solutions for businesses"
                 },
-                {
-                    "id": "loops",
-                    "title": "Loops",
-                    "summary": "Loops let you repeat actions multiple times. For loops run a specific number of times, while loops run until a condition is false.",
-                    "sample_question": "Explain the difference between a for loop and a while loop."
-                }
-            ]
-            with open(CONTENT_FILE, "w") as f:
-                json.dump(default_content, f, indent=2)
-            return default_content
+                "faqs": [
+                    {
+                        "question": "What does Razorpay do?",
+                        "answer": "Razorpay helps businesses accept online payments easily."
+                    }
+                ]
+            }
+            with open(FAQ_FILE, "w") as f:
+                json.dump(default_data, f, indent=2)
+            return default_data
         
         try:
-            with open(CONTENT_FILE, "r") as f:
+            with open(FAQ_FILE, "r") as f:
                 return json.load(f)
         except json.JSONDecodeError as e:
-            logger.error(f"Error parsing content file: {e}")
-            return []
+            logger.error(f"Error parsing FAQ file: {e}")
+            return {"company": {}, "faqs": []}
     
-    def get_concept(self, concept_id: str):
-        """Get a specific concept by ID"""
-        for concept in self.concepts:
-            if concept["id"] == concept_id:
-                return concept
+    def search_faq(self, query: str) -> Optional[dict]:
+        """Simple keyword-based FAQ search"""
+        query_lower = query.lower()
+        
+        # Search through FAQs
+        for faq in self.data.get("faqs", []):
+            question = faq.get("question", "").lower()
+            answer = faq.get("answer", "").lower()
+            
+            # Check if query keywords match question or answer
+            if any(word in question for word in query_lower.split()) or \
+               any(word in query_lower for word in question.split()):
+                return faq
+        
         return None
     
-    def get_all_concepts(self):
-        """Get list of all available concepts"""
-        return [{"id": c["id"], "title": c["title"]} for c in self.concepts]
+    def get_company_intro(self) -> str:
+        """Get company introduction"""
+        company = self.data.get("company", {})
+        return f"{company.get('name', 'Our company')} - {company.get('tagline', '')}. {company.get('description', '')}"
     
-    def get_concepts_list(self):
-        """Get formatted string of all concepts"""
-        return ", ".join([f"{c['title']} ({c['id']})" for c in self.concepts])
-
-# ------------ Unified Tutor Agent (Simplified version that works with current LiveKit) ------------
-
-class UnifiedTutorAgent(Agent):
-    def __init__(self, content: TutorContent):
-        self.content = content
-        self.current_mode = "coordinator"
-        self.current_concept = None
+    def get_products_summary(self) -> str:
+        """Get summary of products"""
+        products = self.data.get("products", [])
+        if not products:
+            return "We offer various solutions for businesses."
         
-        # Build dynamic instruction based on available concepts
-        concepts_list = content.get_concepts_list()
+        summary = "Our main products include: "
+        summary += ", ".join([p.get("name", "") for p in products[:3]])
+        return summary
+    
+    def get_pricing_info(self) -> str:
+        """Get pricing information"""
+        pricing = self.data.get("pricing", {})
+        if not pricing:
+            return "Please contact us for pricing details."
+        
+        pg_pricing = pricing.get("payment_gateway", {})
+        return f"Our payment gateway charges {pg_pricing.get('transaction_fee', 'competitive rates')} with {pg_pricing.get('setup_fee', 'no setup fee')}."
+
+# ------------ Lead Capture State ------------
+
+class LeadData:
+    def __init__(self):
+        self.data = {
+            "name": "",
+            "company": "",
+            "email": "",
+            "role": "",
+            "use_case": "",
+            "team_size": "",
+            "timeline": "",
+            "notes": "",
+            "captured_at": ""
+        }
+    
+    def is_complete(self) -> bool:
+        """Check if minimum required fields are filled"""
+        required = ["name", "company", "email", "use_case"]
+        return all(self.data.get(field) for field in required)
+    
+    def missing_fields(self) -> list:
+        """Get list of missing required fields"""
+        required = ["name", "company", "email", "use_case"]
+        return [field for field in required if not self.data.get(field)]
+    
+    def to_dict(self) -> dict:
+        """Convert to dictionary"""
+        return {**self.data, "captured_at": datetime.now().isoformat()}
+
+# ------------ Lead Storage ------------
+
+class LeadStorage:
+    @staticmethod
+    def save_lead(lead_data: dict):
+        """Save lead to JSON file"""
+        # Load existing leads
+        if LEADS_FILE.exists():
+            try:
+                with open(LEADS_FILE, "r") as f:
+                    leads = json.load(f)
+            except json.JSONDecodeError:
+                leads = []
+        else:
+            LEADS_FILE.parent.mkdir(parents=True, exist_ok=True)
+            leads = []
+        
+        # Add new lead
+        leads.append(lead_data)
+        
+        # Save back to file
+        with open(LEADS_FILE, "w") as f:
+            json.dump(leads, f, indent=2)
+        
+        logger.info(f"Lead saved: {lead_data.get('name')} from {lead_data.get('company')}")
+
+# ------------ SDR Agent ------------
+
+class SDRAgent(Agent):
+    """Sales Development Representative voice agent"""
+    def __init__(self, knowledge_base: CompanyKnowledgeBase):
+        self.kb = knowledge_base
+        self.lead = LeadData()
+        self.conversation_stage = "greeting"
+        
+        company_intro = knowledge_base.get_company_intro()
+        products_summary = knowledge_base.get_products_summary()
         
         super().__init__(
             instructions="""You are a helpful voice AI assistant. The user is interacting with you via voice, even if you perceive the conversation as text.
@@ -115,7 +199,13 @@ class UnifiedTutorAgent(Agent):
 
 
 def prewarm(proc: JobProcess):
+    """Prewarm function to load models and data before agent starts"""
     proc.userdata["vad"] = silero.VAD.load()
+    
+    # Preload FAQ data
+    knowledge_base = CompanyKnowledgeBase()
+    proc.userdata["knowledge_base"] = knowledge_base
+    logger.info(f"Prewarmed with FAQ for {knowledge_base.company_name}")
 
 async def entrypoint(ctx: JobContext):
     # Logging setup
@@ -123,18 +213,22 @@ async def entrypoint(ctx: JobContext):
         "room": ctx.room.name,
     }
     
-    logger.info("🚀 Starting Teach-the-Tutor agent...")
+    logger.info("🚀 Starting SDR Agent...")
     
-    # Load tutor content
-    content = TutorContent()
-    logger.info(f"📚 Loaded {len(content.concepts)} concepts: {content.get_concepts_list()}")
+    # Load knowledge base from prewarm or create new
+    if "knowledge_base" in ctx.proc.userdata:
+        knowledge_base = ctx.proc.userdata["knowledge_base"]
+        logger.info(f"Using prewarmed knowledge base for {knowledge_base.company_name}")
+    else:
+        knowledge_base = CompanyKnowledgeBase()
+        logger.info(f"Created new knowledge base for {knowledge_base.company_name}")
 
     # Voice agent session pipeline
     session = AgentSession(
         stt=deepgram.STT(model="nova-3"),
         llm=google.LLM(model="gemini-2.5-flash"),
         tts=murf.TTS(
-            voice="Iris",  # Using single reliable voice for now
+            voice="Iris",  # Professional, friendly voice for SDR
             style="Conversation",
             tokenizer=tokenize.basic.SentenceTokenizer(min_sentence_len=2),
             text_pacing=True,
@@ -158,10 +252,10 @@ async def entrypoint(ctx: JobContext):
     
     ctx.add_shutdown_callback(log_usage)
 
-    # Start session with UnifiedTutorAgent
-    logger.info("🎙️ Starting agent session...")
+    # Start session with SDR Agent
+    logger.info("🎙️ Starting SDR agent session...")
     await session.start(
-        agent=UnifiedTutorAgent(content),
+        agent=SDRAgent(knowledge_base),
         room=ctx.room,
         room_input_options=RoomInputOptions(
             noise_cancellation=noise_cancellation.BVC(),
@@ -170,7 +264,7 @@ async def entrypoint(ctx: JobContext):
 
     logger.info("🔗 Connecting to room...")
     await ctx.connect()
-    logger.info("✅ Agent connected successfully!")
+    logger.info(f"✅ SDR Agent for {knowledge_base.company_name} connected successfully!")
 
 if __name__ == "__main__":
     cli.run_app(WorkerOptions(entrypoint_fnc=entrypoint, prewarm_fnc=prewarm))
