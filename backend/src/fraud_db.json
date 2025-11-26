@@ -1,0 +1,18 @@
+[
+    {
+        "userName": "John",
+        "securityIdentifier": "12345",
+        "cardEnding": "4242",
+        "case": "pending",
+        "transactionName": "ABC Industry",
+        "transactionAmount": "$1,250.00",
+        "transactionTime": "2 hours ago",
+        "transactionCategory": "e-commerce",
+        "transactionSource": "alibaba.com",
+        "transactionLocation": "Beijing, China",
+        "securityQuestion": "What is your mother's maiden name?",
+        "securityAnswer": "Smith",
+        "status": "pending_review",
+        "outcome": ""
+    }
+]
