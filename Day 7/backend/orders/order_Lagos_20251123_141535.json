@@ -1,0 +1,10 @@
+{
+  "drinkType": "mocha",
+  "size": "large",
+  "milk": "soy milk",
+  "extras": [
+    "extra shot"
+  ],
+  "name": "Lagos",
+  "timestamp": "2025-11-23T14:15:35.385271"
+}

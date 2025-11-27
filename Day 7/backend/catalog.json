@@ -1,0 +1,17 @@
+[
+  {"id": "bread_whole_wheat", "name": "Whole Wheat Bread", "category": "Groceries", "price": 2.49, "unit": "loaf", "tags": ["bread", "vegan"]},
+  {"id": "eggs_large", "name": "Large Eggs (12 pack)", "category": "Groceries", "price": 3.99, "unit": "pack", "tags": ["eggs"]},
+  {"id": "milk_2l", "name": "Milk 2L", "category": "Groceries", "price": 2.99, "unit": "bottle", "tags": ["dairy"]},
+  {"id": "peanut_butter", "name": "Peanut Butter", "category": "Groceries", "price": 5.49, "unit": "jar", "tags": ["spread", "vegan"]},
+  {"id": "jelly", "name": "Grape Jelly", "category": "Groceries", "price": 3.49, "unit": "jar", "tags": ["spread"]},
+  {"id": "pasta_spaghetti", "name": "Spaghetti Pasta", "category": "Groceries", "price": 1.99, "unit": "pack", "tags": ["pasta"]},
+  {"id": "pasta_sauce", "name": "Tomato Pasta Sauce", "category": "Groceries", "price": 2.79, "unit": "jar", "tags": ["sauce"]},
+  {"id": "olive_oil", "name": "Olive Oil 500ml", "category": "Groceries", "price": 6.99, "unit": "bottle", "tags": ["oil"]},
+  {"id": "chicken_breast", "name": "Chicken Breast 1lb", "category": "Groceries", "price": 7.99, "unit": "lb", "tags": ["meat"]},
+  {"id": "cheddar_cheese", "name": "Cheddar Cheese 200g", "category": "Groceries", "price": 4.49, "unit": "pack", "tags": ["dairy"]},
+  {"id": "lettuce", "name": "Romaine Lettuce", "category": "Groceries", "price": 1.29, "unit": "each", "tags": ["produce"]},
+  {"id": "tomato", "name": "Tomato", "category": "Groceries", "price": 0.79, "unit": "each", "tags": ["produce"]},
+  {"id": "banana", "name": "Banana (per lb)", "category": "Groceries", "price": 0.59, "unit": "lb", "tags": ["produce"]},
+  {"id": "yogurt", "name": "Greek Yogurt 500g", "category": "Groceries", "price": 3.99, "unit": "cup", "tags": ["dairy"]},
+  {"id": "chips", "name": "Potato Chips", "category": "Snacks", "price": 2.99, "unit": "bag", "tags": ["snack"]}
+]

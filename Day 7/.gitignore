@@ -1,0 +1,14 @@
+# Ignore common Python and Next build artifacts
+__pycache__/
+*.pyc
+*.pyo
+*.egg-info/
+.venv/
+node_modules/
+.next/
+dist/
+.env.local
+*.log
+*.lock
+sim_responses.txt
+orders/*.json

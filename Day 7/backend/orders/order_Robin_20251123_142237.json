@@ -1,0 +1,10 @@
+{
+  "drinkType": "Americano",
+  "size": "large",
+  "milk": "coconut milk",
+  "extras": [
+    "cinnamon"
+  ],
+  "name": "Robin",
+  "timestamp": "2025-11-23T14:22:37.091187"
+}

@@ -1,0 +1,23 @@
+{
+  "customer_name": "John Doe",
+  "address": "123 Demo St",
+  "items": [
+    {
+      "id": "bread_whole_wheat",
+      "name": "Whole Wheat Bread",
+      "quantity": 3,
+      "unit_price": 2.49,
+      "line_total": 7.47
+    },
+    {
+      "id": "peanut_butter",
+      "name": "Peanut Butter",
+      "quantity": 1,
+      "unit_price": 5.49,
+      "line_total": 5.49
+    }
+  ],
+  "total": 12.96,
+  "timestamp": "2025-11-27T22:11:30.863596",
+  "status": "placed"
+}

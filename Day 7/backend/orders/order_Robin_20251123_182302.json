@@ -1,0 +1,10 @@
+{
+  "drinkType": "Coffee",
+  "size": "medium",
+  "milk": "whole",
+  "extras": [
+    "whipped cream"
+  ],
+  "name": "Robin",
+  "timestamp": "2025-11-23T18:23:02.786463"
+}

@@ -1,0 +1,18 @@
+[
+  {
+    "userName": "John Doe",
+    "securityIdentifier": "12345",
+    "cardEnding": "4242",
+    "amount": "$129.99",
+    "case": "verification_failed",
+    "transactionName": "ABC Industry",
+    "transactionTime": "2025-11-26T13:45:00",
+    "transactionCategory": "e-commerce",
+    "transactionSource": "alibaba.com",
+    "location": "Hong Kong",
+    "securityQuestion": "What's the city you were born in?",
+    "securityAnswer": "Springfield",
+    "outcome_note": "Verification failed during call.",
+    "last_updated": "2025-11-27T00:15:18.279435"
+  }
+]
