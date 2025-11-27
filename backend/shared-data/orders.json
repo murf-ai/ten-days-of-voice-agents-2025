@@ -1,0 +1,81 @@
+[
+  {
+    "id": "ORD-D9379C071E",
+    "timestamp": "2025-11-27T17:01:17.350675Z",
+    "customer": {
+      "name": "Praveen Rajak",
+      "address": "Jebalpur, Madhya Pradesh",
+      "note": ""
+    },
+    "items": [
+      {
+        "id": "milk-1l",
+        "name": "Milk 1L",
+        "unit_price": 60,
+        "qty": 1,
+        "unit": "1L",
+        "tags": [
+          "dairy"
+        ]
+      },
+      {
+        "id": "samosa-2",
+        "name": "Samosa (2 pcs)",
+        "unit_price": 40,
+        "qty": 2,
+        "unit": "2pcs",
+        "tags": [
+          "veg",
+          "ready"
+        ]
+      },
+      {
+        "id": "bread-wholewheat",
+        "name": "Whole Wheat Bread (loaf)",
+        "unit_price": 45,
+        "qty": 1,
+        "unit": "loaf",
+        "tags": [
+          "breads",
+          "whole-wheat"
+        ]
+      },
+      {
+        "id": "peanut-butter-200g",
+        "name": "Peanut Butter 200g",
+        "unit_price": 150,
+        "qty": 1,
+        "unit": "200g",
+        "tags": [
+          "spread",
+          "vegan"
+        ]
+      },
+      {
+        "id": "pasta-500g",
+        "name": "Pasta 500g",
+        "unit_price": 90,
+        "qty": 1,
+        "unit": "500g",
+        "tags": [
+          "instant",
+          "vegan"
+        ]
+      },
+      {
+        "id": "pasta-sauce-400g",
+        "name": "Tomato Pasta Sauce 400g",
+        "unit_price": 120,
+        "qty": 1,
+        "unit": "400g",
+        "tags": [
+          "sauce",
+          "vegan"
+        ]
+      }
+    ],
+    "total": 545.0,
+    "status": "received",
+    "type": "grocery"
+  }
+]

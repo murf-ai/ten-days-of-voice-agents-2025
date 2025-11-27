@@ -1,0 +1,178 @@
+[
+  {
+    "id": "milk-1l",
+    "name": "Milk 1L",
+    "category": "Groceries",
+    "price": 60,
+    "brand": "FreshDairy",
+    "unit": "1L",
+    "tags": [
+      "dairy"
+    ]
+  },
+  {
+    "id": "bread-white",
+    "name": "White Bread (loaf)",
+    "category": "Groceries",
+    "price": 35,
+    "brand": "BakeHouse",
+    "unit": "loaf",
+    "tags": [
+      "breads"
+    ]
+  },
+  {
+    "id": "bread-wholewheat",
+    "name": "Whole Wheat Bread (loaf)",
+    "category": "Groceries",
+    "price": 45,
+    "brand": "BakeHouse",
+    "unit": "loaf",
+    "tags": [
+      "breads",
+      "whole-wheat"
+    ]
+  },
+  {
+    "id": "peanut-butter-200g",
+    "name": "Peanut Butter 200g",
+    "category": "Groceries",
+    "price": 150,
+    "brand": "Nutty",
+    "unit": "200g",
+    "tags": [
+      "spread",
+      "vegan"
+    ]
+  },
+  {
+    "id": "pasta-500g",
+    "name": "Pasta 500g",
+    "category": "Groceries",
+    "price": 90,
+    "brand": "PastaCo",
+    "unit": "500g",
+    "tags": [
+      "instant",
+      "vegan"
+    ]
+  },
+  {
+    "id": "pasta-sauce-400g",
+    "name": "Tomato Pasta Sauce 400g",
+    "category": "Groceries",
+    "price": 120,
+    "brand": "Saucy",
+    "unit": "400g",
+    "tags": [
+      "sauce",
+      "vegan"
+    ]
+  },
+  {
+    "id": "eggs-6",
+    "name": "Eggs (6 pcs)",
+    "category": "Groceries",
+    "price": 60,
+    "brand": "FarmFresh",
+    "unit": "6pcs",
+    "tags": [
+      "eggs",
+      "protein"
+    ]
+  },
+  {
+    "id": "apple-kg",
+    "name": "Apples (1 kg)",
+    "category": "Groceries",
+    "price": 180,
+    "brand": "Orchard",
+    "unit": "1kg",
+    "tags": [
+      "fruits",
+      "vegan"
+    ]
+  },
+  {
+    "id": "chips-plain",
+    "name": "Potato Chips 100g",
+    "category": "Snacks",
+    "price": 40,
+    "brand": "CrispIt",
+    "unit": "100g",
+    "tags": [
+      "snack",
+      "veg"
+    ]
+  },
+  {
+    "id": "sandwich-chicken",
+    "name": "Chicken Sandwich (ready)",
+    "category": "Prepared Food",
+    "price": 150,
+    "brand": "QuickBite",
+    "unit": "each",
+    "tags": [
+      "ready",
+      "non-veg"
+    ]
+  },
+  {
+    "id": "samosa-2",
+    "name": "Samosa (2 pcs)",
+    "category": "Prepared Food",
+    "price": 40,
+    "brand": "StreetSnacks",
+    "unit": "2pcs",
+    "tags": [
+      "veg",
+      "ready"
+    ]
+  },
+  {
+    "id": "butter-100g",
+    "name": "Salted Butter 100g",
+    "category": "Groceries",
+    "price": 95,
+    "brand": "Creamy",
+    "unit": "100g",
+    "tags": [
+      "dairy"
+    ]
+  },
+  {
+    "id": "rice-5kg",
+    "name": "Basmati Rice 5kg",
+    "category": "Groceries",
+    "price": 420,
+    "brand": "RiceKing",
+    "unit": "5kg",
+    "tags": [
+      "staples"
+    ]
+  },
+  {
+    "id": "sauce-chili",
+    "name": "Chili Sauce 200g",
+    "category": "Groceries",
+    "price": 85,
+    "brand": "HotZone",
+    "unit": "200g",
+    "tags": [
+      "condiment",
+      "vegan"
+    ]
+  },
+  {
+    "id": "banana-kg",
+    "name": "Bananas (1 kg)",
+    "category": "Groceries",
+    "price": 60,
+    "brand": "Orchard",
+    "unit": "1kg",
+    "tags": [
+      "fruits",
+      "vegan"
+    ]
+  }
+]
