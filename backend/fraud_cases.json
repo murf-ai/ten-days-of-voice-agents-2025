@@ -1,0 +1,49 @@
+{
+    "cases": [
+      {
+        "userName": "Rajesh Kumar",
+        "securityIdentifier": "RK2024",
+        "securityQuestion": "What is your mother's maiden name?",
+        "securityAnswer": "sharma",
+        "cardEnding": "4242",
+        "transactionAmount": "₹45,999",
+        "transactionName": "Apple Store Mumbai",
+        "transactionTime": "Today at 2:30 PM",
+        "transactionCategory": "Electronics",
+        "transactionSource": "apple.com",
+        "transactionLocation": "Mumbai, Maharashtra",
+        "status": "pending_review",
+        "outcome": null
+      },
+      {
+        "userName": "Priya Sharma",
+        "securityIdentifier": "PS2024",
+        "securityQuestion": "What is your favorite color?",
+        "securityAnswer": "blue",
+        "cardEnding": "8765",
+        "transactionAmount": "₹1,25,000",
+        "transactionName": "International Wire Transfer",
+        "transactionTime": "Yesterday at 11:45 PM",
+        "transactionCategory": "Wire Transfer",
+        "transactionSource": "paypal.com",
+        "transactionLocation": "Lagos, Nigeria",
+        "status": "pending_review",
+        "outcome": null
+      },
+      {
+        "userName": "Amit Patel",
+        "securityIdentifier": "AP2024",
+        "securityQuestion": "What city were you born in?",
+        "securityAnswer": "ahmedabad",
+        "cardEnding": "1234",
+        "transactionAmount": "₹89,500",
+        "transactionName": "Luxury Watch Store",
+        "transactionTime": "Today at 9:15 AM",
+        "transactionCategory": "Luxury Goods",
+        "transactionSource": "luxurywatches.com",
+        "transactionLocation": "Dubai, UAE",
+        "status": "pending_review",
+        "outcome": null
+      }
+    ]
+  }

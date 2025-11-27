@@ -1,9 +1,8 @@
 import logging
 import json
 import os
-import re
-from dataclasses import dataclass, asdict, field
-from typing import Optional, List, Dict, Any
+from dataclasses import dataclass, field
+from typing import Optional, Dict, Any
 from datetime import datetime
 
 from dotenv import load_dotenv
@@ -26,197 +25,226 @@ from livekit.plugins.turn_detector.multilingual import MultilingualModel
 logger = logging.getLogger("agent")
 load_dotenv(".env.local")
 
-# --- Load FAQ Content ---
-FAQ_FILE = "shared-data/faq_razorpay.json"
+# --- Fraud Database ---
+FRAUD_DB_FILE = "fraud_cases.json"
 
-def load_faq_content():
-    """Load FAQ content from JSON file."""
+def load_fraud_database():
+    """Load fraud cases from JSON database."""
     try:
-        with open(FAQ_FILE, 'r') as f:
+        with open(FRAUD_DB_FILE, 'r') as f:
             return json.load(f)
     except FileNotFoundError:
-        logger.error(f"FAQ file not found: {FAQ_FILE}")
-        return {"company": "Company", "faqs": [], "lead_fields": {}}
+        logger.error(f"Fraud database not found: {FRAUD_DB_FILE}")
+        return {"cases": []}
 
-FAQ_DATA = load_faq_content()
-COMPANY_NAME = FAQ_DATA.get("company", "Company")
+def save_fraud_database(db_data):
+    """Save fraud cases back to JSON database."""
+    with open(FRAUD_DB_FILE, 'w') as f:
+        json.dump(db_data, f, indent=2)
+    logger.info("Fraud database updated")
 
-# --- Lead Capture State ---
+# --- Session State ---
 @dataclass
-class LeadData:
-    """Stores lead information."""
-    name: Optional[str] = None
-    email: Optional[str] = None
-    company: Optional[str] = None
-    monthly_volume: Optional[str] = None
-    use_case: Optional[str] = None
-    timestamp: str = field(default_factory=lambda: datetime.now().isoformat())
+class FraudSession:
+    """Tracks the fraud verification session state."""
+    current_case: Optional[Dict[str, Any]] = None
+    verification_passed: bool = False
+    user_response: Optional[str] = None  # "yes" or "no" or "unknown"
     
-    def is_complete(self) -> bool:
-        """Check if all required fields are filled."""
-        return all([self.name, self.email, self.company, self.monthly_volume, self.use_case])
+    def is_verified(self) -> bool:
+        return self.verification_passed
     
-    def to_json_file(self) -> str:
-        """Save lead to JSON file."""
-        filename = f"lead_{self.name.replace(' ', '_')}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json"
-        with open(filename, 'w') as f:
-            json.dump(asdict(self), f, indent=4)
-        logger.info(f"Lead saved to {filename}")
-        return filename
-
-# --- Simple FAQ Matching ---
-def find_best_faq(user_query: str) -> Optional[Dict[str, Any]]:
-    """Find the best matching FAQ using keyword matching."""
-    user_query_lower = user_query.lower()
-    
-    best_match = None
-    best_score = 0
-    
-    for faq in FAQ_DATA.get("faqs", []):
-        score = 0
-        keywords = faq.get("keywords", [])
-        
-        for keyword in keywords:
-            if keyword.lower() in user_query_lower:
-                score += len(keyword.split())  # Longer phrases get higher scores
-        
-        if score > best_score:
-            best_score = score
-            best_match = faq
-    
-    # Return match if score is high enough
-    if best_score >= 1:  # At least one keyword matched
-        return best_match
-    
-    return None
+    def has_case(self) -> bool:
+        return self.current_case is not None
 
 # --- Tools ---
 @function_tool
-async def search_faq(
+async def load_fraud_case(
     context: RunContext,
-    user_question: str
+    user_name: str
 ) -> str:
     """
-    Search the FAQ database for relevant information.
+    Load a fraud case for a specific user.
     
     Args:
-        user_question: The user's question about the company or services
+        user_name: The customer's name to look up the fraud case
     """
-    logger.info(f"Searching FAQ for: {user_question}")
+    session: FraudSession = context.userdata["fraud_session"]
+    db = load_fraud_database()
     
-    faq = find_best_faq(user_question)
+    # Find case by username (case-insensitive)
+    user_name_lower = user_name.lower()
+    matching_case = None
     
-    if faq:
-        return f"FAQ_FOUND: {faq['answer']}"
-    else:
-        return f"FAQ_NOT_FOUND: {FAQ_DATA.get('no_match_response', 'I need to connect you with our sales team.')}"
+    for case in db.get("cases", []):
+        if case.get("userName", "").lower() == user_name_lower:
+            matching_case = case
+            break
+    
+    if not matching_case:
+        return f"CASE_NOT_FOUND: No fraud case found for {user_name}. Please verify the name."
+    
+    # Check if already processed
+    if matching_case.get("status") != "pending_review":
+        return f"CASE_ALREADY_PROCESSED: This case was already resolved as {matching_case.get('status')}."
+    
+    # Load case into session
+    session.current_case = matching_case
+    context.userdata["fraud_session"] = session
+    
+    return (
+        f"CASE_LOADED: Found fraud case for {matching_case['userName']}. "
+        f"Card ending in {matching_case['cardEnding']}. "
+        f"Now proceed with security verification using the security question."
+    )
 
 @function_tool
-async def capture_lead(
+async def verify_customer(
     context: RunContext,
-    name: Optional[str] = None,
-    email: Optional[str] = None,
-    company: Optional[str] = None,
-    monthly_volume: Optional[str] = None,
-    use_case: Optional[str] = None
+    security_answer: str
 ) -> str:
     """
-    Capture lead information from the user.
+    Verify the customer's identity using their security question answer.
     
     Args:
-        name: User's full name
-        email: User's email address
-        company: User's company name
-        monthly_volume: Expected monthly transaction volume
-        use_case: Primary use case (e.g., e-commerce, subscriptions)
+        security_answer: The customer's answer to the security question
     """
-    lead: LeadData = context.userdata.get("lead", LeadData())
+    session: FraudSession = context.userdata["fraud_session"]
     
-    # Update fields
-    if name: lead.name = name
-    if email: lead.email = email
-    if company: lead.company = company
-    if monthly_volume: lead.monthly_volume = monthly_volume
-    if use_case: lead.use_case = use_case
+    if not session.has_case():
+        return "ERROR: No fraud case loaded. Please load a case first."
     
-    # Save back to context
-    context.userdata["lead"] = lead
+    case = session.current_case
+    correct_answer = case.get("securityAnswer", "").lower().strip()
+    user_answer = security_answer.lower().strip()
     
-    # Check if complete
-    if lead.is_complete():
-        filename = lead.to_json_file()
-        
-        # Send to frontend
-        try:
-            await context.room.local_participant.publish_data(
-                json.dumps({
-                    "type": "LEAD_CAPTURED",
-                    "lead": asdict(lead)
-                }).encode('utf-8'),
-                topic="lead_capture"
-            )
-            logger.info("Lead data sent to frontend")
-        except Exception as e:
-            logger.error(f"Failed to send lead data: {e}")
+    if user_answer == correct_answer:
+        session.verification_passed = True
+        context.userdata["fraud_session"] = session
         
         return (
-            f"LEAD_COMPLETE: Thank you {lead.name}! I've captured all your information. "
-            f"Our sales team will reach out to you at {lead.email} within 24 hours to discuss "
-            f"how {COMPANY_NAME} can help {lead.company}. Is there anything else I can help you with?"
+            f"VERIFICATION_PASSED: Identity confirmed. "
+            f"Now read the suspicious transaction details and ask if the customer made this transaction."
         )
-    
-    # Return missing fields
-    missing = []
-    if not lead.name: missing.append("name")
-    if not lead.email: missing.append("email address")
-    if not lead.company: missing.append("company name")
-    if not lead.monthly_volume: missing.append("expected monthly transaction volume")
-    if not lead.use_case: missing.append("primary use case")
-    
-    return f"LEAD_INCOMPLETE: Still need: {', '.join(missing)}. Please ask for the next field naturally."
+    else:
+        session.verification_passed = False
+        context.userdata["fraud_session"] = session
+        
+        # Update case status
+        db = load_fraud_database()
+        for case_item in db["cases"]:
+            if case_item.get("userName") == case.get("userName"):
+                case_item["status"] = "verification_failed"
+                case_item["outcome"] = "Customer failed security verification."
+                break
+        save_fraud_database(db)
+        
+        return (
+            f"VERIFICATION_FAILED: Security answer incorrect. "
+            f"For your security, I cannot proceed. Please contact your bank branch directly. "
+            f"This call will now end."
+        )
 
-# --- SDR Agent ---
-class SDRAgent(Agent):
-    """Sales Development Representative agent for FAQ and lead capture."""
+@function_tool
+async def record_transaction_response(
+    context: RunContext,
+    customer_made_transaction: bool
+) -> str:
+    """
+    Record whether the customer confirms they made the suspicious transaction.
+    
+    Args:
+        customer_made_transaction: True if customer confirms, False if they deny
+    """
+    session: FraudSession = context.userdata["fraud_session"]
+    
+    if not session.is_verified():
+        return "ERROR: Customer not verified. Cannot record response."
+    
+    if not session.has_case():
+        return "ERROR: No fraud case loaded."
+    
+    case = session.current_case
+    db = load_fraud_database()
+    
+    # Find and update the case
+    for case_item in db["cases"]:
+        if case_item.get("userName") == case.get("userName"):
+            if customer_made_transaction:
+                case_item["status"] = "confirmed_safe"
+                case_item["outcome"] = f"Customer confirmed the transaction of {case['transactionAmount']} to {case['transactionName']} was legitimate."
+                session.user_response = "yes"
+                
+                return (
+                    f"MARKED_SAFE: Transaction confirmed as legitimate. "
+                    f"Thank the customer and inform them no further action is needed. "
+                    f"Their card remains active."
+                )
+            else:
+                case_item["status"] = "confirmed_fraud"
+                case_item["outcome"] = f"Customer denied the transaction of {case['transactionAmount']} to {case['transactionName']}. Card has been blocked and dispute initiated."
+                session.user_response = "no"
+                
+                return (
+                    f"MARKED_FRAUD: Transaction confirmed as fraudulent. "
+                    f"Inform the customer their card ending in {case['cardEnding']} has been blocked immediately. "
+                    f"A new card will be issued within 5-7 business days. "
+                    f"A fraud dispute has been filed and they will not be liable for this charge."
+                )
+            break
+    
+    save_fraud_database(db)
+    context.userdata["fraud_session"] = session
+    
+    return "Case updated successfully."
+
+# --- Fraud Alert Agent ---
+class FraudAlertAgent(Agent):
+    """Bank fraud detection voice agent."""
     
     def __init__(self, llm) -> None:
-        faq_list = "\n".join([f"- {faq['question']}" for faq in FAQ_DATA.get("faqs", [])])
-        
         super().__init__(
             instructions=(
-                f"You are an AI Sales Development Representative for {COMPANY_NAME}. "
-                f"Your role is to answer questions and qualify leads for the sales team. "
+                "You are a fraud alert agent for HDFC Bank's Fraud Detection Department. "
                 "\n\n"
-                f"**GREETING:** Start with: 'Hi! I'm the AI assistant for {COMPANY_NAME}. "
-                f"I can answer your questions about our payment solutions or connect you with our sales team. "
-                f"How can I help you today?' "
+                "**GREETING:** Start by saying: 'Hello, this is HDFC Bank Fraud Detection Department. "
+                "I'm calling about a suspicious transaction on your account. "
+                "May I have your full name to look up your case?' "
                 "\n\n"
-                "**HANDLING QUESTIONS:**\n"
-                "1. When the user asks a question, IMMEDIATELY call the search_faq tool with their question\n"
-                "2. If FAQ_FOUND: Share the answer naturally and ask if they have more questions\n"
-                "3. If FAQ_NOT_FOUND: Offer to connect them with sales and start lead capture\n"
+                "**CALL FLOW:**\n"
+                "1. **Get Name:** Ask for the customer's full name\n"
+                "2. **Load Case:** Call load_fraud_case with their name\n"
+                "3. **Security Verification:** "
+                "   - Tell them you need to verify their identity\n"
+                "   - Ask the security question from the loaded case\n"
+                "   - Call verify_customer with their answer\n"
+                "   - If VERIFICATION_FAILED: Apologize and end the call\n"
+                "   - If VERIFICATION_PASSED: Continue to step 4\n"
+                "4. **Read Transaction Details:** "
+                "   - Explain you detected a suspicious transaction\n"
+                "   - Read: amount, merchant name, time, location\n"
+                "   - Ask: 'Did you make this transaction?'\n"
+                "5. **Record Response:** "
+                "   - If they say YES/confirm: Call record_transaction_response with True\n"
+                "   - If they say NO/deny: Call record_transaction_response with False\n"
+                "6. **Close Call:** "
+                "   - If MARKED_SAFE: Thank them, no action needed\n"
+                "   - If MARKED_FRAUD: Explain card blocked, new card coming, dispute filed\n"
+                "   - Say goodbye\n"
                 "\n"
-                "**LEAD CAPTURE PROCESS:**\n"
-                "When starting lead capture:\n"
-                "1. Ask for information ONE field at a time\n"
-                "2. After each response, call capture_lead with that field\n"
-                "3. The tool will tell you what's still needed\n"
-                "4. Continue until LEAD_COMPLETE\n"
-                "\n"
-                f"**AVAILABLE FAQs:**\n{faq_list}\n"
-                "\n"
-                "**TONE:** Professional but friendly. Be concise. Don't make up information not in FAQs."
+                "**TONE:** Professional, calm, reassuring. Never ask for card numbers, PINs, or passwords.\n"
+                "**IMPORTANT:** Always call tools at the right steps. Don't skip verification!"
             ),
-            tools=[search_faq, capture_lead],
+            tools=[load_fraud_case, verify_customer, record_transaction_response],
             llm=llm
         )
 
 # --- Entrypoint ---
 async def entrypoint(ctx: JobContext):
-    """Main entrypoint."""
+    """Main entrypoint for fraud alert agent."""
     
-    # Initialize lead data
-    lead_data = LeadData()
+    # Initialize session
+    fraud_session = FraudSession()
     
     ctx.log_context_fields = {"room": ctx.room.name}
     llm = google.LLM(model="gemini-2.5-flash")
@@ -235,7 +263,7 @@ async def entrypoint(ctx: JobContext):
         preemptive_generation=True,
     )
     
-    session.userdata = {"lead": lead_data}
+    session.userdata = {"fraud_session": fraud_session}
     
     # Metrics
     usage_collector = metrics.UsageCollector()
@@ -252,7 +280,7 @@ async def entrypoint(ctx: JobContext):
     ctx.add_shutdown_callback(log_usage)
     
     # Start session
-    await session.start(agent=SDRAgent(llm=llm), room=ctx.room)
+    await session.start(agent=FraudAlertAgent(llm=llm), room=ctx.room)
     await ctx.connect()
 
 def prewarm(proc: JobProcess):
@@ -261,3 +289,4 @@ def prewarm(proc: JobProcess):
 
 if __name__ == "__main__":
     cli.run_app(WorkerOptions(entrypoint_fnc=entrypoint, prewarm_fnc=prewarm))
+
