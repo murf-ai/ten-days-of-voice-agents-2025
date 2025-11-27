@@ -4,7 +4,7 @@
 
 Build a **fraud alert voice agent** for your favorite bank.
 
-For the **primary goal**, everything can run using your existing voice setup (no extra UI):
+For the **primary goal**, everything can run using your existing frontend voice setup (without telephony) :
 
 - You will create a **sample database** describing for a few suspicious transaction. 
 
