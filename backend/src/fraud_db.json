@@ -1,0 +1,24 @@
+[
+    {
+        "userName": "Het",
+        "securityIdentifier": "892007",
+        "cardEnding": "4242",
+        "transactionName": "HP Data Center",
+        "transactionAmount": "$450.00",
+        "transactionTime": "2:30 AM EST",
+        "transactionSource": "hetpatel1b@gmail.com",
+        "case_status": "confirmed_fraud",
+        "notes": "User denied the transaction of $450.00 at HP Data Center (hetpatel1b@gmail.com)."
+    },
+    {
+        "userName": "Sarah",
+        "securityIdentifier": "99887",
+        "cardEnding": "1199",
+        "transactionName": "Unknown Crypto Exchange",
+        "transactionAmount": "$2,100.00",
+        "transactionTime": "4:15 AM PST",
+        "transactionSource": "online_transfer",
+        "case_status": "pending_review",
+        "notes": "Automated flag: Unusual location."
+    }
+]
