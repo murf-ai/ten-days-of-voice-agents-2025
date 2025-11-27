@@ -1,5 +1,5 @@
 # ===========================================
-# Razorpay SDR Voice Agent (LiveKit)
+# Fraud Alert Voice Agent (LiveKit) - Day 6
 # ===========================================
 
 import json
@@ -31,150 +31,183 @@ from livekit.plugins.turn_detector.multilingual import MultilingualModel
 # ------------------------------------------
 # Logging + ENV
 # ------------------------------------------
-logger = logging.getLogger("razorpay_sdr")
+logger = logging.getLogger("fraud_agent")
 load_dotenv(".env.local")
 
 
 # ------------------------------------------
-# Load FAQ
+# Fake Fraud Case "Database"
 # ------------------------------------------
-SAMPLE_FAQ = [
-    {
-        "id": "what_is_razorpay",
-        "question": "What is Razorpay?",
-        "answer": "Razorpay is a full-stack financial platform that helps businesses accept and manage payments across UPI, cards, netbanking and more.",
-        "keywords": ["what is razorpay", "razorpay", "payments", "gateway"],
-    },
-    {
-        "id": "pricing",
-        "question": "How much does Razorpay charge?",
-        "answer": "Razorpay pricing typically starts at around 2% per successful transaction. Enterprise pricing is also available.",
-        "keywords": ["price", "pricing", "cost", "charges"],
-    },
-]
+DB_PATH = Path("shared-data/fraud_case.json")
+DB_PATH.parent.mkdir(exist_ok=True, parents=True)
 
-FAQ_PATH = Path("shared-data/razorpay_faq.json")
-FAQ_PATH.parent.mkdir(exist_ok=True, parents=True)
+SAMPLE_FRAUD_CASE = {
+    "userName": "John",
+    "securityIdentifier": "12345",
+    "securityQuestion": "What is your favorite color?",
+    "securityAnswer": "blue",
+    "cardEnding": "4242",
+    "transactionName": "ABC Electronics",
+    "transactionAmount": "₹12,499",
+    "transactionTime": "2024-10-12 14:30",
+    "transactionLocation": "Mumbai",
+    "transactionCategory": "e-commerce",
+    "transactionSource": "abc-electronics.com",
+    "status": "pending_review",
+    "note": ""
+}
 
-if not FAQ_PATH.exists():
-    with open(FAQ_PATH, "w") as f:
-        json.dump(SAMPLE_FAQ, f, indent=2)
-
-
-def load_faq():
-    try:
-        return json.load(open(FAQ_PATH))
-    except:
-        return SAMPLE_FAQ
+# create database if missing
+if not DB_PATH.exists():
+    with open(DB_PATH, "w") as f:
+        json.dump(SAMPLE_FRAUD_CASE, f, indent=2)
 
 
-faq_content = load_faq()
+def load_case():
+    return json.load(open(DB_PATH, "r"))
 
 
-def find_faq(q):
-    q = q.lower()
-    for entry in faq_content:
-        for kw in entry.get("keywords", []):
-            if kw in q:
-                return entry["answer"]
-    return None
+def save_case(data):
+    with open(DB_PATH, "w") as f:
+        json.dump(data, f, indent=2)
 
 
 # ------------------------------------------
-# SDR Agent Class
+# Fraud Alert Agent Class
 # ------------------------------------------
-class RazorpaySDR(Agent):
+class FraudAlertAgent(Agent):
+
     def __init__(self):
         super().__init__(
             instructions=(
-                "You are Razorpay's SDR. Greet warmly, answer FAQs using provided JSON, "
-                "and collect lead details: name, company, email, role, use_case, team_size, timeline."
+                "You are a Fraud Alert Representative from a fictional bank named SecureBank. "
+                "You must follow the fraud alert flow strictly and avoid all sensitive requests. "
+                "Only use the fake data in the database. "
+                "Never ask for PIN, OTP, full card number, CVV, or passwords."
             )
         )
         self.sessions = {}
 
+    # ------------------ When call begins ------------------
     async def on_join(self, ctx):
         sid = ctx.session.session_id
         self.sessions[sid] = {
-            "lead": {},
-            "collecting": False,
-            "field_index": 0,
+            "stage": "ask_username",
+            "verified": False,
+            "case": None,
         }
 
         await ctx.send_speech(
-            "Hello! Welcome to Razorpay. How can I assist you today?"
+            "Hello, this is the SecureBank Fraud Detection Department. "
+            "We detected a potentially suspicious transaction. "
+            "To assist you, may I have your username?"
         )
 
+    # ------------------ When user speaks ------------------
     async def on_user_message(self, message, ctx):
         sid = ctx.session.session_id
         state = self.sessions[sid]
         msg = (message.text or "").strip().lower()
 
-        # -------------- End the call --------------
-        if any(x in msg for x in ["bye", "thanks", "thank you", "that’s all"]):
-            await self.finish(ctx, state)
-            return
+        # end flow
+        if msg in ["bye", "exit", "stop"]:
+            return await self.finish(ctx, state)
 
-        # -------------- FAQ detection --------------
-        faq = find_faq(msg)
-        if faq:
-            await ctx.send_speech(faq)
+        # Stages
+        if state["stage"] == "ask_username":
+            return await self.handle_username(msg, ctx, state)
+
+        if state["stage"] == "security_question":
+            return await self.handle_verification(msg, ctx, state)
+
+        if state["stage"] == "confirm_transaction":
+            return await self.handle_transaction_confirmation(msg, ctx, state)
+
+    # ------------------ Username Handling ------------------
+    async def handle_username(self, msg, ctx, state):
+        fraud_case = load_case()
+
+        if msg != fraud_case["userName"].lower():
             await ctx.send_speech(
-                "Would you like me to collect your details so our sales team can reach out?"
+                "I'm sorry, that username does not match our records. "
+                "Please say your username again."
             )
-            state["collecting"] = True
-            await ctx.send_speech("May I have your full name?")
             return
 
-        # -------------- Lead Collection --------------
-        fields = [
-            "name",
-            "company",
-            "email",
-            "role",
-            "use_case",
-            "team_size",
-            "timeline",
-        ]
+        # Username matched
+        state["case"] = fraud_case
+        state["stage"] = "security_question"
 
-        prompts = [
-            "Which company are you from?",
-            "What is the best email to reach you on?",
-            "What's your role there?",
-            "How do you plan to use Razorpay?",
-            "What's your expected team size or volume?",
-            "When do you plan to go live?",
-        ]
-
-        if state["collecting"]:
-            idx = state["field_index"]
-            state["lead"][fields[idx]] = msg
-            state["field_index"] += 1
-
-            if idx < len(prompts):
-                await ctx.send_speech(prompts[idx])
-            else:
-                await ctx.send_speech("Great! I have all the information.")
-                await self.finish(ctx, state)
-            return
-
-        # -------------- Default response --------------
         await ctx.send_speech(
-            "Sure! Are you exploring Razorpay's payments, payouts, or subscriptions?"
+            f"Thank you. For security, please answer this question: "
+            f"{fraud_case['securityQuestion']}"
         )
 
-    async def finish(self, ctx, state):
-        lead = state["lead"]
-        ts = datetime.utcnow().strftime("%Y%m%dT%H%M%SZ")
+    # ------------------ Verification ------------------
+    async def handle_verification(self, msg, ctx, state):
+        fraud_case = state["case"]
 
-        outdir = Path("leads")
-        outdir.mkdir(exist_ok=True)
+        if msg.strip() != fraud_case["securityAnswer"].lower():
+            fraud_case["status"] = "verification_failed"
+            fraud_case["note"] = "User failed verification."
+            save_case(fraud_case)
 
-        with open(outdir / f"lead_{ts}.json", "w") as f:
-            json.dump(lead, f, indent=2)
+            await ctx.send_speech(
+                "I'm sorry, the answer does not match our records. "
+                "For your security, we cannot proceed further. Goodbye."
+            )
+            return await self.finish(ctx, state)
+
+        # Verification successful
+        state["verified"] = True
+        state["stage"] = "confirm_transaction"
 
         await ctx.send_speech(
-            "Thank you! Your details have been saved. Our team will reach out shortly."
+            "Thank you, verification successful. "
+            "Here are the details of the suspicious transaction:"
+        )
+        await ctx.send_speech(
+            f"Merchant: {fraud_case['transactionName']}. "
+            f"Amount: {fraud_case['transactionAmount']}. "
+            f"Location: {fraud_case['transactionLocation']}. "
+            f"Time: {fraud_case['transactionTime']}. "
+            f"Card ending with {fraud_case['cardEnding']}. "
+            "Did you make this transaction? Please say yes or no."
+        )
+
+    # ------------------ Transaction Confirmation ------------------
+    async def handle_transaction_confirmation(self, msg, ctx, state):
+        fraud_case = state["case"]
+
+        if "yes" in msg:
+            fraud_case["status"] = "confirmed_safe"
+            fraud_case["note"] = "Customer confirmed transaction as legitimate."
+            save_case(fraud_case)
+
+            await ctx.send_speech(
+                "Thank you. We have marked this transaction as safe."
+            )
+            return await self.finish(ctx, state)
+
+        if "no" in msg:
+            fraud_case["status"] = "confirmed_fraud"
+            fraud_case["note"] = "Customer denied the transaction. Card blocked."
+            save_case(fraud_case)
+
+            await ctx.send_speech(
+                "Thank you. We have blocked your card and initiated a dispute. "
+                "A fraud specialist will contact you shortly."
+            )
+            return await self.finish(ctx, state)
+
+        await ctx.send_speech(
+            "I didn't understand that. Please say yes or no."
+        )
+
+    # ------------------ End Call ------------------
+    async def finish(self, ctx, state):
+        await ctx.send_speech(
+            "Thank you for your time. SecureBank cares about your safety. Goodbye."
         )
 
 
@@ -189,26 +222,25 @@ def prewarm(proc: JobProcess):
 
 
 # ------------------------------------------
-# Entrypoint — EXACT same structure you asked for
+# Entrypoint (Same as your SDR version)
 # ------------------------------------------
 async def entrypoint(ctx: JobContext):
     session = AgentSession(
         stt=deepgram.STT(model="nova-3"),
         llm=google.LLM(model="gemini-2.5-flash"),
-         tts=murf.TTS(voice="en-US-matthew", style="Conversation"),
+        tts=murf.TTS(voice="en-US-matthew", style="Conversation"),
         turn_detection=MultilingualModel(),
         vad=ctx.proc.userdata["vad"],
         preemptive_generation=True,
     )
 
     await session.start(
-        agent=RazorpaySDR(),
+        agent=FraudAlertAgent(),
         room=ctx.room,
         room_input_options=RoomInputOptions(
             noise_cancellation=noise_cancellation.BVC()
         ),
     )
-
     await ctx.connect()
 
 

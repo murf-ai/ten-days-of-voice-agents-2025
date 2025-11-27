@@ -1,0 +1,15 @@
+{
+  "userName": "John",
+  "securityIdentifier": "12345",
+  "securityQuestion": "What is your favorite color?",
+  "securityAnswer": "blue",
+  "cardEnding": "4242",
+  "transactionName": "ABC Electronics",
+  "transactionAmount": "\u20b912,499",
+  "transactionTime": "2024-10-12 14:30",
+  "transactionLocation": "Mumbai",
+  "transactionCategory": "e-commerce",
+  "transactionSource": "abc-electronics.com",
+  "status": "pending_review",
+  "note": ""
+}
