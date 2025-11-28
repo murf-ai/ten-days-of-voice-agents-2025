@@ -1,0 +1,31 @@
+{
+  "order_id": "ORD_20251128_073925",
+  "customer_name": "Aish Verma",
+  "delivery_address": "p two. So one, since the colony is a plant.",
+  "timestamp": "2025-11-28T07:39:25.010957",
+  "items": [
+    {
+      "name": "Whole Wheat Bread",
+      "quantity": 1,
+      "unit": "1 loaf",
+      "price": 45,
+      "subtotal": 45
+    },
+    {
+      "name": "Peanut Butter",
+      "quantity": 1,
+      "unit": "462g",
+      "price": 225,
+      "subtotal": 225
+    },
+    {
+      "name": "Salted Butter",
+      "quantity": 1,
+      "unit": "100g",
+      "price": 55,
+      "subtotal": 55
+    }
+  ],
+  "total": 325,
+  "status": "placed"
+}
