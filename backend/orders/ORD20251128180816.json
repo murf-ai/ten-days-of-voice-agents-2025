@@ -1,0 +1,106 @@
+{
+  "order_id": "ORD20251128180816",
+  "customer_name": "Suyash",
+  "delivery_address": "near Raipur Railway Station",
+  "items": [
+    {
+      "id": "MILK001",
+      "name": "Amul Taaza Toned Milk",
+      "category": "Dairy & Beverages",
+      "price": 27.0,
+      "unit": "500ml pouch",
+      "brand": "Amul",
+      "tags": [
+        "dairy",
+        "milk",
+        "breakfast",
+        "chai",
+        "budget"
+      ],
+      "in_stock": true,
+      "quantity": 2
+    },
+    {
+      "id": "MAGGI001",
+      "name": "Maggi 2-Minute Noodles Masala",
+      "category": "Instant Foods",
+      "price": 14.0,
+      "unit": "70g pack",
+      "brand": "Maggi",
+      "tags": [
+        "instant",
+        "noodles",
+        "student-favorite",
+        "quick"
+      ],
+      "in_stock": true,
+      "quantity": 1
+    },
+    {
+      "id": "CHAI001",
+      "name": "Tata Tea Gold",
+      "category": "Dairy & Beverages",
+      "price": 240.0,
+      "unit": "500g",
+      "brand": "Tata Tea",
+      "tags": [
+        "chai",
+        "tea",
+        "morning"
+      ],
+      "in_stock": true,
+      "quantity": 1
+    },
+    {
+      "id": "SUGAR001",
+      "name": "Madhur Sugar",
+      "category": "Groceries",
+      "price": 42.0,
+      "unit": "1kg",
+      "brand": "Madhur",
+      "tags": [
+        "sugar",
+        "sweet",
+        "baking"
+      ],
+      "in_stock": true,
+      "quantity": 1
+    },
+    {
+      "id": "PARLEG001",
+      "name": "Parle-G Gold Biscuits",
+      "category": "Snacks & Namkeen",
+      "price": 10.0,
+      "unit": "100g",
+      "brand": "Parle",
+      "tags": [
+        "biscuit",
+        "chai-time",
+        "classic",
+        "budget"
+      ],
+      "in_stock": true,
+      "quantity": 1
+    },
+    {
+      "id": "OIL002",
+      "name": "Dhara Mustard Oil",
+      "category": "Groceries",
+      "price": 185.0,
+      "unit": "1L",
+      "brand": "Dhara",
+      "tags": [
+        "cooking",
+        "oil",
+        "kachi-ghani"
+      ],
+      "in_stock": true,
+      "quantity": 1
+    }
+  ],
+  "total_items": 7,
+  "total_amount": 545.0,
+  "order_time": "2025-11-28T18:08:16.866086",
+  "status": "placed",
+  "estimated_delivery": "10 minutes"
+}
