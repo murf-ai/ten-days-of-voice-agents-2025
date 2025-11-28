@@ -1,0 +1,17 @@
+{
+  "order_id": "1ef43a23",
+  "timestamp": "2025-11-28T10:40:07.714058Z",
+  "customer_name": "Kartik",
+  "address": "Bangalore",
+  "status": "received",
+  "total": 28.0,
+  "items": [
+    {
+      "item_id": "maggi-masala",
+      "name": "Maggi 2-Minute Noodles",
+      "unit_price": 14.0,
+      "quantity": 2,
+      "notes": ""
+    }
+  ]
+}

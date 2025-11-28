@@ -1,0 +1,38 @@
+{
+  "order_id": "6b7167fc",
+  "timestamp": "2025-11-28T10:49:33.971546Z",
+  "customer_name": "Kartik",
+  "address": "229, Eleventh Cross Road, Jayanagar, Bangalore, 570001",
+  "status": "received",
+  "total": 255.0,
+  "items": [
+    {
+      "item_id": "maggi-masala",
+      "name": "Maggi 2-Minute Noodles",
+      "unit_price": 14.0,
+      "quantity": 3,
+      "notes": ""
+    },
+    {
+      "item_id": "paneer-200g",
+      "name": "Amul Malai Paneer",
+      "unit_price": 95.0,
+      "quantity": 1,
+      "notes": ""
+    },
+    {
+      "item_id": "butter-100g",
+      "name": "Amul Butter",
+      "unit_price": 58.0,
+      "quantity": 1,
+      "notes": ""
+    },
+    {
+      "item_id": "tomato-1kg",
+      "name": "Fresh Tomatoes",
+      "unit_price": 60.0,
+      "quantity": 1,
+      "notes": ""
+    }
+  ]
+}

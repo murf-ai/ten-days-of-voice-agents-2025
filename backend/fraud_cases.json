@@ -46,7 +46,14 @@
     "transactionSource": "skylinetravels.com",
     "securityQuestion": "What is your mother’s maiden name?",
     "securityAnswer": "williams",
-    "notes": "Flagged due to unusual travel purchase"
+    "notes": "Flagged due to unusual travel purchase",
+    "status": "confirmed_fraud",
+    "history": [
+      {
+        "timestamp": "2025-11-26T20:42:34",
+        "note": "Customer reports fraudulent transaction; card blocked & dispute opened."
+      }
+    ]
   },
   {
     "userName": "Priya",

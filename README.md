@@ -1,214 +1,69 @@
-# AI Voice Agents Challenge - Starter Repository
+# Food & Grocery Ordering Voice Agent
 
-Welcome to the **AI Voice Agents Challenge** by [murf.ai](https://murf.ai)!
+This project implements a voice agent for ordering food and groceries. The agent can understand natural language requests, maintain a cart, handle recipe ingredients, place orders, and track order status.
 
-## About the Challenge
+## Features
 
-We just launched **Murf Falcon** – the consistently fastest TTS API, and you're going to be among the first to test it out in ways never thought before!
+### Primary Features
+- Browse and order from a catalog of food and grocery items
+- Add items to cart with specified quantities
+- Request ingredients for recipes (e.g., "ingredients for a peanut butter sandwich")
+- View cart contents
+- Place orders and save them to JSON files
 
-**Build 10 AI Voice Agents over the course of 10 Days** along with help from our devs and the community champs, and win rewards!
+### Advanced Features
+- Order tracking system that simulates status updates
+- Access to order history
+- Check status of current and previous orders
 
-### How It Works
-
-- One task to be provided everyday along with a GitHub repo for reference
-- Build a voice agent with specific personas and skills
-- Post on GitHub and share with the world on LinkedIn!
-
-## Repository Structure
-
-This is a **monorepo** that contains both the backend and frontend for building voice agent applications. It's designed to be your starting point for each day's challenge task.
-
-```
-falcon-tdova-nov25-livekit/
-├── backend/          # LiveKit Agents backend with Murf Falcon TTS
-├── frontend/         # React/Next.js frontend for voice interaction
-├── start_app.sh      # Convenience script to start all services
-└── README.md         # This file
-```
-
-### Backend
-
-The backend is based on [LiveKit's agent-starter-python](https://github.com/livekit-examples/agent-starter-python) with modifications to integrate **Murf Falcon TTS** for ultra-fast, high-quality voice synthesis.
-
-**Features:**
-
-- Complete voice AI agent framework using LiveKit Agents
-- Murf Falcon TTS integration for fastest text-to-speech
-- LiveKit Turn Detector for contextually-aware speaker detection
-- Background voice cancellation
-- Integrated metrics and logging
-- Complete test suite with evaluation framework
-- Production-ready Dockerfile
-
-[→ Backend Documentation](./backend/README.md)
-
-### Frontend
-
-The frontend is based on [LiveKit's agent-starter-react](https://github.com/livekit-examples/agent-starter-react), providing a modern, beautiful UI for interacting with your voice agents.
-
-**Features:**
-
-- Real-time voice interaction with LiveKit Agents
-- Camera video streaming support
-- Screen sharing capabilities
-- Audio visualization and level monitoring
-- Light/dark theme switching
-- Highly customizable branding and UI
-
-[→ Frontend Documentation](./frontend/README.md)
-
-## Quick Start
+## Getting Started
 
 ### Prerequisites
+- Python 3.6 or higher
 
-Make sure you have the following installed:
+### Installation
+1. Clone this repository
+2. No additional packages are required as this uses only standard Python libraries
 
-- Python 3.9+ with [uv](https://docs.astral.sh/uv/) package manager
-- Node.js 18+ with pnpm
-- [LiveKit CLI](https://docs.livekit.io/home/cli/cli-setup) (optional but recommended)
-- [LiveKit Server](https://docs.livekit.io/home/self-hosting/local/) for local development
-
-### 1. Clone the Repository
-
+### Running the Agent
 ```bash
-git clone <your-repo-url>
-cd falcon-tdova-nov25-livekit
+python main.py
 ```
 
-### 2. Backend Setup
+## Usage Examples
 
-```bash
-cd backend
+Here are some examples of commands you can use with the voice agent:
 
-# Install dependencies
-uv sync
+### Basic Commands
+- "Hello" - Greet the agent
+- "Add milk to my cart" - Add an item to your cart
+- "Add 2 apples to my cart" - Add multiple items
+- "What's in my cart?" - Check your current cart
+- "Remove eggs from my cart" - Remove an item
+- "Place my order" - Place your order
 
-# Copy environment file and configure
-cp .env.example .env.local
+### Recipe Requests
+- "I need ingredients for a peanut butter sandwich"
+- "Get me ingredients for pasta dinner for two"
 
-# Edit .env.local with your credentials:
-# - LIVEKIT_URL
-# - LIVEKIT_API_KEY
-# - LIVEKIT_API_SECRET
-# - MURF_API_KEY (for Falcon TTS)
-# - GOOGLE_API_KEY (for Gemini LLM)
-# - DEEPGRAM_API_KEY (for Deepgram STT)
+### Order Tracking
+- "Where is my order?" - Check status of your most recent order
+- "What's the status of my order?" - Same as above
+- "What's the status of order [order-id]?" - Check status of a specific order
+- "Show my previous orders" - View order history
 
-# Download required models
-uv run python src/agent.py download-files
-```
+## Project Structure
 
-For LiveKit Cloud users, you can automatically populate credentials:
+- `main.py` - Main entry point for the voice agent
+- `grocery_agent.py` - Core functionality for the grocery ordering agent
+- `catalog.json` - Food and grocery catalog
+- `orders/` - Directory where orders and order history are stored
 
-```bash
-lk cloud auth
-lk app env -w -d .env.local
-```
+## How It Works
 
-### 3. Frontend Setup
-
-```bash
-cd frontend
-
-# Install dependencies
-pnpm install
-
-# Copy environment file and configure
-cp .env.example .env.local
-
-# Edit .env.local with the same LiveKit credentials
-```
-
-### 4. Run the Application
-
-#### Install livekit server
-
-```bash
-brew install livekit
-```
-
-You have two options:
-
-#### Option A: Use the convenience script (runs everything)
-
-```bash
-# From the root directory
-chmod +x start_app.sh
-./start_app.sh
-```
-
-This will start:
-
-- LiveKit Server (in dev mode)
-- Backend agent (listening for connections)
-- Frontend app (at http://localhost:3000)
-
-#### Option B: Run services individually
-
-```bash
-# Terminal 1 - LiveKit Server
-livekit-server --dev
-
-# Terminal 2 - Backend Agent
-cd backend
-uv run python src/agent.py dev
-
-# Terminal 3 - Frontend
-cd frontend
-pnpm dev
-```
-
-Then open http://localhost:3000 in your browser!
-
-## Daily Challenge Tasks
-
-Each day, you'll receive a new task that builds upon your voice agent. The tasks will help you:
-
-- Implement different personas and conversation styles
-- Add custom tools and capabilities
-- Integrate with external APIs
-- Build domain-specific agents (customer service, tutoring, etc.)
-- Optimize performance and user experience
-
-**Stay tuned for daily task announcements!**
-
-## Documentation & Resources
-
-- [Murf Falcon TTS Documentation](https://murf.ai/api/docs/text-to-speech/streaming)
-- [LiveKit Agents Documentation](https://docs.livekit.io/agents)
-- [Original Backend Template](https://github.com/livekit-examples/agent-starter-python)
-- [Original Frontend Template](https://github.com/livekit-examples/agent-starter-react)
-
-## Testing
-
-The backend includes a comprehensive test suite:
-
-```bash
-cd backend
-uv run pytest
-```
-
-Learn more about testing voice agents in the [LiveKit testing documentation](https://docs.livekit.io/agents/build/testing/).
-
-## Contributing & Community
-
-This is a challenge repository, but we encourage collaboration and knowledge sharing!
-
-- Share your solutions and learnings on GitHub
-- Post about your progress on LinkedIn
-- Join the [LiveKit Community Slack](https://livekit.io/join-slack)
-- Connect with other challenge participants
-
-## License
-
-This project is based on MIT-licensed templates from LiveKit and includes integration with Murf Falcon. See individual LICENSE files in backend and frontend directories for details.
-
-## Have Fun!
-
-Remember, the goal is to learn, experiment, and build amazing voice AI agents. Don't hesitate to be creative and push the boundaries of what's possible with Murf Falcon and LiveKit!
-
-Good luck with the challenge!
-
----
-
-Built for the AI Voice Agents Challenge by murf.ai
+1. The agent loads a catalog of food and grocery items from `catalog.json`
+2. Users can interact with the agent using natural language commands
+3. The agent maintains a cart of items during the conversation
+4. When an order is placed, it's saved to a JSON file in the `orders/` directory
+5. Order status is updated over time (simulated for demo purposes)
+6. Users can check the status of their orders at any time
