@@ -1,0 +1,59 @@
+{
+  "Groceries": [
+    {
+      "name": "apple",
+      "price": 10,
+      "unit": "each"
+    },
+    {
+      "name": "banana",
+      "price": 5,
+      "unit": "each"
+    },
+    {
+      "name": "bread",
+      "price": 30,
+      "unit": "loaf"
+    },
+    {
+      "name": "milk",
+      "price": 45,
+      "unit": "litre"
+    },
+    {
+      "name": "eggs",
+      "price": 60,
+      "unit": "dozen"
+    }
+  ],
+  "Snacks": [
+    {
+      "name": "chips",
+      "price": 20
+    },
+    {
+      "name": "cookies",
+      "price": 25
+    }
+  ],
+  "PreparedFood": [
+    {
+      "name": "sandwich",
+      "price": 50
+    },
+    {
+      "name": "pasta",
+      "price": 120
+    }
+  ],
+  "Recipes": {
+    "peanut butter sandwich": [
+      "bread",
+      "peanut butter"
+    ],
+    "pasta plate": [
+      "pasta",
+      "tomato sauce"
+    ]
+  }
+}

@@ -1,0 +1,14 @@
+[
+  {
+    "timestamp": "2025-11-28T15:47:17.827162Z",
+    "user": "Sean",
+    "items": [
+      {
+        "name": "bread",
+        "qty": 2,
+        "price": 30
+      }
+    ],
+    "total": 60
+  }
+]
