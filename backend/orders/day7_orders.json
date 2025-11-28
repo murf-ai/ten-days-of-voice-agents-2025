@@ -1,0 +1,44 @@
+[
+  {
+    "order_id": "ORD0001",
+    "customer_name": "Ishwar",
+    "address": "Bangalore",
+    "items": [
+      {
+        "item_id": "bread_whole_wheat",
+        "name": "Whole Wheat Bread",
+        "unit": "1 loaf",
+        "unit_price": 45,
+        "quantity": 1,
+        "line_total": 45
+      },
+      {
+        "item_id": "peanut_butter",
+        "name": "Peanut Butter",
+        "unit": "340 g jar",
+        "unit_price": 180,
+        "quantity": 2,
+        "line_total": 360
+      },
+      {
+        "item_id": "pasta_penni",
+        "name": "Penne Pasta",
+        "unit": "500 g pack",
+        "unit_price": 75,
+        "quantity": 1,
+        "line_total": 75
+      },
+      {
+        "item_id": "pasta_sauce",
+        "name": "Tomato Pasta Sauce",
+        "unit": "400 g jar",
+        "unit_price": 110,
+        "quantity": 1,
+        "line_total": 110
+      }
+    ],
+    "total": 590,
+    "status": "received",
+    "timestamp": "2025-11-28T15:06:34.034422"
+  }
+]

@@ -1,0 +1,128 @@
+[
+  {
+    "id": "bread_whole_wheat",
+    "name": "Whole Wheat Bread",
+    "category": "groceries",
+    "price": 45,
+    "unit": "1 loaf",
+    "brand": "Falcon Fresh",
+    "tags": ["bread", "sandwich", "vegan"]
+  },
+  {
+    "id": "peanut_butter",
+    "name": "Peanut Butter",
+    "category": "groceries",
+    "price": 180,
+    "unit": "340 g jar",
+    "brand": "Nutty Falcon",
+    "tags": ["spread", "protein", "sandwich"]
+  },
+  {
+    "id": "milk_toned",
+    "name": "Toned Milk",
+    "category": "groceries",
+    "price": 28,
+    "unit": "500 ml pack",
+    "brand": "Falcon Dairy",
+    "tags": ["milk", "dairy", "tea", "coffee"]
+  },
+  {
+    "id": "eggs_6",
+    "name": "Eggs (6 pieces)",
+    "category": "groceries",
+    "price": 60,
+    "unit": "6 pcs",
+    "brand": "Nature Farm",
+    "tags": ["eggs", "breakfast", "protein"]
+  },
+  {
+    "id": "pasta_penni",
+    "name": "Penne Pasta",
+    "category": "groceries",
+    "price": 75,
+    "unit": "500 g pack",
+    "brand": "Italiano",
+    "tags": ["pasta", "italian", "dinner"]
+  },
+  {
+    "id": "pasta_sauce",
+    "name": "Tomato Pasta Sauce",
+    "category": "groceries",
+    "price": 110,
+    "unit": "400 g jar",
+    "brand": "Red Garden",
+    "tags": ["sauce", "pasta", "italian"]
+  },
+  {
+    "id": "snack_chips",
+    "name": "Salted Potato Chips",
+    "category": "snacks",
+    "price": 35,
+    "unit": "80 g pack",
+    "brand": "Crispy Bite",
+    "tags": ["snack", "chips"]
+  },
+  {
+    "id": "snack_biscuits",
+    "name": "Digestive Biscuits",
+    "category": "snacks",
+    "price": 40,
+    "unit": "200 g pack",
+    "brand": "Health Crunch",
+    "tags": ["snack", "biscuits"]
+  },
+  {
+    "id": "ready_margherita",
+    "name": "Margherita Pizza",
+    "category": "prepared_food",
+    "price": 250,
+    "unit": "1 medium pizza",
+    "brand": "Falcon Oven",
+    "tags": ["pizza", "vegetarian", "dinner"]
+  },
+  {
+    "id": "ready_veg_sandwich",
+    "name": "Grilled Veg Sandwich",
+    "category": "prepared_food",
+    "price": 120,
+    "unit": "1 sandwich",
+    "brand": "Falcon Cafe",
+    "tags": ["sandwich", "lunch"]
+  },
+  {
+    "id": "banana_1kg",
+    "name": "Bananas",
+    "category": "fruits",
+    "price": 60,
+    "unit": "1 kg",
+    "brand": "Fresh Orchard",
+    "tags": ["fruit", "breakfast", "healthy"]
+  },
+  {
+    "id": "apple_1kg",
+    "name": "Apples",
+    "category": "fruits",
+    "price": 140,
+    "unit": "1 kg",
+    "brand": "Fresh Orchard",
+    "tags": ["fruit", "snack", "healthy"]
+  },
+  {
+    "id": "tea_pack",
+    "name": "Masala Tea",
+    "category": "groceries",
+    "price": 95,
+    "unit": "250 g pack",
+    "brand": "Chai Time",
+    "tags": ["tea", "beverage"]
+  },
+  {
+    "id": "coffee_pack",
+    "name": "Instant Coffee",
+    "category": "groceries",
+    "price": 160,
+    "unit": "200 g jar",
+    "brand": "Morning Shot",
+    "tags": ["coffee", "beverage"]
+  }
+]
