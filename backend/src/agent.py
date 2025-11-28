@@ -1,5 +1,5 @@
 # ===========================================
-# Fraud Alert Voice Agent (LiveKit) - Day 6
+# Food & Grocery Ordering Voice Agent - Day 7
 # ===========================================
 
 import json
@@ -13,8 +13,8 @@ from livekit.agents import (
     AgentSession,
     JobContext,
     JobProcess,
-    RoomInputOptions,
     WorkerOptions,
+    RoomInputOptions,
     cli,
 )
 
@@ -28,201 +28,215 @@ from livekit.plugins import (
 from livekit.plugins.turn_detector.multilingual import MultilingualModel
 
 
-# ------------------------------------------
-# Logging + ENV
-# ------------------------------------------
-logger = logging.getLogger("fraud_agent")
+logger = logging.getLogger("food_agent")
 load_dotenv(".env.local")
 
+# ------------------------------------------
+# File paths
+# ------------------------------------------
+DATA_DIR = Path("shared-data")
+DATA_DIR.mkdir(exist_ok=True)
+
+CATALOG_PATH = DATA_DIR / "catalog.json"
+ORDER_HISTORY_PATH = DATA_DIR / "orders.json"
 
 # ------------------------------------------
-# Fake Fraud Case "Database"
+# Sample Catalog
 # ------------------------------------------
-DB_PATH = Path("shared-data/fraud_case.json")
-DB_PATH.parent.mkdir(exist_ok=True, parents=True)
-
-SAMPLE_FRAUD_CASE = {
-    "userName": "John",
-    "securityIdentifier": "12345",
-    "securityQuestion": "What is your favorite color?",
-    "securityAnswer": "blue",
-    "cardEnding": "4242",
-    "transactionName": "ABC Electronics",
-    "transactionAmount": "₹12,499",
-    "transactionTime": "2024-10-12 14:30",
-    "transactionLocation": "Mumbai",
-    "transactionCategory": "e-commerce",
-    "transactionSource": "abc-electronics.com",
-    "status": "pending_review",
-    "note": ""
+SAMPLE_CATALOG = {
+    "items": [
+        {"id": 1, "name": "Milk", "category": "Groceries", "price": 55, "size": "1L"},
+        {"id": 2, "name": "Bread", "category": "Groceries", "price": 40, "type": "whole wheat"},
+        {"id": 3, "name": "Eggs", "category": "Groceries", "price": 70, "units": "12 pack"},
+        {"id": 4, "name": "Peanut Butter", "category": "Snacks", "price": 120},
+        {"id": 5, "name": "Pasta", "category": "Groceries", "price": 85},
+        {"id": 6, "name": "Pasta Sauce", "category": "Groceries", "price": 110},
+        {"id": 7, "name": "Chips", "category": "Snacks", "price": 20},
+        {"id": 8, "name": "Cheese Sandwich", "category": "Prepared Food", "price": 90},
+        {"id": 9, "name": "Veg Pizza", "category": "Prepared Food", "price": 299},
+        {"id": 10, "name": "Butter", "category": "Groceries", "price": 52}
+    ]
 }
 
-# create database if missing
-if not DB_PATH.exists():
-    with open(DB_PATH, "w") as f:
-        json.dump(SAMPLE_FRAUD_CASE, f, indent=2)
+# create default catalog if not exists
+if not CATALOG_PATH.exists():
+    json.dump(SAMPLE_CATALOG, open(CATALOG_PATH, "w"), indent=2)
+
+# create empty order history file
+if not ORDER_HISTORY_PATH.exists():
+    json.dump({"orders": []}, open(ORDER_HISTORY_PATH, "w"), indent=2)
 
 
-def load_case():
-    return json.load(open(DB_PATH, "r"))
+def load_catalog():
+    return json.load(open(CATALOG_PATH, "r"))["items"]
 
 
-def save_case(data):
-    with open(DB_PATH, "w") as f:
-        json.dump(data, f, indent=2)
+def load_order_history():
+    return json.load(open(ORDER_HISTORY_PATH, "r"))
+
+
+def save_order(order):
+    db = load_order_history()
+    db["orders"].append(order)
+    json.dump(db, open(ORDER_HISTORY_PATH, "w"), indent=2)
 
 
 # ------------------------------------------
-# Fraud Alert Agent Class
+# Recipes for "ingredients for X"
 # ------------------------------------------
-class FraudAlertAgent(Agent):
+RECIPES = {
+    "peanut butter sandwich": ["Bread", "Peanut Butter"],
+    "pasta": ["Pasta", "Pasta Sauce"],
+    "sandwich": ["Bread", "Butter"],
+}
+
+# ------------------------------------------
+# Food Ordering Agent
+# ------------------------------------------
+class FoodOrderAgent(Agent):
 
     def __init__(self):
         super().__init__(
             instructions=(
-                "You are a Fraud Alert Representative from a fictional bank named SecureBank. "
-                "You must follow the fraud alert flow strictly and avoid all sensitive requests. "
-                "Only use the fake data in the database. "
-                "Never ask for PIN, OTP, full card number, CVV, or passwords."
+                "You are a friendly Food & Grocery Ordering Assistant for QuickMart. "
+                "You help customers order groceries, snacks, and simple meals. "
+                "You maintain a cart, add items, remove items, list cart contents, "
+                "and process ingredient-based requests like 'ingredients for pasta'. "
+                "When the user says 'place my order', save the order as JSON."
             )
         )
         self.sessions = {}
 
-    # ------------------ When call begins ------------------
     async def on_join(self, ctx):
         sid = ctx.session.session_id
+
         self.sessions[sid] = {
-            "stage": "ask_username",
-            "verified": False,
-            "case": None,
+            "cart": [],
+            "catalog": load_catalog(),
         }
 
         await ctx.send_speech(
-            "Hello, this is the SecureBank Fraud Detection Department. "
-            "We detected a potentially suspicious transaction. "
-            "To assist you, may I have your username?"
+            "Welcome to QuickMart! I can help you order groceries and snacks. "
+            "Tell me what you'd like to buy."
         )
 
-    # ------------------ When user speaks ------------------
     async def on_user_message(self, message, ctx):
+        text = (message.text or "").lower()
         sid = ctx.session.session_id
         state = self.sessions[sid]
-        msg = (message.text or "").strip().lower()
 
-        # end flow
-        if msg in ["bye", "exit", "stop"]:
-            return await self.finish(ctx, state)
+        # EXIT
+        if text in ["bye", "exit", "stop"]:
+            return await self.finish(ctx)
 
-        # Stages
-        if state["stage"] == "ask_username":
-            return await self.handle_username(msg, ctx, state)
+        # PLACE ORDER
+        if "place" in text and "order" in text:
+            return await self.place_order(ctx, state)
 
-        if state["stage"] == "security_question":
-            return await self.handle_verification(msg, ctx, state)
+        # LIST CART
+        if "what" in text and "cart" in text:
+            return await self.list_cart(ctx, state)
 
-        if state["stage"] == "confirm_transaction":
-            return await self.handle_transaction_confirmation(msg, ctx, state)
+        # REMOVE ITEM
+        if "remove" in text:
+            return await self.remove_item(text, ctx, state)
 
-    # ------------------ Username Handling ------------------
-    async def handle_username(self, msg, ctx, state):
-        fraud_case = load_case()
+        # INGREDIENT request
+        if "ingredients for" in text:
+            return await this.ingredients_request(text, ctx, state)
 
-        if msg != fraud_case["userName"].lower():
-            await ctx.send_speech(
-                "I'm sorry, that username does not match our records. "
-                "Please say your username again."
-            )
-            return
+        # ADD NORMAL ITEM
+        return await self.add_item(text, ctx, state)
 
-        # Username matched
-        state["case"] = fraud_case
-        state["stage"] = "security_question"
+    # ---------------------- CART OPERATIONS ----------------------
+    async def add_item(self, text, ctx, state):
+        catalog = state["catalog"]
+        quantity = 1
+
+        # detect quantity
+        for q in range(1, 6):
+            if f"{q}" in text:
+                quantity = q
+
+        # find matching item
+        for item in catalog:
+            if item["name"].lower() in text:
+                state["cart"].append({"name": item["name"], "qty": quantity, "price": item["price"]})
+                return await ctx.send_speech(f"Added {quantity} {item['name']} to your cart.")
+
+        await ctx.send_speech("I couldn't find that item in our store. Try again.")
+
+    async def remove_item(self, text, ctx, state):
+        for c in state["cart"]:
+            if c["name"].lower() in text:
+                state["cart"].remove(c)
+                return await ctx.send_speech(f"Removed {c['name']} from your cart.")
+
+        await ctx.send_speech("That item is not in your cart.")
+
+    async def list_cart(self, ctx, state):
+        if not state["cart"]:
+            return await ctx.send_speech("Your cart is empty.")
+
+        msg = "Your cart contains: "
+        for c in state["cart"]:
+            msg += f"{c['qty']} {c['name']}, "
+
+        await ctx.send_speech(msg)
+
+    # ---------------------- INGREDIENTS ----------------------
+    async def ingredients_request(self, text, ctx, state):
+        for dish in RECIPES:
+            if dish in text:
+                items = RECIPES[dish]
+                for i in items:
+                    state["cart"].append({"name": i, "qty": 1, "price": self.find_price(state, i)})
+                return await ctx.send_speech(
+                    f"I've added the ingredients for {dish}: {', '.join(items)}."
+                )
+
+        await ctx.send_speech("I don’t have a recipe for that, sorry!")
+
+    def find_price(self, state, name):
+        for item in state["catalog"]:
+            if item["name"] == name:
+                return item["price"]
+        return 0
+
+    # ---------------------- PLACE ORDER ----------------------
+    async def place_order(self, ctx, state):
+        if not state["cart"]:
+            return await ctx.send_speech("Your cart is empty. Add items before placing an order.")
+
+        total = sum(i["price"] * i["qty"] for i in state["cart"])
+        order = {
+            "timestamp": datetime.now().isoformat(),
+            "items": state["cart"],
+            "total": total
+        }
+
+        save_order(order)
 
         await ctx.send_speech(
-            f"Thank you. For security, please answer this question: "
-            f"{fraud_case['securityQuestion']}"
+            f"Your order has been placed! Total amount is {total} rupees. "
+            "You will receive your order soon!"
         )
 
-    # ------------------ Verification ------------------
-    async def handle_verification(self, msg, ctx, state):
-        fraud_case = state["case"]
+        state["cart"] = []
 
-        if msg.strip() != fraud_case["securityAnswer"].lower():
-            fraud_case["status"] = "verification_failed"
-            fraud_case["note"] = "User failed verification."
-            save_case(fraud_case)
-
-            await ctx.send_speech(
-                "I'm sorry, the answer does not match our records. "
-                "For your security, we cannot proceed further. Goodbye."
-            )
-            return await self.finish(ctx, state)
-
-        # Verification successful
-        state["verified"] = True
-        state["stage"] = "confirm_transaction"
-
-        await ctx.send_speech(
-            "Thank you, verification successful. "
-            "Here are the details of the suspicious transaction:"
-        )
-        await ctx.send_speech(
-            f"Merchant: {fraud_case['transactionName']}. "
-            f"Amount: {fraud_case['transactionAmount']}. "
-            f"Location: {fraud_case['transactionLocation']}. "
-            f"Time: {fraud_case['transactionTime']}. "
-            f"Card ending with {fraud_case['cardEnding']}. "
-            "Did you make this transaction? Please say yes or no."
-        )
-
-    # ------------------ Transaction Confirmation ------------------
-    async def handle_transaction_confirmation(self, msg, ctx, state):
-        fraud_case = state["case"]
-
-        if "yes" in msg:
-            fraud_case["status"] = "confirmed_safe"
-            fraud_case["note"] = "Customer confirmed transaction as legitimate."
-            save_case(fraud_case)
-
-            await ctx.send_speech(
-                "Thank you. We have marked this transaction as safe."
-            )
-            return await self.finish(ctx, state)
-
-        if "no" in msg:
-            fraud_case["status"] = "confirmed_fraud"
-            fraud_case["note"] = "Customer denied the transaction. Card blocked."
-            save_case(fraud_case)
-
-            await ctx.send_speech(
-                "Thank you. We have blocked your card and initiated a dispute. "
-                "A fraud specialist will contact you shortly."
-            )
-            return await self.finish(ctx, state)
-
-        await ctx.send_speech(
-            "I didn't understand that. Please say yes or no."
-        )
-
-    # ------------------ End Call ------------------
-    async def finish(self, ctx, state):
-        await ctx.send_speech(
-            "Thank you for your time. SecureBank cares about your safety. Goodbye."
-        )
-
+    async def finish(self, ctx):
+        await ctx.send_speech("Thanks for shopping with QuickMart! Goodbye.")
 
 # ------------------------------------------
 # Prewarm VAD
 # ------------------------------------------
 vad_model = silero.VAD.load()
 
-
 def prewarm(proc: JobProcess):
     proc.userdata["vad"] = vad_model
 
-
 # ------------------------------------------
-# Entrypoint (Same as your SDR version)
+# Entrypoint
 # ------------------------------------------
 async def entrypoint(ctx: JobContext):
     session = AgentSession(
@@ -235,14 +249,13 @@ async def entrypoint(ctx: JobContext):
     )
 
     await session.start(
-        agent=FraudAlertAgent(),
+        agent=FoodOrderAgent(),
         room=ctx.room,
         room_input_options=RoomInputOptions(
             noise_cancellation=noise_cancellation.BVC()
         ),
     )
     await ctx.connect()
-
 
 if __name__ == "__main__":
     cli.run_app(

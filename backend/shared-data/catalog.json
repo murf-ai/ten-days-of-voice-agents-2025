@@ -1,0 +1,67 @@
+{
+  "items": [
+    {
+      "id": 1,
+      "name": "Milk",
+      "category": "Groceries",
+      "price": 55,
+      "size": "1L"
+    },
+    {
+      "id": 2,
+      "name": "Bread",
+      "category": "Groceries",
+      "price": 40,
+      "type": "whole wheat"
+    },
+    {
+      "id": 3,
+      "name": "Eggs",
+      "category": "Groceries",
+      "price": 70,
+      "units": "12 pack"
+    },
+    {
+      "id": 4,
+      "name": "Peanut Butter",
+      "category": "Snacks",
+      "price": 120
+    },
+    {
+      "id": 5,
+      "name": "Pasta",
+      "category": "Groceries",
+      "price": 85
+    },
+    {
+      "id": 6,
+      "name": "Pasta Sauce",
+      "category": "Groceries",
+      "price": 110
+    },
+    {
+      "id": 7,
+      "name": "Chips",
+      "category": "Snacks",
+      "price": 20
+    },
+    {
+      "id": 8,
+      "name": "Cheese Sandwich",
+      "category": "Prepared Food",
+      "price": 90
+    },
+    {
+      "id": 9,
+      "name": "Veg Pizza",
+      "category": "Prepared Food",
+      "price": 299
+    },
+    {
+      "id": 10,
+      "name": "Butter",
+      "category": "Groceries",
+      "price": 52
+    }
+  ]
+}
