@@ -1,20 +1,21 @@
+
 import logging
 import json
-from pathlib import Path
+import os
 from datetime import datetime
-from typing import Dict, List, Optional
+from typing import Dict, Any, Optional, List
 
+import asyncio
 from dotenv import load_dotenv
+
 from livekit.agents import (
     Agent,
     AgentSession,
     JobContext,
     JobProcess,
-    MetricsCollectedEvent,
     RoomInputOptions,
     WorkerOptions,
     cli,
-    metrics,
     tokenize,
     function_tool,
     RunContext,
@@ -22,562 +23,236 @@ from livekit.agents import (
 from livekit.plugins import murf, silero, google, deepgram, noise_cancellation
 from livekit.plugins.turn_detector.multilingual import MultilingualModel
 
-logger = logging.getLogger("agent")
-load_dotenv(".env.local")
+logger = logging.getLogger("game_master_agent")
+logging.basicConfig(level=logging.INFO)
 
-# ------------ Catalog & Order Management ------------
+load_dotenv(dotenv_path=".env.local")
+load_dotenv(dotenv_path=".env")
 
-CATALOG_FILE = Path(__file__).parent.parent / "shared-data" / "day7_catalog.json"
-ORDERS_DIR = Path(__file__).parent.parent / "orders"
 
-class GroceryCatalog:
-    def __init__(self):
-        self.data = self._load_catalog()
-        self.store_name = self.data.get("store_name", "DesiMart")
-        self.items = {item["id"]: item for item in self.data.get("items", [])}
-        self.recipes = self.data.get("recipes", {})
-    
-    def _load_catalog(self):
-        """Load catalog from JSON"""
-        if not CATALOG_FILE.exists():
-            logger.error(f"Catalog file not found: {CATALOG_FILE}")
-            CATALOG_FILE.parent.mkdir(parents=True, exist_ok=True)
-            default_catalog = {
-                "store_name": "DesiMart Express",
-                "items": [],
-                "recipes": {}
-            }
-            with open(CATALOG_FILE, "w") as f:
-                json.dump(default_catalog, f, indent=2)
-            return default_catalog
-        
-        try:
-            with open(CATALOG_FILE, "r") as f:
-                return json.load(f)
-        except json.JSONDecodeError as e:
-            logger.error(f"Error parsing catalog: {e}")
-            return {"store_name": "DesiMart", "items": [], "recipes": {}}
-    
-    def search_items(self, query: str) -> List[dict]:
-        """Search items by name, category, or tags"""
-        query_lower = query.lower()
-        results = []
-        
-        for item in self.items.values():
-            if query_lower in item["name"].lower() or \
-               query_lower in item["category"].lower() or \
-               any(query_lower in tag for tag in item.get("tags", [])):
-                results.append(item)
-        
-        return results
-    
-    def get_item_by_id(self, item_id: str) -> Optional[dict]:
-        """Get item by ID"""
-        return self.items.get(item_id)
-    
-    def get_recipe_items(self, recipe_name: str) -> List[str]:
-        """Get item IDs for a recipe"""
-        recipe_lower = recipe_name.lower()
-        return self.recipes.get(recipe_lower, [])
-    
-    def get_items_by_ids(self, item_ids: List[str]) -> List[dict]:
-        """Get multiple items by IDs"""
-        return [self.items[item_id] for item_id in item_ids if item_id in self.items]
+def build_system_prompt() -> str:
+    return """
+You are a Game Master (GM) running an interactive fantasy adventure in a world of dragons, magic, and medieval quests.
+Your tone is dramatic and immersive, with a touch of humor to keep things engaging.
 
-class ShoppingCart:
-    def __init__(self):
-        self.items: Dict[str, dict] = {}  # item_id -> {item_data, quantity}
-    
-    def add_item(self, item: dict, quantity: int = 1):
-        """Add item to cart"""
-        item_id = item["id"]
-        if item_id in self.items:
-            self.items[item_id]["quantity"] += quantity
-        else:
-            self.items[item_id] = {
-                **item,
-                "quantity": quantity
-            }
-        logger.info(f"Added {quantity}x {item['name']} to cart")
-    
-    def remove_item(self, item_id: str):
-        """Remove item from cart"""
-        if item_id in self.items:
-            removed = self.items.pop(item_id)
-            logger.info(f"Removed {removed['name']} from cart")
-            return True
-        return False
-    
-    def update_quantity(self, item_id: str, quantity: int):
-        """Update item quantity"""
-        if item_id in self.items:
-            if quantity <= 0:
-                return self.remove_item(item_id)
-            self.items[item_id]["quantity"] = quantity
-            logger.info(f"Updated {self.items[item_id]['name']} quantity to {quantity}")
-            return True
-        return False
-    
-    def get_cart_summary(self) -> dict:
-        """Get cart summary with total"""
-        total = sum(item["price"] * item["quantity"] for item in self.items.values())
-        return {
-            "items": list(self.items.values()),
-            "item_count": sum(item["quantity"] for item in self.items.values()),
-            "total": total
-        }
-    
-    def clear(self):
-        """Clear cart"""
-        self.items.clear()
-    
-    def is_empty(self) -> bool:
-        """Check if cart is empty"""
-        return len(self.items) == 0
+UNIVERSE:
+- Classic fantasy kingdom: knights, wizards, dragons, elves, dwarves, ancient ruins.
+- The player is a brave adventurer on a quest to defeat an evil sorcerer threatening the kingdom.
 
-class OrderManager:
-    def __init__(self):
-        ORDERS_DIR.mkdir(parents=True, exist_ok=True)
-    
-    def save_order(self, cart: ShoppingCart, customer_name: str = "Customer", delivery_address: str = ""):
-        """Save order to JSON file"""
-        order_id = f"ORD{datetime.now().strftime('%Y%m%d%H%M%S')}"
-        cart_summary = cart.get_cart_summary()
-        
-        order_data = {
-            "order_id": order_id,
-            "customer_name": customer_name,
-            "delivery_address": delivery_address,
-            "items": cart_summary["items"],
-            "total_items": cart_summary["item_count"],
-            "total_amount": cart_summary["total"],
-            "order_time": datetime.now().isoformat(),
-            "status": "placed",
-            "estimated_delivery": "10 minutes"
-        }
-        
-        # Save to file
-        order_file = ORDERS_DIR / f"{order_id}.json"
-        with open(order_file, "w") as f:
-            json.dump(order_data, f, indent=2)
-        
-        logger.info(f"Order {order_id} saved: ₹{order_data['total_amount']}")
-        return order_data
+ROLE:
+- You describe scenes vividly, narrate the story, and ask the player what they do next.
+- ALWAYS end every response with a clear prompt for action, such as: "What do you do?" or "How do you respond?".
+- Keep responses voice-friendly: natural, not too long, and engaging.
 
-# ------------ Food Ordering Agent ------------
+CONTINUITY:
+- Maintain continuity using conversation history AND the JSON world state.
+- Remember: player decisions, named characters, locations, quests, and consequences.
+- If an NPC is dead in the world state, they must NOT suddenly appear alive.
+- If the player has an item in inventory, you may reference it or let them use it.
 
-class FoodOrderingAgent(Agent):
-    """Food & Grocery Ordering Voice Agent"""
-    def __init__(self, catalog: GroceryCatalog):
-        self.catalog = catalog
-        self.cart = ShoppingCart()
-        self.customer_name = ""
-        self.delivery_address = ""
-        self.order_manager = OrderManager()
-        
-        super().__init__(
-            instructions=f"""
-You are a friendly and enthusiastic food & grocery ordering assistant for {catalog.store_name}.
+WORLD STATE:
+You have access to tools that manage a JSON world state representing characters, locations, events, and quests.
 
-**Your Personality:**
-- Warm, helpful, and conversational
-- Use casual Indian English (like "acha", "theek hai", "perfect")
-- Excited about helping customers
-- Suggest popular combos and deals
+Tools:
+1) get_world_state
+   - Use this to inspect the current world state when you need to remember facts about the world,
+     e.g., current location, quest status, inventory items, or NPCs.
 
-**Your Role:**
-Help customers order groceries, snacks, instant foods, and beverages through natural voice conversation.
+2) update_world_state
+   - Use this whenever the story changes something important:
+     - Player HP changes (damage / healing).
+     - Player inventory changes (items found, used, lost).
+     - Location changes (moving to a new place).
+     - NPCs created, befriended, angered, killed.
+     - Quests or objectives started, progressed, or completed.
+     - Major events (boss defeated, trap triggered, secret discovered).
 
-**Capabilities:**
+UPDATE STRATEGY:
+- Only include fields that changed in the updates payload.
+- Prefer small, incremental updates instead of resending the whole world.
+- Examples of valid updates:
+  - {"locations": {"current": "Dark Forest", "visited": ["Village of Eldoria", "Dark Forest"]}}
+  - {"characters": {"player": {"hp": 82, "inventory": ["sword", "shield", "healing potion"]}}}
+  - {"events": ["Player entered the Dark Forest and heard distant growling."]}
+  - {"quests": {"active": [{"id": "defeat_sorcerer", "completed_objectives": ["Find the sorcerer's lair"]}]}}
 
-1. **Product Search & Information**
-   - Help find items: "Do you have Maggi?" "Show me chips"
-   - Provide details: price, brand, size
-   - Suggest alternatives: "We have Yippee noodles too!"
+FLOW:
+- On the first turn, start by setting up the scene in the Village of Eldoria and give the player 2–3 choices.
+- Each turn:
+  1) Optionally call get_world_state if you need to recall something.
+  2) Interpret the player's action.
+  3) If anything in the world changes, call update_world_state with a small JSON patch.
+  4) Continue the story, moving toward a mini-arc (e.g., discovering a clue, surviving an ambush, or advancing the quest).
+  5) Always end with a question: "What do you do?".
 
-2. **Smart Recipe-Based Ordering** (MOST IMPORTANT!)
-   - Understand requests like:
-     * "I need stuff for Maggi" → Add Maggi + milk
-     * "Chai and snacks" → Add tea, milk, Parle-G
-     * "Movie night essentials" → Add chips, cold drink, cookies
-     * "Late night study snacks" → Add Maggi, Parle-G, chai, milk
-     * "Dal chawal ingredients" → Add dal, rice, ghee
-   
-   - Use the 'add_recipe_items' function for these requests
-   - Confirm what was added: "Perfect! I've added Maggi and milk for your late night craving!"
+SESSION LENGTH:
+- Aim for a short adventure of ~8–15 turns.
+- It should reach at least one mini-arc: finding something valuable, escaping danger, defeating a threat, or making a key decision.
+- When a mini-arc is completed, you may hint at future adventures but keep the current one reasonably self-contained.
 
-3. **Cart Management**
-   - Add items with quantities: "2 packets of Maggi"
-   - Remove items: "Remove the Kurkure"
-   - Update quantities: "Make it 3 Frooti instead"
-   - Show cart: "What's in my cart?"
-   
-4. **Checkout Process**
-   - When user says "done", "place order", "checkout", or "that's all":
-     * Ask for their name (if not already collected)
-     * Ask for delivery address
-     * Show final cart summary with total
-     * Confirm and place order
-   - Use 'place_order' function to finalize
-
-**Conversation Flow:**
-
-**START:**
-"Namaste! Welcome to {catalog.store_name}! Ghar ka saman, 10 minute mein! 
-What would you like to order today?"
-
-**DURING ORDERING:**
-- Be proactive: "Would you like some Parle-G with that chai?"
-- Confirm additions: "Added! Anything else?"
-- Natural responses: "Acha, theek hai", "Perfect choice!", "Great!"
-
-**CHECKOUT:**
-User: "That's all" or "Place my order"
-You: "Great! Can I have your name for the order?"
-User: "Suyash"
-You: "Thanks Suyash! And what's your delivery address?"
-User: "Raipur, Telibandha"
-You: [Show cart summary + total]
-You: "Shall I place this order for you?"
-User: "Yes"
-You: [Use place_order function]
-
-**Important Guidelines:**
-- Always confirm what was added to cart
-- Suggest combos: "Maggi ke saath Frooti bhi lena hai?"
-- Be enthusiastic about popular items: "Ah, Parle-G! Classic choice!"
-- Use Indian pricing: "Only ₹20!", "₹240 ki chai, bahut time chalegi"
-- Keep it conversational and fun!
-
-**Function Tools Available:**
-- search_catalog(query) - Find items
-- add_to_cart(item_name, quantity) - Add specific items
-- add_recipe_items(recipe_name) - Add bundled items for recipes
-- remove_from_cart(item_name) - Remove items
-- update_quantity(item_name, quantity) - Change quantity
-- show_cart() - Display current cart
-- place_order(customer_name, address) - Finalize order
-
-Let's make grocery shopping fun and easy! 🛒
-""",
-        )
-    
-    @function_tool
-    async def search_catalog(self, context: RunContext, query: str):
-        """
-        Search for items in the catalog by name, category, or tags.
-        
-        Args:
-            query: Search term (e.g., "maggi", "chips", "chai", "milk")
-        """
-        logger.info(f"Searching catalog for: {query}")
-        
-        results = self.catalog.search_items(query)
-        
-        if not results:
-            return f"Sorry, I couldn't find '{query}' in our catalog. Try searching for something else like Maggi, Parle-G, or Amul products!"
-        
-        # Format results
-        if len(results) == 1:
-            item = results[0]
-            return f"Found {item['name']} by {item['brand']} - ₹{item['price']} for {item['unit']}. Should I add it to your cart?"
-        
-        elif len(results) <= 5:
-            items_text = "\n".join([
-                f"- {item['name']} ({item['brand']}) - ₹{item['price']} for {item['unit']}"
-                for item in results
-            ])
-            return f"Here's what I found:\n{items_text}\n\nWhich one would you like?"
-        
-        else:
-            items_text = "\n".join([
-                f"- {item['name']} - ₹{item['price']}"
-                for item in results[:5]
-            ])
-            return f"Found {len(results)} items! Here are the top ones:\n{items_text}\n\nWould you like to see more or add any of these?"
-    
-    @function_tool
-    async def add_to_cart(self, context: RunContext, item_name: str, quantity: int = 1):
-        """
-        Add a specific item to the cart.
-        
-        Args:
-            item_name: Name of the item to add
-            quantity: How many to add (default: 1)
-        """
-        logger.info(f"Adding to cart: {item_name} x{quantity}")
-        
-        # Search for the item
-        results = self.catalog.search_items(item_name)
-        
-        if not results:
-            return f"Sorry, I couldn't find '{item_name}'. Try searching for it first!"
-        
-        # If multiple results, pick the closest match
-        item = results[0]
-        
-        # Add to cart
-        self.cart.add_item(item, quantity)
-        
-        total_price = item['price'] * quantity
-        return f"Added {quantity}x {item['name']} ({item['brand']}) to your cart! That's ₹{total_price}. Anything else?"
-    
-    @function_tool
-    async def add_recipe_items(self, context: RunContext, recipe_name: str):
-        """
-        Add all items needed for a recipe or combo (e.g., "maggi", "chai", "movie snacks").
-        This is for requests like "I need stuff for Maggi" or "chai and snacks".
-        
-        Args:
-            recipe_name: Name of recipe/combo (e.g., "maggi", "chai", "movie night", "study snacks")
-        """
-        logger.info(f"Adding recipe items for: {recipe_name}")
-        
-        # Get recipe item IDs
-        item_ids = self.catalog.get_recipe_items(recipe_name)
-        
-        if not item_ids:
-            # Try to be helpful with suggestions
-            available_recipes = list(self.catalog.recipes.keys())
-            suggestions = ", ".join(available_recipes[:5])
-            return f"I don't have a preset for '{recipe_name}'. But I can help with: {suggestions}. What would you like?"
-        
-        # Get items and add to cart
-        items = self.catalog.get_items_by_ids(item_ids)
-        
-        if not items:
-            return "Oops, couldn't find those items. Let me know what you need!"
-        
-        # Add all items
-        for item in items:
-            self.cart.add_item(item, quantity=1)
-        
-        # Create response
-        items_list = ", ".join([item['name'] for item in items])
-        total = sum(item['price'] for item in items)
-        
-        return f"Perfect! I've added everything you need for {recipe_name}: {items_list}. Total: ₹{total}. Anything else?"
-    
-    @function_tool
-    async def remove_from_cart(self, context: RunContext, item_name: str):
-        """
-        Remove an item from the cart.
-        
-        Args:
-            item_name: Name of the item to remove
-        """
-        logger.info(f"Removing from cart: {item_name}")
-        
-        # Find item in cart
-        for item_id, cart_item in self.cart.items.items():
-            if item_name.lower() in cart_item['name'].lower():
-                self.cart.remove_item(item_id)
-                return f"Removed {cart_item['name']} from your cart. Anything else?"
-        
-        return f"I couldn't find '{item_name}' in your cart. Want to see what's in your cart?"
-    
-    @function_tool
-    async def update_quantity(self, context: RunContext, item_name: str, quantity: int):
-        """
-        Update the quantity of an item in the cart.
-        
-        Args:
-            item_name: Name of the item
-            quantity: New quantity (use 0 to remove)
-        """
-        logger.info(f"Updating quantity: {item_name} to {quantity}")
-        
-        # Find item in cart
-        for item_id, cart_item in self.cart.items.items():
-            if item_name.lower() in cart_item['name'].lower():
-                if quantity == 0:
-                    self.cart.remove_item(item_id)
-                    return f"Removed {cart_item['name']} from your cart."
-                else:
-                    self.cart.update_quantity(item_id, quantity)
-                    new_price = cart_item['price'] * quantity
-                    return f"Updated {cart_item['name']} to {quantity} pieces. That's ₹{new_price} now."
-        
-        return f"I couldn't find '{item_name}' in your cart. Want to add it?"
-    
-    @function_tool
-    async def show_cart(self, context: RunContext):
-        """
-        Show all items currently in the shopping cart with quantities and prices.
-        """
-        logger.info("Showing cart contents")
-        
-        if self.cart.is_empty():
-            return "Your cart is empty right now! What would you like to order?"
-        
-        cart_summary = self.cart.get_cart_summary()
-        
-        # Build cart display
-        cart_text = "📦 **Your Cart:**\n\n"
-        for item in cart_summary["items"]:
-            item_total = item['price'] * item['quantity']
-            cart_text += f"• {item['quantity']}x {item['name']} ({item['brand']}) - ₹{item_total}\n"
-        
-        cart_text += f"\n**Total Items:** {cart_summary['item_count']}"
-        cart_text += f"\n**Total Amount:** ₹{cart_summary['total']}"
-        cart_text += f"\n\nReady to checkout or want to add more items?"
-        
-        return cart_text
-    
-    @function_tool
-    async def place_order(self, context: RunContext, customer_name: str = "", delivery_address: str = ""):
-        """
-        Place the final order and save it to a JSON file.
-        
-        Args:
-            customer_name: Customer's name
-            delivery_address: Delivery address
-        """
-        logger.info(f"Placing order for {customer_name}")
-        
-        if self.cart.is_empty():
-            return "Your cart is empty! Add some items before placing the order."
-        
-        if not customer_name:
-            return "I need your name to place the order. What's your name?"
-        
-        if not delivery_address:
-            return "Great! And what's your delivery address?"
-        
-        # Save customer info
-        self.customer_name = customer_name
-        self.delivery_address = delivery_address
-        
-        # Get cart summary
-        cart_summary = self.cart.get_cart_summary()
-        
-        # Save order
-        order_data = self.order_manager.save_order(
-            cart=self.cart,
-            customer_name=customer_name,
-            delivery_address=delivery_address
-        )
-        
-        # Clear cart
-        self.cart.clear()
-        
-        # Generate confirmation message
-        response = f"""🎉 **Order Placed Successfully!**
-
-**Order ID:** {order_data['order_id']}
-**Customer:** {customer_name}
-**Delivery Address:** {delivery_address}
-
-**Order Summary:**
+STYLE:
+- No markdown, no bullet lists, just spoken-style narration.
+- Keep pacing tight, avoid walls of text.
 """
-        for item in order_data["items"]:
-            response += f"• {item['quantity']}x {item['name']} - ₹{item['price'] * item['quantity']}\n"
-        
-        response += f"""
-**Total Items:** {order_data['total_items']}
-**Total Amount:** ₹{order_data['total_amount']}
 
-**Estimated Delivery:** 10 minutes! 🚀
 
-Thank you for ordering from {self.catalog.store_name}! Your order will reach you soon. 
-Track your order with ID: {order_data['order_id']}
+class GameMasterAgent(Agent):
+    def __init__(self):
+        print(">>> [AGENT INIT] Game Master Agent starting...")
+        self.world_state = self.initialize_world_state()
+        super().__init__(instructions=build_system_prompt())
 
-Anything else I can help you with?"""
-        
-        return response
-    
-    @function_tool
-    async def save_customer_info(self, context: RunContext, name: str = "", address: str = ""):
+    def initialize_world_state(self) -> Dict[str, Any]:
+        """Initialize the world state with default values."""
+        return {
+            "characters": {
+                "player": {
+                    "name": "Adventurer",
+                    "class": "Warrior",
+                    "hp": 100,
+                    "max_hp": 100,
+                    "inventory": ["sword", "shield", "backpack"],
+                    "traits": ["brave", "determined"],
+                },
+                "npcs": {
+                    # will be filled as story goes on, e.g.:
+                    # "village_elder": {"name": "Eldrin", "role": "Village Elder", "attitude": "friendly", "alive": True}
+                },
+            },
+            "locations": {
+                "current": "Village of Eldoria",
+                "visited": ["Village of Eldoria"],
+                "known_paths": {
+                    "Village of Eldoria": ["Dark Forest", "Mountain Pass"],
+                },
+            },
+            "events": [],
+            "quests": {
+                "active": [
+                    {
+                        "id": "defeat_sorcerer",
+                        "title": "Defeat the Evil Sorcerer",
+                        "description": "Find and defeat the sorcerer threatening the kingdom.",
+                        "objectives": [
+                            "Find the sorcerer's lair",
+                            "Gather allies",
+                            "Confront the sorcerer",
+                        ],
+                        "completed_objectives": [],
+                    }
+                ],
+                "completed": [],
+            },
+        }
+
+    def log_world_state(self):
+        """Log the current world state for debugging."""
+        logger.info("World State:\n%s", json.dumps(self.world_state, indent=2))
+
+    async def on_enter(self) -> None:
         """
-        Save customer name and address for checkout.
-        
+        Called when the agent becomes active in the session.
+        Kick off the initial scene automatically.
+        """
+        logger.info(">>> [AGENT] on_enter – starting first scene")
+        await self.session.generate_reply(
+            instructions=(
+                "Introduce the player in the Village of Eldoria at the start of their quest "
+                "against the evil sorcerer. Describe the scene vividly and give them clear "
+                "choices of what to do next. Always end with 'What do you do?'."
+            )
+        )
+
+  
+
+    @function_tool()
+    async def get_world_state(self, ctx: RunContext) -> Dict[str, Any]:
+        """
+       Return the current JSON world state.
+
+        Use this tool when you need to recall facts about the world such as:
+        - current location,
+        - visited locations,
+        - player HP and inventory,
+        - NPC status and attitudes,
+        - quest objectives and progress.
+        """
+        # Just return the dict; LiveKit will serialize it.
+        return self.world_state
+
+    @function_tool()
+    async def update_world_state(
+        self, ctx: RunContext, updates: Dict[str, Any]
+    ) -> str:
+        """
+        Update the world state with new information.
+
         Args:
-            name: Customer's name
-            address: Delivery address
-        """
-        if name:
-            self.customer_name = name
-        if address:
-            self.delivery_address = address
-        
-        if self.customer_name and self.delivery_address:
-            return f"Got it! {self.customer_name} at {self.delivery_address}. Ready to place your order?"
-        elif self.customer_name:
-            return f"Thanks {self.customer_name}! What's your delivery address?"
-        elif self.delivery_address:
-            return f"Address noted: {self.delivery_address}. What's your name?"
-        else:
-            return "I need your name and address to complete the order."
+            updates: A partial JSON object containing only the fields that changed.
+                     Example:
+                     {
+                       "locations": {"current": "Dark Forest"},
+                       "events": ["Player entered the Dark Forest"]
+                     }
 
-# ------------ Prewarm and Entrypoint ------------
+        The update will be applied as a deep merge into the existing world state.
+        """
+        if not isinstance(updates, dict):
+            return "updates must be a JSON object"
+
+        self._deep_update(self.world_state, updates)
+        self.log_world_state()
+        return "World state updated successfully."
+
+    def _deep_update(self, base_dict: Dict[str, Any], update_dict: Dict[str, Any]):
+        """Recursively update a dictionary in-place."""
+        for key, value in update_dict.items():
+            if (
+                isinstance(value, dict)
+                and key in base_dict
+                and isinstance(base_dict[key], dict)
+            ):
+                self._deep_update(base_dict[key], value)
+            else:
+                base_dict[key] = value
+
 
 def prewarm(proc: JobProcess):
-    """Prewarm function to load models and catalog"""
+    """Preload VAD model for faster startup."""
     proc.userdata["vad"] = silero.VAD.load()
-    
-    # Preload catalog
-    catalog = GroceryCatalog()
-    proc.userdata["catalog"] = catalog
-    logger.info(f"Prewarmed catalog for {catalog.store_name} with {len(catalog.items)} items")
+
 
 async def entrypoint(ctx: JobContext):
-    # Logging setup
-    ctx.log_context_fields = {
-        "room": ctx.room.name,
-    }
-    
-    logger.info("🛒 Starting Food Ordering Agent...")
-    
-    # Load catalog from prewarm or create new
-    if "catalog" in ctx.proc.userdata:
-        catalog = ctx.proc.userdata["catalog"]
-        logger.info(f"Using prewarmed catalog for {catalog.store_name}")
-    else:
-        catalog = GroceryCatalog()
-        logger.info(f"Created new catalog for {catalog.store_name}")
+    print(">>> [BOOT] Game Master Agent starting...")
 
-    # Voice agent session pipeline
+    vad = ctx.proc.userdata["vad"]
+
     session = AgentSession(
         stt=deepgram.STT(model="nova-3"),
         llm=google.LLM(model="gemini-2.5-flash"),
         tts=murf.TTS(
-            voice="Alicia",  # Friendly, enthusiastic voice for shopping
+            voice="en-US-ken",
             style="Conversation",
             tokenizer=tokenize.basic.SentenceTokenizer(min_sentence_len=2),
             text_pacing=True,
         ),
         turn_detection=MultilingualModel(),
-        vad=ctx.proc.userdata["vad"],
+        vad=vad,
         preemptive_generation=True,
     )
 
-    # Metrics collection
-    usage_collector = metrics.UsageCollector()
-    
-    @session.on("metrics_collected")
-    def _on_metrics_collected(ev: MetricsCollectedEvent):
-        metrics.log_metrics(ev.metrics)
-        usage_collector.collect(ev.metrics)
-    
-    async def log_usage():
-        summary = usage_collector.get_summary()
-        logger.info(f"Usage: {summary}")
-    
-    ctx.add_shutdown_callback(log_usage)
+    # Connect to LiveKit room
+    await ctx.connect()
 
-    # Start session with Food Ordering Agent
-    logger.info("🎙️ Starting food ordering agent session...")
+    # Start the session with our Game Master
     await session.start(
-        agent=FoodOrderingAgent(catalog=catalog),
+        agent=GameMasterAgent(),
         room=ctx.room,
         room_input_options=RoomInputOptions(
             noise_cancellation=noise_cancellation.BVC(),
         ),
     )
 
-    logger.info("🔗 Connecting to room...")
-    await ctx.connect()
-    logger.info(f"✅ Food Ordering Agent for {catalog.store_name} connected successfully!")
 
 if __name__ == "__main__":
     cli.run_app(WorkerOptions(entrypoint_fnc=entrypoint, prewarm_fnc=prewarm))
