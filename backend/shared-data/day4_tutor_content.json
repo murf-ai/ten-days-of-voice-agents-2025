@@ -1,0 +1,32 @@
+[
+  {
+    "id": "linear_regression",
+    "title": "Linear Regression",
+    "summary": "Linear regression is a fundamental machine learning algorithm that models the relationship between variables using a straight line. It finds the best-fit line through data points by minimizing the error between predicted and actual values. The equation is y = mx + b, where m is the slope and b is the intercept. It's used for predicting continuous values like house prices or temperature based on input features.",
+    "sample_question": "What is linear regression and how does it predict values?"
+  },
+  {
+    "id": "gradient_descent",
+    "title": "Gradient Descent",
+    "summary": "Gradient descent is an optimization algorithm used to minimize the cost function in machine learning models. It works by iteratively adjusting parameters in the direction that reduces error. Think of it like walking down a hill - you take steps in the steepest downward direction. The learning rate controls step size. It's the backbone of training neural networks and other ML models.",
+    "sample_question": "Explain how gradient descent works to optimize a model."
+  },
+  {
+    "id": "derivatives",
+    "title": "Derivatives and Calculus",
+    "summary": "Derivatives measure how a function changes as its input changes - the rate of change or slope at a point. In machine learning, derivatives tell us how changing model parameters affects the error. The derivative of f(x) is written as f'(x) or df/dx. For example, the derivative of x² is 2x. Derivatives are essential for gradient descent and backpropagation in neural networks.",
+    "sample_question": "What is a derivative and why is it important in machine learning?"
+  },
+  {
+    "id": "matrices",
+    "title": "Matrices and Linear Algebra",
+    "summary": "Matrices are rectangular arrays of numbers arranged in rows and columns. In machine learning, matrices represent datasets, transformations, and neural network weights. Matrix multiplication allows efficient computation of predictions across many data points simultaneously. Common operations include matrix addition, multiplication, transpose, and inverse. Understanding matrices is crucial for deep learning frameworks like TensorFlow and PyTorch.",
+    "sample_question": "What are matrices and how are they used in machine learning?"
+  },
+  {
+    "id": "neural_networks",
+    "title": "Neural Networks Basics",
+    "summary": "Neural networks are machine learning models inspired by the human brain. They consist of layers of interconnected nodes (neurons) that process information. Each connection has a weight, and each neuron applies an activation function. Input data flows through layers, gets transformed, and produces output predictions. Networks learn by adjusting weights through backpropagation to minimize prediction errors. They excel at pattern recognition tasks.",
+    "sample_question": "What are neural networks and how do they learn from data?"
+  }
+]

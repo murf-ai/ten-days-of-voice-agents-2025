@@ -1,4 +1,7 @@
 import logging
+import json
+from pathlib import Path
+from datetime import datetime
 
 from dotenv import load_dotenv
 from livekit.agents import (
@@ -12,8 +15,8 @@ from livekit.agents import (
     cli,
     metrics,
     tokenize,
-    # function_tool,
-    # RunContext
+    function_tool,
+    RunContext
 )
 from livekit.plugins import murf, silero, google, deepgram, noise_cancellation
 from livekit.plugins.turn_detector.multilingual import MultilingualModel
@@ -23,115 +26,109 @@ logger = logging.getLogger("agent")
 load_dotenv(".env.local")
 
 
-class Assistant(Agent):
+# Game Master Agent class
+class GameMasterAgent(Agent):
+    """D&D-style Voice Game Master for interactive adventures"""
+    
     def __init__(self) -> None:
         super().__init__(
-            instructions="""You are a helpful voice AI assistant. The user is interacting with you via voice, even if you perceive the conversation as text.
-            You eagerly assist users with their questions by providing information from your extensive knowledge.
-            Your responses are concise, to the point, and without any complex formatting including emojis, asterisks, or other weird symbols.
-            You are curious, friendly, and have a sense of humor.""",
-        )
+            instructions="""You are a Game Master running a FAST-PACED fantasy adventure in Eldoria. The player seeks the Crystal of Eternal Light in Shadowpeak Mountains.
 
-    # To add tools, use the @function_tool decorator.
-    # Here's an example that adds a simple weather tool.
-    # You also have to add `from livekit.agents import function_tool, RunContext` to the top of this file
-    # @function_tool
-    # async def lookup_weather(self, context: RunContext, location: str):
-    #     """Use this tool to look up current weather information in the given location.
-    #
-    #     If the location is not supported by the weather service, the tool will indicate this. You must tell the user the location's weather is unavailable.
-    #
-    #     Args:
-    #         location: The location to look up weather information for (e.g. city name)
-    #     """
-    #
-    #     logger.info(f"Looking up weather for {location}")
-    #
-    #     return "sunny with a temperature of 70 degrees."
+**CRITICAL RULES:**
+
+1. **OPENING (FIRST MESSAGE ONLY)**
+   - Say: "Hello! Welcome to the world of Eldoria, a realm of magic and adventure!"
+   - Then briefly introduce: "You're a brave adventurer in a tavern. A wizard needs your help to find the Crystal of Eternal Light in the dangerous Shadowpeak Mountains. Will you accept this quest?"
+   - Keep opening under 4 sentences total
+
+2. **KEEP IT SHORT**
+   - Maximum 2-3 sentences per response (after opening)
+   - No flowery descriptions or poetry
+   - Cut all unnecessary details
+   - Get straight to the point
+
+3. **FAST PROGRESSION**
+   - Complete the adventure in exactly 8-12 exchanges
+   - Move the story forward QUICKLY with each turn
+   - Skip travel details - jump to important moments
+   - Structure: Quest (1 turn) → Journey (2 turns) → Challenge (2 turns) → Crystal (2 turns) → Escape (2 turns) → Victory (1 turn)
+
+4. **RESPONSE FORMAT**
+   - State what happens as result of player's action
+   - Present the next situation or choice
+   - Always end with: "What do you do?"
+   - NO long narration, NO detailed descriptions
+
+5. **STORY BEATS (8-12 turns total):**
+   - Turn 1: Opening welcome + quest offer
+   - Turn 2-3: Quick journey to mountains, encounter danger
+   - Turn 4-5: Enter ruins, face guardian or puzzle
+   - Turn 6-7: Find Crystal chamber, final challenge
+   - Turn 8-10: Grab Crystal, escape collapsing ruins
+   - Turn 11-12: Return to wizard, victory!
+
+6. **EXAMPLE RESPONSES:**
+   - Opening: "Hello! Welcome to Eldoria, a realm of magic and adventure! You're in a tavern where a wizard needs you to retrieve the Crystal of Eternal Light from Shadowpeak Mountains. Will you accept?"
+   - Turn 2: "You accept! The wizard gives you a map and locket. Head east to the mountains. What do you do?"
+   - Turn 3: "You reach the mountain base after two days. A stone golem guards the cave entrance. What do you do?"
+   - Turn 4: "You defeat the golem! Inside, you find a locked door with a puzzle. Three levers glow before you. What do you do?"
+
+7. **REMEMBER:**
+   - NO long descriptions
+   - NO repetitive narration
+   - FAST pacing - advance story each turn
+   - Complete adventure in 8-12 exchanges
+   - Direct, punchy responses only
+
+Start with the welcome message!"""
+        )
 
 
 def prewarm(proc: JobProcess):
+    """Prewarm process with VAD model"""
     proc.userdata["vad"] = silero.VAD.load()
 
 
 async def entrypoint(ctx: JobContext):
-    # Logging setup
-    # Add any other context you want in all log entries here
-    ctx.log_context_fields = {
-        "room": ctx.room.name,
-    }
-
-    # Set up a voice AI pipeline using OpenAI, Cartesia, AssemblyAI, and the LiveKit turn detector
+    """Main agent entrypoint"""
+    
+    # Create agent session
     session = AgentSession(
-        # Speech-to-text (STT) is your agent's ears, turning the user's speech into text that the LLM can understand
-        # See all available models at https://docs.livekit.io/agents/models/stt/
         stt=deepgram.STT(model="nova-3"),
-        # A Large Language Model (LLM) is your agent's brain, processing user input and generating a response
-        # See all available models at https://docs.livekit.io/agents/models/llm/
-        llm=google.LLM(
-                model="gemini-2.5-flash",
-            ),
-        # Text-to-speech (TTS) is your agent's voice, turning the LLM's text into speech that the user can hear
-        # See all available models as well as voice selections at https://docs.livekit.io/agents/models/tts/
+        llm=google.LLM(model="gemini-2.5-flash-lite"),
         tts=murf.TTS(
-                voice="en-US-matthew", 
-                style="Conversation",
-                tokenizer=tokenize.basic.SentenceTokenizer(min_sentence_len=2),
-                text_pacing=True
-            ),
-        # VAD and turn detection are used to determine when the user is speaking and when the agent should respond
-        # See more at https://docs.livekit.io/agents/build/turns
+            voice="en-IN-priya", 
+            style="Conversation",
+            tokenizer=tokenize.basic.SentenceTokenizer(min_sentence_len=8)
+        ),
         turn_detection=MultilingualModel(),
         vad=ctx.proc.userdata["vad"],
-        # allow the LLM to generate a response while waiting for the end of turn
-        # See more at https://docs.livekit.io/agents/build/audio/#preemptive-generation
         preemptive_generation=True,
     )
-
-    # To use a realtime model instead of a voice pipeline, use the following session setup instead.
-    # (Note: This is for the OpenAI Realtime API. For other providers, see https://docs.livekit.io/agents/models/realtime/))
-    # 1. Install livekit-agents[openai]
-    # 2. Set OPENAI_API_KEY in .env.local
-    # 3. Add `from livekit.plugins import openai` to the top of this file
-    # 4. Use the following session setup instead of the version above
-    # session = AgentSession(
-    #     llm=openai.realtime.RealtimeModel(voice="marin")
-    # )
-
-    # Metrics collection, to measure pipeline performance
-    # For more information, see https://docs.livekit.io/agents/build/metrics/
+    
+    # Metrics
     usage_collector = metrics.UsageCollector()
-
+    
     @session.on("metrics_collected")
     def _on_metrics_collected(ev: MetricsCollectedEvent):
         metrics.log_metrics(ev.metrics)
         usage_collector.collect(ev.metrics)
-
+    
     async def log_usage():
         summary = usage_collector.get_summary()
         logger.info(f"Usage: {summary}")
-
+    
     ctx.add_shutdown_callback(log_usage)
-
-    # # Add a virtual avatar to the session, if desired
-    # # For other providers, see https://docs.livekit.io/agents/models/avatar/
-    # avatar = hedra.AvatarSession(
-    #   avatar_id="...",  # See https://docs.livekit.io/agents/models/avatar/plugins/hedra
-    # )
-    # # Start the avatar and wait for it to join
-    # await avatar.start(session, room=ctx.room)
-
-    # Start the session, which initializes the voice pipeline and warms up the models
+    
+    # Start with Game Master Agent
     await session.start(
-        agent=Assistant(),
+        agent=GameMasterAgent(),
         room=ctx.room,
         room_input_options=RoomInputOptions(
-            # For telephony applications, use `BVCTelephony` for best results
             noise_cancellation=noise_cancellation.BVC(),
         ),
     )
-
-    # Join the room and connect to the user
+    
     await ctx.connect()
 
 

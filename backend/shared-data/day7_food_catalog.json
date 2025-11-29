@@ -1,0 +1,278 @@
+{
+  "catalog": [
+    {
+      "id": "GR001",
+      "name": "Bread",
+      "category": "Groceries",
+      "subcategory": "Bakery",
+      "brand": "Britannia",
+      "price": 40,
+      "size": "400g",
+      "tags": ["vegetarian"],
+      "in_stock": true
+    },
+    {
+      "id": "GR002",
+      "name": "Whole Wheat Bread",
+      "category": "Groceries",
+      "subcategory": "Bakery",
+      "brand": "Modern",
+      "price": 50,
+      "size": "400g",
+      "tags": ["vegetarian", "healthy"],
+      "in_stock": true
+    },
+    {
+      "id": "GR003",
+      "name": "Milk",
+      "category": "Groceries",
+      "subcategory": "Dairy",
+      "brand": "Amul",
+      "price": 60,
+      "size": "1L",
+      "tags": ["vegetarian"],
+      "in_stock": true
+    },
+    {
+      "id": "GR004",
+      "name": "Eggs",
+      "category": "Groceries",
+      "subcategory": "Dairy",
+      "brand": "Fresh",
+      "price": 80,
+      "size": "12 pieces",
+      "tags": [],
+      "in_stock": true
+    },
+    {
+      "id": "GR005",
+      "name": "Peanut Butter",
+      "category": "Groceries",
+      "subcategory": "Spreads",
+      "brand": "Sundrop",
+      "price": 180,
+      "size": "400g",
+      "tags": ["vegetarian", "protein"],
+      "in_stock": true
+    },
+    {
+      "id": "GR006",
+      "name": "Butter",
+      "category": "Groceries",
+      "subcategory": "Dairy",
+      "brand": "Amul",
+      "price": 60,
+      "size": "100g",
+      "tags": ["vegetarian"],
+      "in_stock": true
+    },
+    {
+      "id": "GR007",
+      "name": "Rice",
+      "category": "Groceries",
+      "subcategory": "Grains",
+      "brand": "India Gate Basmati",
+      "price": 200,
+      "size": "1kg",
+      "tags": ["vegetarian", "gluten-free"],
+      "in_stock": true
+    },
+    {
+      "id": "GR008",
+      "name": "Pasta",
+      "category": "Groceries",
+      "subcategory": "Grains",
+      "brand": "Del Monte",
+      "price": 120,
+      "size": "500g",
+      "tags": ["vegetarian"],
+      "in_stock": true
+    },
+    {
+      "id": "GR009",
+      "name": "Pasta Sauce",
+      "category": "Groceries",
+      "subcategory": "Sauces",
+      "brand": "Kissan",
+      "price": 150,
+      "size": "400g",
+      "tags": ["vegetarian"],
+      "in_stock": true
+    },
+    {
+      "id": "GR010",
+      "name": "Tomatoes",
+      "category": "Groceries",
+      "subcategory": "Vegetables",
+      "brand": "Fresh",
+      "price": 40,
+      "size": "500g",
+      "tags": ["vegetarian", "vegan", "fresh"],
+      "in_stock": true
+    },
+    {
+      "id": "GR011",
+      "name": "Onions",
+      "category": "Groceries",
+      "subcategory": "Vegetables",
+      "brand": "Fresh",
+      "price": 30,
+      "size": "500g",
+      "tags": ["vegetarian", "vegan", "fresh"],
+      "in_stock": true
+    },
+    {
+      "id": "GR012",
+      "name": "Potatoes",
+      "category": "Groceries",
+      "subcategory": "Vegetables",
+      "brand": "Fresh",
+      "price": 35,
+      "size": "1kg",
+      "tags": ["vegetarian", "vegan", "fresh"],
+      "in_stock": true
+    },
+    {
+      "id": "SN001",
+      "name": "Lays Chips",
+      "category": "Snacks",
+      "subcategory": "Chips",
+      "brand": "Lays",
+      "price": 20,
+      "size": "50g",
+      "tags": ["vegetarian"],
+      "in_stock": true
+    },
+    {
+      "id": "SN002",
+      "name": "Kurkure",
+      "category": "Snacks",
+      "subcategory": "Chips",
+      "brand": "Kurkure",
+      "price": 20,
+      "size": "60g",
+      "tags": ["vegetarian"],
+      "in_stock": true
+    },
+    {
+      "id": "SN003",
+      "name": "Oreo Cookies",
+      "category": "Snacks",
+      "subcategory": "Cookies",
+      "brand": "Cadbury",
+      "price": 30,
+      "size": "120g",
+      "tags": ["vegetarian"],
+      "in_stock": true
+    },
+    {
+      "id": "SN004",
+      "name": "Parle-G Biscuits",
+      "category": "Snacks",
+      "subcategory": "Biscuits",
+      "brand": "Parle",
+      "price": 15,
+      "size": "200g",
+      "tags": ["vegetarian"],
+      "in_stock": true
+    },
+    {
+      "id": "SN005",
+      "name": "Maggi Noodles",
+      "category": "Snacks",
+      "subcategory": "Instant Food",
+      "brand": "Maggi",
+      "price": 12,
+      "size": "70g",
+      "tags": ["vegetarian"],
+      "in_stock": true
+    },
+    {
+      "id": "PF001",
+      "name": "Margherita Pizza",
+      "category": "Prepared Food",
+      "subcategory": "Pizza",
+      "brand": "Dominos Style",
+      "price": 250,
+      "size": "Regular",
+      "tags": ["vegetarian"],
+      "in_stock": true
+    },
+    {
+      "id": "PF002",
+      "name": "Veggie Sandwich",
+      "category": "Prepared Food",
+      "subcategory": "Sandwich",
+      "brand": "Fresh Made",
+      "price": 80,
+      "size": "1 piece",
+      "tags": ["vegetarian"],
+      "in_stock": true
+    },
+    {
+      "id": "PF003",
+      "name": "Paneer Burger",
+      "category": "Prepared Food",
+      "subcategory": "Burger",
+      "brand": "Fresh Made",
+      "price": 120,
+      "size": "1 piece",
+      "tags": ["vegetarian"],
+      "in_stock": true
+    },
+    {
+      "id": "BV001",
+      "name": "Coca Cola",
+      "category": "Beverages",
+      "subcategory": "Soft Drinks",
+      "brand": "Coca Cola",
+      "price": 40,
+      "size": "600ml",
+      "tags": ["vegetarian", "vegan"],
+      "in_stock": true
+    },
+    {
+      "id": "BV002",
+      "name": "Orange Juice",
+      "category": "Beverages",
+      "subcategory": "Juices",
+      "brand": "Tropicana",
+      "price": 100,
+      "size": "1L",
+      "tags": ["vegetarian", "healthy"],
+      "in_stock": true
+    },
+    {
+      "id": "GR013",
+      "name": "Cheese Slices",
+      "category": "Groceries",
+      "subcategory": "Dairy",
+      "brand": "Amul",
+      "price": 140,
+      "size": "200g",
+      "tags": ["vegetarian"],
+      "in_stock": true
+    },
+    {
+      "id": "GR014",
+      "name": "Paneer",
+      "category": "Groceries",
+      "subcategory": "Dairy",
+      "brand": "Amul",
+      "price": 90,
+      "size": "200g",
+      "tags": ["vegetarian", "protein"],
+      "in_stock": true
+    }
+  ],
+  "recipes": {
+    "peanut butter sandwich": ["GR001", "GR005"],
+    "sandwich": ["GR001", "GR005"],
+    "pb sandwich": ["GR001", "GR005"],
+    "pasta": ["GR008", "GR009"],
+    "pasta for two": ["GR008", "GR009", "GR013"],
+    "breakfast": ["GR001", "GR003", "GR004", "GR006"],
+    "omelette": ["GR004", "GR006", "GR010", "GR011"],
+    "salad": ["GR010", "GR011", "GR012"]
+  }
+}

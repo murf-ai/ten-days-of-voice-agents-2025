@@ -1,0 +1,46 @@
+{
+  "order_id": "ORD20251128210520",
+  "customer_name": "Naveed",
+  "delivery_address": "Delhi, New Delhi 110054",
+  "items": [
+    {
+      "id": "GR009",
+      "name": "Pasta Sauce",
+      "price": 150,
+      "quantity": 1,
+      "brand": "Kissan",
+      "size": "400g",
+      "total": 150
+    },
+    {
+      "id": "GR001",
+      "name": "Bread",
+      "price": 40,
+      "quantity": 1,
+      "brand": "Britannia",
+      "size": "400g",
+      "total": 40
+    },
+    {
+      "id": "GR005",
+      "name": "Peanut Butter",
+      "price": 180,
+      "quantity": 1,
+      "brand": "Sundrop",
+      "size": "400g",
+      "total": 180
+    },
+    {
+      "id": "SN005",
+      "name": "Maggi Noodles",
+      "price": 12,
+      "quantity": 1,
+      "brand": "Maggi",
+      "size": "70g",
+      "total": 12
+    }
+  ],
+  "total": 382,
+  "timestamp": "2025-11-28T21:05:20.361579",
+  "status": "placed"
+}
