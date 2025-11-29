@@ -1,7 +1,3 @@
-# ===========================================
-# Food & Grocery Ordering Voice Agent - Day 7
-# ===========================================
-
 import json
 import logging
 from datetime import datetime
@@ -28,217 +24,100 @@ from livekit.plugins import (
 from livekit.plugins.turn_detector.multilingual import MultilingualModel
 
 
-logger = logging.getLogger("food_agent")
+logger = logging.getLogger("game_master")
 load_dotenv(".env.local")
 
-# ------------------------------------------
-# File paths
-# ------------------------------------------
-DATA_DIR = Path("shared-data")
-DATA_DIR.mkdir(exist_ok=True)
 
-CATALOG_PATH = DATA_DIR / "catalog.json"
-ORDER_HISTORY_PATH = DATA_DIR / "orders.json"
+# =====================================================
+#       GAME MASTER AGENT (D&D STYLE)
+# =====================================================
 
-# ------------------------------------------
-# Sample Catalog
-# ------------------------------------------
-SAMPLE_CATALOG = {
-    "items": [
-        {"id": 1, "name": "Milk", "category": "Groceries", "price": 55, "size": "1L"},
-        {"id": 2, "name": "Bread", "category": "Groceries", "price": 40, "type": "whole wheat"},
-        {"id": 3, "name": "Eggs", "category": "Groceries", "price": 70, "units": "12 pack"},
-        {"id": 4, "name": "Peanut Butter", "category": "Snacks", "price": 120},
-        {"id": 5, "name": "Pasta", "category": "Groceries", "price": 85},
-        {"id": 6, "name": "Pasta Sauce", "category": "Groceries", "price": 110},
-        {"id": 7, "name": "Chips", "category": "Snacks", "price": 20},
-        {"id": 8, "name": "Cheese Sandwich", "category": "Prepared Food", "price": 90},
-        {"id": 9, "name": "Veg Pizza", "category": "Prepared Food", "price": 299},
-        {"id": 10, "name": "Butter", "category": "Groceries", "price": 52}
-    ]
-}
+GAME_SYSTEM_PROMPT = """
+You are a Game Master running a voice-only fantasy adventure.
 
-# create default catalog if not exists
-if not CATALOG_PATH.exists():
-    json.dump(SAMPLE_CATALOG, open(CATALOG_PATH, "w"), indent=2)
-
-# create empty order history file
-if not ORDER_HISTORY_PATH.exists():
-    json.dump({"orders": []}, open(ORDER_HISTORY_PATH, "w"), indent=2)
+RULES:
+- Universe: Medieval fantasy world filled with dragons, magic, quests.
+- Tone: Dramatic, immersive, adventurous.
+- Role: You describe scenes, events, NPCs, and always ask: "What do you do?"
+- Maintain continuity based on conversation history.
+- Keep story moving forward through small narrative arcs.
+- Do NOT give the player's actions yourself.
+- Keep responses short (3–5 sentences max).
+"""
 
 
-def load_catalog():
-    return json.load(open(CATALOG_PATH, "r"))["items"]
-
-
-def load_order_history():
-    return json.load(open(ORDER_HISTORY_PATH, "r"))
-
-
-def save_order(order):
-    db = load_order_history()
-    db["orders"].append(order)
-    json.dump(db, open(ORDER_HISTORY_PATH, "w"), indent=2)
-
-
-# ------------------------------------------
-# Recipes for "ingredients for X"
-# ------------------------------------------
-RECIPES = {
-    "peanut butter sandwich": ["Bread", "Peanut Butter"],
-    "pasta": ["Pasta", "Pasta Sauce"],
-    "sandwich": ["Bread", "Butter"],
-}
-
-# ------------------------------------------
-# Food Ordering Agent
-# ------------------------------------------
-class FoodOrderAgent(Agent):
+class GameMasterAgent(Agent):
 
     def __init__(self):
-        super().__init__(
-            instructions=(
-                "You are a friendly Food & Grocery Ordering Assistant for QuickMart. "
-                "You help customers order groceries, snacks, and simple meals. "
-                "You maintain a cart, add items, remove items, list cart contents, "
-                "and process ingredient-based requests like 'ingredients for pasta'. "
-                "When the user says 'place my order', save the order as JSON."
-            )
-        )
+        super().__init__(instructions=GAME_SYSTEM_PROMPT)
         self.sessions = {}
 
     async def on_join(self, ctx):
         sid = ctx.session.session_id
 
         self.sessions[sid] = {
-            "cart": [],
-            "catalog": load_catalog(),
+            "story_started": False,
+            "player_name": None
         }
 
-        await ctx.send_speech(
-            "Welcome to QuickMart! I can help you order groceries and snacks. "
-            "Tell me what you'd like to buy."
+        intro = (
+            "Welcome, traveler. You stand at the edge of Eldoria, "
+            "a land of lost kingdoms and ancient magic. Before we begin, "
+            "what is your name, adventurer?"
         )
+        await ctx.send_speech(intro)
 
     async def on_user_message(self, message, ctx):
-        text = (message.text or "").lower()
+
+        text = (message.text or "").strip()
         sid = ctx.session.session_id
         state = self.sessions[sid]
 
-        # EXIT
-        if text in ["bye", "exit", "stop"]:
-            return await self.finish(ctx)
+        # FIRST TIME PLAYER NAME
+        if not state["story_started"]:
+            state["player_name"] = text
+            state["story_started"] = True
 
-        # PLACE ORDER
-        if "place" in text and "order" in text:
-            return await self.place_order(ctx, state)
+            opening_scene = (
+                f"Ah, {state['player_name']}... a name sung in forgotten prophecies.\n"
+                "Your journey begins on a misty trail leading into the Whispering Forest. "
+                "You hear rustling behind you — and a glowing blue fox steps out.\n"
+                "\"Do not be afraid,\" it says. \"Destiny has chosen you.\"\n"
+                "What do you do?"
+            )
+            return await ctx.send_speech(opening_scene)
 
-        # LIST CART
-        if "what" in text and "cart" in text:
-            return await self.list_cart(ctx, state)
-
-        # REMOVE ITEM
-        if "remove" in text:
-            return await self.remove_item(text, ctx, state)
-
-        # INGREDIENT request
-        if "ingredients for" in text:
-            return await this.ingredients_request(text, ctx, state)
-
-        # ADD NORMAL ITEM
-        return await self.add_item(text, ctx, state)
-
-    # ---------------------- CART OPERATIONS ----------------------
-    async def add_item(self, text, ctx, state):
-        catalog = state["catalog"]
-        quantity = 1
-
-        # detect quantity
-        for q in range(1, 6):
-            if f"{q}" in text:
-                quantity = q
-
-        # find matching item
-        for item in catalog:
-            if item["name"].lower() in text:
-                state["cart"].append({"name": item["name"], "qty": quantity, "price": item["price"]})
-                return await ctx.send_speech(f"Added {quantity} {item['name']} to your cart.")
-
-        await ctx.send_speech("I couldn't find that item in our store. Try again.")
-
-    async def remove_item(self, text, ctx, state):
-        for c in state["cart"]:
-            if c["name"].lower() in text:
-                state["cart"].remove(c)
-                return await ctx.send_speech(f"Removed {c['name']} from your cart.")
-
-        await ctx.send_speech("That item is not in your cart.")
-
-    async def list_cart(self, ctx, state):
-        if not state["cart"]:
-            return await ctx.send_speech("Your cart is empty.")
-
-        msg = "Your cart contains: "
-        for c in state["cart"]:
-            msg += f"{c['qty']} {c['name']}, "
-
-        await ctx.send_speech(msg)
-
-    # ---------------------- INGREDIENTS ----------------------
-    async def ingredients_request(self, text, ctx, state):
-        for dish in RECIPES:
-            if dish in text:
-                items = RECIPES[dish]
-                for i in items:
-                    state["cart"].append({"name": i, "qty": 1, "price": self.find_price(state, i)})
-                return await ctx.send_speech(
-                    f"I've added the ingredients for {dish}: {', '.join(items)}."
-                )
-
-        await ctx.send_speech("I don’t have a recipe for that, sorry!")
-
-    def find_price(self, state, name):
-        for item in state["catalog"]:
-            if item["name"] == name:
-                return item["price"]
-        return 0
-
-    # ---------------------- PLACE ORDER ----------------------
-    async def place_order(self, ctx, state):
-        if not state["cart"]:
-            return await ctx.send_speech("Your cart is empty. Add items before placing an order.")
-
-        total = sum(i["price"] * i["qty"] for i in state["cart"])
-        order = {
-            "timestamp": datetime.now().isoformat(),
-            "items": state["cart"],
-            "total": total
-        }
-
-        save_order(order)
-
-        await ctx.send_speech(
-            f"Your order has been placed! Total amount is {total} rupees. "
-            "You will receive your order soon!"
+        # CONTINUE STORY USING LLM
+        response = await ctx.session.llm.generate(
+            messages=[
+                {"role": "system", "content": GAME_SYSTEM_PROMPT},
+                {"role": "user", "content": text}
+            ]
         )
 
-        state["cart"] = []
+        gm_output = response.text.strip()
 
-    async def finish(self, ctx):
-        await ctx.send_speech("Thanks for shopping with QuickMart! Goodbye.")
+        # Ensure it ends with "What do you do?"
+        if not gm_output.lower().strip().endswith("what do you do?"):
+            gm_output += " What do you do?"
 
-# ------------------------------------------
-# Prewarm VAD
-# ------------------------------------------
+        await ctx.send_speech(gm_output)
+
+
+# =====================================================
+#       PREWARM VAD
+# =====================================================
 vad_model = silero.VAD.load()
 
 def prewarm(proc: JobProcess):
     proc.userdata["vad"] = vad_model
 
-# ------------------------------------------
-# Entrypoint
-# ------------------------------------------
+
+# =====================================================
+#       ENTRYPOINT
+# =====================================================
 async def entrypoint(ctx: JobContext):
+
     session = AgentSession(
         stt=deepgram.STT(model="nova-3"),
         llm=google.LLM(model="gemini-2.5-flash"),
@@ -249,13 +128,14 @@ async def entrypoint(ctx: JobContext):
     )
 
     await session.start(
-        agent=FoodOrderAgent(),
+        agent=GameMasterAgent(),
         room=ctx.room,
         room_input_options=RoomInputOptions(
             noise_cancellation=noise_cancellation.BVC()
         ),
     )
     await ctx.connect()
+
 
 if __name__ == "__main__":
     cli.run_app(
