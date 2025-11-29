@@ -1,0 +1,56 @@
+{
+  "universe": {
+    "name": "The Realm of Eldoria",
+    "description": "An ancient fantasy world with forgotten kingdoms, magical artifacts, and shadow creatures",
+    "tone": "dramatic, immersive, mysterious",
+    "setting": "fantasy",
+    "time_of_day": "dusk",
+    "weather": "misty rain"
+  },
+  "npcs": [
+    {
+      "id": "kael",
+      "name": "Kael",
+      "role": "mysterious_ally",
+      "description": "A hooded figure with silver scars on their neck",
+      "personality": "secretive, urgent, trustworthy",
+      "knowledge": "shadow_order_lore",
+      "motivations": ["stop_shadow_order", "recover_temple_map"]
+    },
+    {
+      "id": "tavern_keeper",
+      "name": "Mara",
+      "role": "information_broker",
+      "description": "An elderly woman with keen eyes",
+      "personality": "wise, cautious, helpful",
+      "knowledge": "local_rumors, hidden_paths",
+      "motivations": ["protect_travelers", "stop_darkness"]
+    }
+  ],
+  "locations": [
+    {
+      "id": "tavern_start",
+      "name": "The Weathered Ale House",
+      "description": "A cozy tavern with warm firelight and rain-soaked windows",
+      "exits": ["kitchen_back_exit", "main_entrance", "cellar"],
+      "items": ["ancient_map", "mysterious_dagger"],
+      "npcs": ["tavern_keeper", "kael"]
+    },
+    {
+      "id": "forest_path",
+      "name": "Forbidden Forest",
+      "description": "Ancient trees and bioluminescent vines casting eerie light",
+      "exits": ["tavern_back_exit", "temple_ruins", "ancient_bridge"],
+      "items": ["glowing_crystal", "lost_amulet"],
+      "encounters": ["shadow_creatures", "mysterious_light"]
+    },
+    {
+      "id": "temple_ruins",
+      "name": "Lost Temple of Zar'an",
+      "description": "Crumbling stone pillars with glowing ancient runes",
+      "exits": ["forest_path", "inner_sanctum"],
+      "items": ["ancient_tome", "temple_key"],
+      "encounters": ["magical_barrier", "treasure_chamber"]
+    }
+  ]
+}
