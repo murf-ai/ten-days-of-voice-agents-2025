@@ -1,0 +1,27 @@
+{
+  "company_name": "Havells India Limited",
+  "business_description": "A leading Fast Moving Electrical Goods (FMEG) company in India, manufacturing and distributing a wide range of products including industrial & domestic circuit protection devices, cables, motors, fans, switches, home appliances, and consumer durables under the Lloyd brand.",
+  "target_audience": "Residential homeowners, architects, interior designers, industrial and commercial businesses, and government institutions requiring electrical and consumer durable solutions.",
+  "faq_and_pricing": [
+    {
+      "category": "Product Core",
+      "keywords": ["products", "what", "range", "manufacture"],
+      "answer": "Havells offers a vast portfolio of electrical goods including **fans, lighting, modular switches, water heaters, and home appliances.** We also manufacture industrial goods like cables, wires, motors, and switchgears."
+    },
+    {
+      "category": "Warranty Policy",
+      "keywords": ["warranty", "guarantee", "repair", "coverage"],
+      "answer": "Warranty periods vary by product category (typically **1-2 years** for small appliances and up to **5 years** for specific LED or fan components). We also offer Extended Warranty and Annual Maintenance Contracts (AMC)."
+    },
+    {
+      "category": "Service & Support",
+      "keywords": ["service", "complaint", "support", "help"],
+      "answer": "We provide doorstep service through **'Havells Connect'**. Customers can book services or log complaints via our 24x7 customer care, WhatsApp support, or the Havells Sync App."
+    },
+    {
+      "category": "Consumer Durables (Lloyd)",
+      "keywords": ["Lloyd", "AC", "TV", "washing machine"],
+      "answer": "Through our brand **Lloyd**, we offer heavy-duty consumer durables including Air Conditioners, LED TVs, Washing Machines, and Refrigerators tailored for the Indian market."
+    }
+  ]
+}

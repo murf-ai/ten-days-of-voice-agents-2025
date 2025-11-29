@@ -1,0 +1,7 @@
+[project]
+name = "murf-ai-10-days-voice-agent-2025"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = []

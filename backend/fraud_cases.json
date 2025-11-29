@@ -1,0 +1,15 @@
+[
+    {
+        "case_id": "FC00129",
+        "customer_name": "Elias Vance",
+        "security_id": "EV-2983",
+        "masked_card": "**** **** **** 7311",
+        "transaction_amount": 985.5,
+        "merchant_name": "Global Tech Imports",
+        "location": "Los Angeles, CA",
+        "timestamp": "2025-11-26 18:45 PST",
+        "security_q_answer": "2983",
+        "status": "pending_review",
+        "outcome_note": "Initial case creation."
+    }
+]
