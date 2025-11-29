@@ -1,0 +1,42 @@
+[
+  {
+    "timestamp": "2025-11-29T14:25:50.382102",
+    "story": [
+      {
+        "ts": "2025-11-29T14:22:47.985706",
+        "actor": "player",
+        "text": "The player heads towards the lighthouse."
+      }
+    ]
+  },
+  {
+    "timestamp": "2025-11-29T14:31:58.771042",
+    "story": [
+      {
+        "ts": "2025-11-29T14:28:46.142062",
+        "actor": "player",
+        "text": "The player decides to approach the lighthouse."
+      },
+      {
+        "ts": "2025-11-29T14:28:47.466521",
+        "actor": "player",
+        "text": "The player also decides to investigate the docks."
+      },
+      {
+        "ts": "2025-11-29T14:29:32.155552",
+        "actor": "player",
+        "text": "The player turns towards the path leading to the lighthouse, reacting to the sound."
+      },
+      {
+        "ts": "2025-11-29T14:30:53.716500",
+        "actor": "player",
+        "text": "The player attempts to peer into the gloom of the lighthouse."
+      },
+      {
+        "ts": "2025-11-29T14:31:31.146508",
+        "actor": "player",
+        "text": "The player decided to end the story session. They were last peering into the gloom of the Old Lighthouse, having seen a faint, iridescent shimmer deep inside."
+      }
+    ]
+  }
+]
