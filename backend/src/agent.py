@@ -21,7 +21,7 @@ import uuid
 import asyncio
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import List, Optional, Annotated
+from typing import List, Optional, Annotated, Set
 
 from dotenv import load_dotenv
 from pydantic import Field
@@ -39,6 +39,11 @@ from livekit.agents import (
 
 from livekit.plugins import murf, silero, google, deepgram, noise_cancellation
 from livekit.plugins.turn_detector.multilingual import MultilingualModel
+import threading
+from http.server import ThreadingHTTPServer, BaseHTTPRequestHandler
+from urllib.parse import urlparse, parse_qs
+import socket
+import json as _json
 
 # -------------------------
 # Logging
@@ -185,6 +190,24 @@ class CartItem:
 class Userdata:
     cart: List[CartItem] = field(default_factory=list)
     customer_name: Optional[str] = None
+
+
+# -------------------------
+# Day 8: Game Master userdata
+# -------------------------
+@dataclass
+class GMUserdata:
+    # Conversation history entries: list of dicts {role: 'gm'|'player', text: str}
+    story_history: List[dict] = field(default_factory=list)
+    # Remembered named entities
+    named_characters: Set[str] = field(default_factory=set)
+    named_locations: Set[str] = field(default_factory=set)
+    # Key past decisions to maintain continuity
+    decisions: List[str] = field(default_factory=list)
+    # Turn counter for the current session
+    turn_count: int = 0
+    # Flag for whether a session is active
+    session_active: bool = False
 
 # -------------------------
 # DB Helpers
@@ -661,6 +684,167 @@ async def order_history(
         prefix += f" for {customer_name}"
     return prefix + ":\n" + "\n".join(lines)
 
+
+# -------------------------
+# Day 8: Game Master tools
+# -------------------------
+@function_tool
+async def restart_story(
+    ctx: RunContext[GMUserdata],
+    universe: Annotated[Optional[str], Field(description="Optional universe to use (e.g., 'fantasy', 'sci-fi')", default=None)] = None,
+) -> str:
+    """Reset the current story session and return the initial GM scene description."""
+    # clear remembered state
+    ctx.userdata.story_history = []
+    ctx.userdata.named_characters = set()
+    ctx.userdata.named_locations = set()
+    ctx.userdata.decisions = []
+    ctx.userdata.turn_count = 0
+    ctx.userdata.session_active = True
+
+    # Select a universe if provided
+    uni = (universe or "fantasy").strip().lower()
+    if uni == "sci-fi":
+        opening = (
+            "Alarms wail. The starcruiser 'Asterion' is off-course toward a rogue planet. "
+            "A datapad shows the coordinates. Your engineer companion Kora nods grimly. What do you do?"
+        )
+    else:
+        # default: fantasy
+        opening = (
+            "Moonlight spills across the Ruins of Hadrin. Your map shows a lost relic lies here. "
+            "A young squire named Elen whispers about strange footsteps. What do you do?"
+        )
+
+    # seed history with GM opening
+    ctx.userdata.story_history.append({"role": "gm", "text": opening})
+    return opening
+
+
+@function_tool
+async def show_story_state(ctx: RunContext[GMUserdata]) -> str:
+    """Return a short summary of remembered characters, locations and past decisions."""
+    chars = ", ".join(sorted(ctx.userdata.named_characters)) or "(none yet)"
+    locs = ", ".join(sorted(ctx.userdata.named_locations)) or "(none yet)"
+    decs = " | ".join(ctx.userdata.decisions) or "(no major decisions yet)"
+    return f"Characters: {chars}\nLocations: {locs}\nDecisions: {decs}\nTurns: {ctx.userdata.turn_count}"
+
+
+# -------------------------
+# Game Master Agent
+# -------------------------
+class GameMasterAgent(Agent):
+    def __init__(self):
+        super().__init__(
+            instructions="""
+            Universe: A dramatic fantasy realm of ancient ruins and dragons.
+            Tone: Dramatic, occasionally witty, brief and punchy—keep responses SHORT (1-3 sentences max per scene description).
+            Role: You are the GM. You describe scenes concisely and ask the player what they do.
+
+            CRITICAL RULES:
+            1. Keep ALL responses SHORT. Max 2-3 sentences per turn. Avoid long descriptions.
+            2. End EVERY message with: "What do you do?"
+            3. Track the turn count in chat history (count "What do you do?" prompts).
+            4. TURN LIMIT: After turn 6-8, rapidly escalate and CONCLUDE the story in the next 1-2 turns.
+              - Around turn 7: Introduce the final challenge or revelation.
+              - Turn 8: Bring the story to a clear ending (victory, discovery, or escape). Do NOT continue after this.
+            5. When the story ends, end with: "Your adventure concludes here. Well done, hero." (Do NOT ask "What do you do?")
+            6. Use only chat history for context. Remember player decisions and named characters.
+
+            When asked to restart, call the 'restart_story' tool.
+            """,
+            tools=[restart_story, show_story_state],
+        )
+
+
+# Module-level reference to the active GM userdata (set in entrypoint)
+active_gm_userdata: Optional[GMUserdata] = None
+
+
+class _SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
+    def _send_json(self, obj, status=200):
+        data = _json.dumps(obj).encode("utf-8")
+        self.send_response(status)
+        self.send_header("Content-Type", "application/json")
+        # Allow requests from local frontend during development
+        self.send_header("Access-Control-Allow-Origin", "*")
+        self.send_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
+        self.send_header("Access-Control-Allow-Headers", "Content-Type")
+        self.send_header("Content-Length", str(len(data)))
+        self.end_headers()
+        self.wfile.write(data)
+
+    def do_POST(self):
+        # Handle CORS preflight
+        if self.command == 'OPTIONS':
+            self._send_json({})
+            return
+        parsed = urlparse(self.path)
+        if parsed.path == "/restart":
+            length = int(self.headers.get("Content-Length", 0))
+            body = self.rfile.read(length).decode("utf-8") if length else "{}"
+            try:
+                payload = _json.loads(body)
+            except Exception:
+                payload = {}
+            universe = payload.get("universe") if isinstance(payload, dict) else None
+
+            global active_gm_userdata
+            if not active_gm_userdata:
+                return self._send_json({"error": "No active GM session"}, status=400)
+
+            # Perform restart logic (same as restart_story tool)
+            active_gm_userdata.story_history = []
+            active_gm_userdata.named_characters = set()
+            active_gm_userdata.named_locations = set()
+            active_gm_userdata.decisions = []
+            active_gm_userdata.turn_count = 0
+            active_gm_userdata.session_active = True
+
+            uni = (universe or "fantasy").strip().lower()
+            if uni == "sci-fi":
+                opening = (
+                    "You awaken in the humming corridors of the starcruiser 'Asterion', alarms faintly wailing. "
+                    "Neon panels flicker; a distant bulkhead door is ajar. A datapad nearby shows the ship is off-course toward a rogue planet. "
+                    "Your companion, a grizzled engineer named Kora, looks to you with concern. What do you do?"
+                )
+            else:
+                opening = (
+                    "Moonlight spills across the moss-covered stones of the Old Watchtower. A chill wind carries the scent of smoke and iron. "
+                    "A tattered map flutters in your hand, pointing toward the Ruins of Hadrin where a lost relic is said to lie. "
+                    "Nearby, a young squire named Elen whispers about strange footsteps. What do you do?"
+                )
+
+            active_gm_userdata.story_history.append({"role": "gm", "text": opening})
+            return self._send_json({"opening": opening})
+
+        return self._send_json({"error": "unknown endpoint"}, status=404)
+
+    def do_GET(self):
+        parsed = urlparse(self.path)
+        if parsed.path == "/state":
+            global active_gm_userdata
+            if not active_gm_userdata:
+                return self._send_json({"error": "No active GM session"}, status=400)
+            chars = ", ".join(sorted(active_gm_userdata.named_characters)) or "(none yet)"
+            locs = ", ".join(sorted(active_gm_userdata.named_locations)) or "(none yet)"
+            decs = " | ".join(active_gm_userdata.decisions) or "(no major decisions yet)"
+            return self._send_json({"characters": chars, "locations": locs, "decisions": decs, "turns": active_gm_userdata.turn_count})
+        return self._send_json({"error": "unknown endpoint"}, status=404)
+
+
+def _start_http_control_server(port: int = 8765):
+    # Start a small threaded HTTP server to accept /restart and /state
+    try:
+        # bind to localhost only
+        server = ThreadingHTTPServer(("127.0.0.1", port), _SimpleHTTPRequestHandler)
+    except OSError:
+        return None
+
+    t = threading.Thread(target=server.serve_forever, daemon=True)
+    t.start()
+    return server
+
 # -------------------------
 # Agent Definition
 # -------------------------
@@ -701,7 +885,8 @@ async def entrypoint(ctx: JobContext):
     logger.info("\n" + "🇮🇳" * 12)
     logger.info("🚀 STARTING DR ABHISHEK SHOP (Indian Context + Auto-Tracking)")
 
-    userdata = Userdata()
+    # Use a Game Master session by default for Day 8.
+    gm_userdata = GMUserdata()
 
     session = AgentSession(
         stt=deepgram.STT(model="nova-3"),
@@ -713,14 +898,28 @@ async def entrypoint(ctx: JobContext):
         ),
         turn_detection=MultilingualModel(),
         vad=ctx.proc.userdata.get("vad"),
-        userdata=userdata,
+        userdata=gm_userdata,
     )
 
     await session.start(
-        agent=FoodAgent(),
+        agent=GameMasterAgent(),
         room=ctx.room,
         room_input_options=RoomInputOptions(noise_cancellation=noise_cancellation.BVC()),
     )
+
+    # expose the active GM userdata for the lightweight HTTP control API
+    global active_gm_userdata
+    try:
+        # If session.userdata is our GMUserdata, expose it.
+        if isinstance(session.userdata, GMUserdata):
+            active_gm_userdata = session.userdata
+        else:
+            active_gm_userdata = None
+    except Exception:
+        active_gm_userdata = None
+
+    # Start the control HTTP server (non-blocking)
+    _start_http_control_server()
 
     await ctx.connect()
 
