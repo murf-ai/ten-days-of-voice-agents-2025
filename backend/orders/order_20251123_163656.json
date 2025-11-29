@@ -1,0 +1,11 @@
+{
+    "drinkType": "latte",
+    "size": "large",
+    "milk": "skim",
+    "extras": [
+        "honey"
+    ],
+    "name": "Dillu",
+    "timestamp": "2025-11-23T16:36:56.440380",
+    "session_id": "session_20251123_163656"
+}
