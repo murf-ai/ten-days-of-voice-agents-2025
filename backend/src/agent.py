@@ -23,101 +23,174 @@ from livekit.plugins import (
 )
 from livekit.plugins.turn_detector.multilingual import MultilingualModel
 
-
-logger = logging.getLogger("game_master")
+logger = logging.getLogger("ecommerce_agent")
 load_dotenv(".env.local")
 
+# =====================================================
+# FILES & DATA
+# =====================================================
+DATA_DIR = Path("shared-data")
+DATA_DIR.mkdir(exist_ok=True)
+
+CATALOG_PATH = DATA_DIR / "catalog.json"
+ORDERS_PATH = DATA_DIR / "orders.json"
+
+SAMPLE_CATALOG = [
+    {"id": "mug-001", "name": "Stoneware Coffee Mug", "price": 800, "currency": "INR", "category": "mug", "color": "white"},
+    {"id": "shirt-001", "name": "Black Hoodie", "price": 1200, "currency": "INR", "category": "clothing", "color": "black", "size": ["S","M","L"]},
+    {"id": "shirt-002", "name": "White T-Shirt", "price": 700, "currency": "INR", "category": "clothing", "color": "white", "size": ["M","L"]},
+    {"id": "mug-002", "name": "Blue Ceramic Mug", "price": 850, "currency": "INR", "category": "mug", "color": "blue"},
+]
+
+if not CATALOG_PATH.exists():
+    json.dump(SAMPLE_CATALOG, open(CATALOG_PATH, "w"), indent=2)
+
+if not ORDERS_PATH.exists():
+    json.dump([], open(ORDERS_PATH, "w"), indent=2)
 
 # =====================================================
-#       GAME MASTER AGENT (D&D STYLE)
+# COMMERCE FUNCTIONS (ACP-inspired)
 # =====================================================
+def list_products(filters=None):
+    products = json.load(open(CATALOG_PATH, "r"))
+    if not filters:
+        return products
+    results = []
+    for p in products:
+        match = True
+        for k,v in filters.items():
+            if k not in p:
+                match = False
+                break
+            if isinstance(v, list):
+                if not any(i.lower() == p[k].lower() for i in v):
+                    match = False
+            else:
+                if str(v).lower() != str(p[k]).lower():
+                    match = False
+        if match:
+            results.append(p)
+    return results
 
-GAME_SYSTEM_PROMPT = """
-You are a Game Master running a voice-only fantasy adventure.
+def create_order(line_items):
+    products = json.load(open(CATALOG_PATH, "r"))
+    order_items = []
+    total = 0
+    for item in line_items:
+        prod = next((p for p in products if p["id"] == item["product_id"]), None)
+        if prod:
+            qty = item.get("quantity",1)
+            order_items.append({
+                "product_id": prod["id"],
+                "name": prod["name"],
+                "quantity": qty,
+                "price": prod["price"],
+                "currency": prod["currency"]
+            })
+            total += prod["price"] * qty
+    order = {
+        "id": f"ORD-{int(datetime.now().timestamp())}",
+        "items": order_items,
+        "total": total,
+        "currency": "INR",
+        "created_at": datetime.now().isoformat()
+    }
+    all_orders = json.load(open(ORDERS_PATH, "r"))
+    all_orders.append(order)
+    json.dump(all_orders, open(ORDERS_PATH, "w"), indent=2)
+    return order
+
+def get_last_order():
+    orders = json.load(open(ORDERS_PATH, "r"))
+    return orders[-1] if orders else None
+
+# =====================================================
+# SYSTEM PROMPT
+# =====================================================
+SHOP_SYSTEM_PROMPT = """
+You are a friendly e-commerce voice assistant.
 
 RULES:
-- Universe: Medieval fantasy world filled with dragons, magic, quests.
-- Tone: Dramatic, immersive, adventurous.
-- Role: You describe scenes, events, NPCs, and always ask: "What do you do?"
-- Maintain continuity based on conversation history.
-- Keep story moving forward through small narrative arcs.
-- Do NOT give the player's actions yourself.
-- Keep responses short (3–5 sentences max).
+- Understand what user wants to buy.
+- List products by category, color, size, or price range.
+- Allow the user to place orders.
+- Confirm orders with total price and items.
+- Summarize last order if asked.
+- Always respond conversationally.
 """
 
-
-class GameMasterAgent(Agent):
+# =====================================================
+# E-COMMERCE VOICE AGENT
+# =====================================================
+class EcommerceAgent(Agent):
 
     def __init__(self):
-        super().__init__(instructions=GAME_SYSTEM_PROMPT)
+        super().__init__(instructions=SHOP_SYSTEM_PROMPT)
         self.sessions = {}
 
     async def on_join(self, ctx):
         sid = ctx.session.session_id
-
-        self.sessions[sid] = {
-            "story_started": False,
-            "player_name": None
-        }
-
-        intro = (
-            "Welcome, traveler. You stand at the edge of Eldoria, "
-            "a land of lost kingdoms and ancient magic. Before we begin, "
-            "what is your name, adventurer?"
-        )
-        await ctx.send_speech(intro)
+        self.sessions[sid] = {"cart": []}
+        await ctx.send_speech("Welcome! I can help you browse products and place orders. What are you looking for today?")
 
     async def on_user_message(self, message, ctx):
-
-        text = (message.text or "").strip()
+        text = (message.text or "").strip().lower()
         sid = ctx.session.session_id
         state = self.sessions[sid]
 
-        # FIRST TIME PLAYER NAME
-        if not state["story_started"]:
-            state["player_name"] = text
-            state["story_started"] = True
+        # LAST ORDER
+        if "last order" in text or "what did i buy" in text:
+            last = get_last_order()
+            if last:
+                msg = f"Your last order ({last['id']}) had "
+                for item in last["items"]:
+                    msg += f"{item['quantity']} {item['name']}, "
+                msg += f"totaling {last['total']} {last['currency']}."
+                return await ctx.send_speech(msg)
+            return await ctx.send_speech("You have no previous orders.")
 
-            opening_scene = (
-                f"Ah, {state['player_name']}... a name sung in forgotten prophecies.\n"
-                "Your journey begins on a misty trail leading into the Whispering Forest. "
-                "You hear rustling behind you — and a glowing blue fox steps out.\n"
-                "\"Do not be afraid,\" it says. \"Destiny has chosen you.\"\n"
-                "What do you do?"
-            )
-            return await ctx.send_speech(opening_scene)
+        # PLACE ORDER
+        if "buy" in text or "order" in text:
+            # let LLM interpret cart items
+            response = await ctx.session.llm.generate(messages=[
+                {"role": "system", "content": SHOP_SYSTEM_PROMPT},
+                {"role": "user", "content": f"User said: '{text}'. Output a JSON array of items: {{'product_id', 'quantity'}}"}
+            ])
+            try:
+                line_items = json.loads(response.text)
+            except:
+                return await ctx.send_speech("Sorry, I couldn't understand which product you want to buy.")
+            order = create_order(line_items)
+            return await ctx.send_speech(f"Order placed! {len(order['items'])} items totaling {order['total']} INR.")
 
-        # CONTINUE STORY USING LLM
-        response = await ctx.session.llm.generate(
-            messages=[
-                {"role": "system", "content": GAME_SYSTEM_PROMPT},
-                {"role": "user", "content": text}
-            ]
-        )
-
-        gm_output = response.text.strip()
-
-        # Ensure it ends with "What do you do?"
-        if not gm_output.lower().strip().endswith("what do you do?"):
-            gm_output += " What do you do?"
-
-        await ctx.send_speech(gm_output)
-
+        # BROWSE PRODUCTS
+        response = await ctx.session.llm.generate(messages=[
+            {"role": "system", "content": SHOP_SYSTEM_PROMPT},
+            {"role": "user", "content": f"User said: '{text}'. Output filters as JSON dictionary (category, color, max_price, etc)."}
+        ])
+        try:
+            filters = json.loads(response.text)
+        except:
+            filters = None
+        products = list_products(filters)
+        if not products:
+            return await ctx.send_speech("No products found matching your request.")
+        msg = "I found the following products:\n"
+        for i,p in enumerate(products[:5],1):
+            msg += f"{i}. {p['name']} - {p['price']} {p['currency']}\n"
+        await ctx.send_speech(msg + "Would you like to buy any of these?")
 
 # =====================================================
-#       PREWARM VAD
+# PREWARM VAD
 # =====================================================
 vad_model = silero.VAD.load()
-
 def prewarm(proc: JobProcess):
     proc.userdata["vad"] = vad_model
 
-
 # =====================================================
-#       ENTRYPOINT
+# ENTRYPOINT
 # =====================================================
 async def entrypoint(ctx: JobContext):
-
     session = AgentSession(
         stt=deepgram.STT(model="nova-3"),
         llm=google.LLM(model="gemini-2.5-flash"),
@@ -126,21 +199,14 @@ async def entrypoint(ctx: JobContext):
         vad=ctx.proc.userdata["vad"],
         preemptive_generation=True,
     )
-
     await session.start(
-        agent=GameMasterAgent(),
+        agent=EcommerceAgent(),
         room=ctx.room,
-        room_input_options=RoomInputOptions(
-            noise_cancellation=noise_cancellation.BVC()
-        ),
+        room_input_options=RoomInputOptions(noise_cancellation=noise_cancellation.BVC())
     )
     await ctx.connect()
 
-
 if __name__ == "__main__":
     cli.run_app(
-        WorkerOptions(
-            entrypoint_fnc=entrypoint,
-            prewarm_fnc=prewarm,
-        )
+        WorkerOptions(entrypoint_fnc=entrypoint, prewarm_fnc=prewarm)
     )
