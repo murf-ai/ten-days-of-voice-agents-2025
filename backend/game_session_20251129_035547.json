@@ -1,0 +1,22 @@
+{
+  "universe": "bollywood_adventure",
+  "current_location": "Mumbai Streets",
+  "player": {
+    "name": "Adventurer",
+    "health": 100,
+    "strength": 10,
+    "intelligence": 10,
+    "luck": 10,
+    "inventory": [
+      "wooden staff",
+      "health potion"
+    ]
+  },
+  "story_events": [],
+  "npcs_met": [],
+  "quests_active": [
+    "Find the stolen gold statue"
+  ],
+  "quests_completed": [],
+  "turn_count": 0
+}

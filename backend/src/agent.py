@@ -1,7 +1,7 @@
 import logging
 import json
-import os
-from dataclasses import dataclass, field
+import random
+from dataclasses import dataclass, field, asdict
 from typing import Optional, List, Dict, Any
 from datetime import datetime
 
@@ -25,339 +25,409 @@ from livekit.plugins.turn_detector.multilingual import MultilingualModel
 logger = logging.getLogger("agent")
 load_dotenv(".env.local")
 
-# --- Load Catalog ---
-CATALOG_FILE = "catalog.json"
-
-def load_catalog():
-    """Load product catalog from JSON file."""
-    try:
-        with open(CATALOG_FILE, 'r') as f:
-            return json.load(f)
-    except FileNotFoundError:
-        logger.error(f"Catalog file not found: {CATALOG_FILE}")
-        return {"store_name": "Store", "categories": {}, "recipes": {}}
-
-CATALOG = load_catalog()
-STORE_NAME = CATALOG.get("store_name", "QuickMart")
-
-# Flatten catalog for easy lookup
-ALL_PRODUCTS = {}
-for category, items in CATALOG.get("categories", {}).items():
-    for item in items:
-        ALL_PRODUCTS[item["id"]] = {**item, "category": category}
-
-# --- Cart Management ---
+# --- Game State Management ---
 @dataclass
-class CartItem:
-    """Represents an item in the cart."""
-    product_id: str
-    name: str
-    quantity: int
-    price: float
-    unit: str
+class PlayerCharacter:
+    """Player's character stats."""
+    name: str = "Hero"
+    quirk_power: str = "Lightning Strike"  # Their special anime power
+    health: int = 100
+    energy: int = 100  # For using quirk powers
+    strength: int = 10
+    speed: int = 10
+    intelligence: int = 10
+    inventory: List[str] = field(default_factory=lambda: ["healing elixir", "training manual", "hero badge"])
     
-    def subtotal(self) -> float:
-        return self.quantity * self.price
+    def is_alive(self) -> bool:
+        return self.health > 0
+    
+    def can_use_quirk(self) -> bool:
+        return self.energy >= 20
 
 @dataclass
-class ShoppingCart:
-    """Manages the shopping cart."""
-    items: List[CartItem] = field(default_factory=list)
+class GameState:
+    """Tracks the game world state."""
+    universe: str = "anime_hero_academy"
+    current_location: str = "Hero Academy Training Grounds"
+    player: PlayerCharacter = field(default_factory=PlayerCharacter)
+    story_events: List[str] = field(default_factory=list)
+    npcs_met: List[str] = field(default_factory=list)
+    quests_active: List[str] = field(default_factory=lambda: ["Defeat the Shadow Demon terrorizing the village"])
+    quests_completed: List[str] = field(default_factory=list)
+    villains_defeated: List[str] = field(default_factory=list)
+    turn_count: int = 0
     
-    def add_item(self, product_id: str, quantity: int = 1) -> str:
-        """Add item to cart."""
-        if product_id not in ALL_PRODUCTS:
-            return f"ERROR: Product {product_id} not found in catalog."
-        
-        product = ALL_PRODUCTS[product_id]
-        
-        # Check if already in cart
-        for item in self.items:
-            if item.product_id == product_id:
-                item.quantity += quantity
-                return f"UPDATED: Increased {product['name']} quantity to {item.quantity}"
-        
-        # Add new item
-        self.items.append(CartItem(
-            product_id=product_id,
-            name=product["name"],
-            quantity=quantity,
-            price=product["price"],
-            unit=product["unit"]
-        ))
-        return f"ADDED: {quantity}x {product['name']} ({product['unit']}) at ₹{product['price']} each"
+    def add_event(self, event: str):
+        """Add a story event."""
+        self.story_events.append(event)
+        self.turn_count += 1
     
-    def remove_item(self, product_id: str) -> str:
-        """Remove item from cart."""
-        for i, item in enumerate(self.items):
-            if item.product_id == product_id:
-                removed = self.items.pop(i)
-                return f"REMOVED: {removed.name} from cart"
-        return f"ERROR: Item not found in cart"
+    def meet_npc(self, npc_name: str):
+        """Record meeting an NPC."""
+        if npc_name not in self.npcs_met:
+            self.npcs_met.append(npc_name)
     
-    def update_quantity(self, product_id: str, new_quantity: int) -> str:
-        """Update item quantity."""
-        if new_quantity <= 0:
-            return self.remove_item(product_id)
-        
-        for item in self.items:
-            if item.product_id == product_id:
-                old_qty = item.quantity
-                item.quantity = new_quantity
-                return f"UPDATED: {item.name} quantity from {old_qty} to {new_quantity}"
-        return f"ERROR: Item not found in cart"
+    def defeat_villain(self, villain_name: str):
+        """Record defeating a villain."""
+        if villain_name not in self.villains_defeated:
+            self.villains_defeated.append(villain_name)
     
-    def get_summary(self) -> Dict[str, Any]:
-        """Get cart summary."""
-        if not self.items:
-            return {"empty": True, "total": 0, "items": []}
-        
-        total = sum(item.subtotal() for item in self.items)
-        return {
-            "empty": False,
-            "total": total,
-            "item_count": len(self.items),
-            "items": [
-                {
-                    "name": item.name,
-                    "quantity": item.quantity,
-                    "unit": item.unit,
-                    "price": item.price,
-                    "subtotal": item.subtotal()
-                }
-                for item in self.items
-            ]
-        }
-    
-    def clear(self):
-        """Clear the cart."""
-        self.items = []
+    def complete_quest(self, quest: str):
+        """Mark a quest as completed."""
+        if quest in self.quests_active:
+            self.quests_active.remove(quest)
+            self.quests_completed.append(quest)
 
-# --- Tools ---
+# --- Game Tools ---
 @function_tool
-async def search_products(
+async def roll_dice(
     context: RunContext,
-    search_term: str,
-    category: Optional[str] = None
+    dice_type: str = "d20",
+    modifier: int = 0
 ) -> str:
     """
-    Search for products in the catalog.
+    Roll dice for checks and challenges.
     
     Args:
-        search_term: Product name or keyword to search for
-        category: Optional category to filter by (groceries, snacks, beverages, prepared_food, cooking_ingredients)
+        dice_type: Type of dice (d20, d6, d12)
+        modifier: Modifier to add to the roll
     """
-    search_term_lower = search_term.lower()
-    results = []
+    dice_max = {
+        "d20": 20,
+        "d12": 12,
+        "d10": 10,
+        "d6": 6
+    }.get(dice_type, 20)
     
-    categories_to_search = [category] if category else CATALOG.get("categories", {}).keys()
+    roll = random.randint(1, dice_max)
+    total = roll + modifier
     
-    for cat in categories_to_search:
-        for product in CATALOG.get("categories", {}).get(cat, []):
-            if search_term_lower in product["name"].lower() or search_term_lower in product.get("brand", "").lower():
-                results.append(f"{product['name']} ({product['brand']}) - ₹{product['price']} per {product['unit']} [ID: {product['id']}]")
+    result = "CRITICAL SUCCESS! ⚡" if roll == dice_max else "CRITICAL FAILURE! 💥" if roll == 1 else "SUCCESS! ✨" if total >= 15 else "PARTIAL SUCCESS" if total >= 10 else "FAILURE"
     
-    if not results:
-        return f"PRODUCT_NOT_FOUND: No products found matching '{search_term}'."
-    
-    return "PRODUCTS_FOUND:\n" + "\n".join(results[:5])  # Limit to 5 results
+    return f"🎲 ROLL: {roll} (+ {modifier}) = {total} → {result}"
 
 @function_tool
-async def add_to_cart(
+async def use_quirk_power(
     context: RunContext,
-    product_id: str,
-    quantity: int = 1
+    power_description: str,
+    target: str
 ) -> str:
     """
-    Add a product to the shopping cart.
+    Use the player's special anime quirk power.
     
     Args:
-        product_id: The product ID from the catalog
-        quantity: Number of units to add (default: 1)
+        power_description: Description of how the power is used
+        target: What/who the power is aimed at
     """
-    cart: ShoppingCart = context.userdata["cart"]
-    result = cart.add_item(product_id, quantity)
-    context.userdata["cart"] = cart
+    game: GameState = context.userdata["game_state"]
+    
+    if not game.player.can_use_quirk():
+        return f"❌ EXHAUSTED: Not enough energy! Current energy: {game.player.energy}/100"
+    
+    # Use energy
+    game.player.energy -= 20
+    
+    # Roll for power effectiveness
+    roll = random.randint(1, 20)
+    
+    if roll >= 15:
+        effect = "DEVASTATING! Your quirk power was incredibly effective! 💫"
+    elif roll >= 10:
+        effect = "EFFECTIVE! Your quirk power worked well! ⚡"
+    else:
+        effect = "WEAK! Your quirk power barely affected the target... 😓"
+    
+    context.userdata["game_state"] = game
+    
+    return f"⚡ QUIRK ACTIVATED: {game.player.quirk_power}! Energy: {game.player.energy}/100. {effect}"
+
+@function_tool
+async def update_player_health(
+    context: RunContext,
+    change: int,
+    reason: str
+) -> str:
+    """
+    Update player's health.
+    
+    Args:
+        change: Health change (positive for healing, negative for damage)
+        reason: Reason for the change
+    """
+    game: GameState = context.userdata["game_state"]
+    
+    old_health = game.player.health
+    game.player.health = max(0, min(100, game.player.health + change))
+    
+    context.userdata["game_state"] = game
+    
+    if change > 0:
+        return f"💚 HEALED: {old_health} → {game.player.health} HP ({reason})"
+    else:
+        if game.player.health <= 0:
+            return f"💀 DEFEATED: Hero has fallen! ({reason}) GAME OVER..."
+        elif game.player.health <= 20:
+            return f"🩸 CRITICAL DAMAGE: {old_health} → {game.player.health} HP ({reason}). Warning: Very low health!"
+        else:
+            return f"💥 DAMAGED: {old_health} → {game.player.health} HP ({reason})"
+
+@function_tool
+async def restore_energy(
+    context: RunContext,
+    amount: int,
+    method: str
+) -> str:
+    """
+    Restore player's quirk energy.
+    
+    Args:
+        amount: Energy to restore
+        method: How energy is restored (rest, elixir, etc)
+    """
+    game: GameState = context.userdata["game_state"]
+    
+    old_energy = game.player.energy
+    game.player.energy = min(100, game.player.energy + amount)
+    
+    context.userdata["game_state"] = game
+    
+    return f"⚡ ENERGY RESTORED: {old_energy} → {game.player.energy}/100 ({method})"
+
+@function_tool
+async def add_to_inventory(
+    context: RunContext,
+    item: str
+) -> str:
+    """
+    Add an item to player's inventory.
+    
+    Args:
+        item: Item to add
+    """
+    game: GameState = context.userdata["game_state"]
+    game.player.inventory.append(item)
+    context.userdata["game_state"] = game
+    
+    return f"🎁 ACQUIRED: {item}! Inventory: {', '.join(game.player.inventory)}"
+
+@function_tool
+async def use_item(
+    context: RunContext,
+    item: str
+) -> str:
+    """
+    Use an item from inventory.
+    
+    Args:
+        item: Item to use
+    """
+    game: GameState = context.userdata["game_state"]
+    
+    if item not in game.player.inventory:
+        return f"❌ ERROR: {item} not in inventory"
+    
+    game.player.inventory.remove(item)
+    
+    # Handle item effects
+    if "elixir" in item.lower() or "potion" in item.lower():
+        heal = 30
+        game.player.health = min(100, game.player.health + heal)
+        result = f"💚 USED: {item}! Healed {heal} HP. Current: {game.player.health}/100"
+    elif "energy" in item.lower():
+        restore = 40
+        game.player.energy = min(100, game.player.energy + restore)
+        result = f"⚡ USED: {item}! Restored {restore} energy. Current: {game.player.energy}/100"
+    else:
+        result = f"✨ USED: {item}"
+    
+    context.userdata["game_state"] = game
     return result
 
 @function_tool
-async def add_recipe_ingredients(
+async def change_location(
     context: RunContext,
-    recipe_name: str
+    new_location: str,
+    description: str
 ) -> str:
     """
-    Add all ingredients for a recipe/meal to the cart.
+    Move to a new location.
     
     Args:
-        recipe_name: Name of the recipe (e.g., 'peanut butter sandwich', 'pasta for two', 'breakfast')
+        new_location: Name of the new location
+        description: Brief description of the location
     """
-    recipe_name_lower = recipe_name.lower()
-    recipes = CATALOG.get("recipes", {})
+    game: GameState = context.userdata["game_state"]
+    old_location = game.current_location
+    game.current_location = new_location
+    game.add_event(f"Traveled to {new_location}")
     
-    if recipe_name_lower not in recipes:
-        available = ", ".join(recipes.keys())
-        return f"RECIPE_NOT_FOUND: Recipe '{recipe_name}' not found. Available recipes: {available}"
+    context.userdata["game_state"] = game
     
-    cart: ShoppingCart = context.userdata["cart"]
-    product_ids = recipes[recipe_name_lower]
-    added_items = []
-    
-    for product_id in product_ids:
-        if product_id in ALL_PRODUCTS:
-            cart.add_item(product_id, quantity=1)
-            added_items.append(ALL_PRODUCTS[product_id]["name"])
-    
-    context.userdata["cart"] = cart
-    return f"RECIPE_ADDED: Added {', '.join(added_items)} for '{recipe_name}'"
+    return f"🌍 LOCATION: Now at {new_location}. {description}"
 
 @function_tool
-async def remove_from_cart(
+async def meet_character(
     context: RunContext,
-    product_id: str
+    npc_name: str,
+    npc_description: str
 ) -> str:
     """
-    Remove a product from the shopping cart.
+    Introduce a new character.
     
     Args:
-        product_id: The product ID to remove
+        npc_name: Name of the character
+        npc_description: Brief description
     """
-    cart: ShoppingCart = context.userdata["cart"]
-    result = cart.remove_item(product_id)
-    context.userdata["cart"] = cart
-    return result
+    game: GameState = context.userdata["game_state"]
+    game.meet_npc(npc_name)
+    game.add_event(f"Met {npc_name}")
+    
+    context.userdata["game_state"] = game
+    
+    return f"👤 CHARACTER MET: {npc_name} - {npc_description}"
 
 @function_tool
-async def update_cart_quantity(
+async def defeat_villain(
     context: RunContext,
-    product_id: str,
-    new_quantity: int
+    villain_name: str
 ) -> str:
     """
-    Update the quantity of an item in the cart.
+    Record defeating a villain.
     
     Args:
-        product_id: The product ID
-        new_quantity: New quantity (0 to remove)
+        villain_name: Name of the villain
     """
-    cart: ShoppingCart = context.userdata["cart"]
-    result = cart.update_quantity(product_id, new_quantity)
-    context.userdata["cart"] = cart
-    return result
+    game: GameState = context.userdata["game_state"]
+    game.defeat_villain(villain_name)
+    game.add_event(f"Defeated {villain_name}")
+    
+    context.userdata["game_state"] = game
+    
+    return f"🏆 VICTORY: {villain_name} has been defeated! Villains defeated: {len(game.villains_defeated)}"
 
 @function_tool
-async def view_cart(
+async def complete_quest(
+    context: RunContext,
+    quest_name: str
+) -> str:
+    """
+    Mark a quest as completed.
+    
+    Args:
+        quest_name: Name of the quest
+    """
+    game: GameState = context.userdata["game_state"]
+    game.complete_quest(quest_name)
+    
+    context.userdata["game_state"] = game
+    
+    return f"✅ QUEST COMPLETE: {quest_name}! Quests remaining: {', '.join(game.quests_active) if game.quests_active else 'None - You are a true hero!'}"
+
+@function_tool
+async def check_status(
     context: RunContext
 ) -> str:
     """
-    View the current shopping cart contents and total.
+    Check player's current status.
     """
-    cart: ShoppingCart = context.userdata["cart"]
-    summary = cart.get_summary()
+    game: GameState = context.userdata["game_state"]
     
-    if summary["empty"]:
-        return "CART_EMPTY: Your cart is empty. Browse products and add items!"
-    
-    cart_text = f"CART_SUMMARY:\n"
-    for item in summary["items"]:
-        cart_text += f"• {item['quantity']}x {item['name']} ({item['unit']}) - ₹{item['subtotal']}\n"
-    cart_text += f"\nTotal: ₹{summary['total']}"
-    
-    return cart_text
+    status = f"""
+📊 HERO STATUS:
+🌍 Location: {game.current_location}
+💚 Health: {game.player.health}/100
+⚡ Energy: {game.player.energy}/100
+⚡ Quirk: {game.player.quirk_power}
+🎒 Inventory: {', '.join(game.player.inventory)}
+📜 Active Quests: {', '.join(game.quests_active)}
+🏆 Villains Defeated: {len(game.villains_defeated)}
+"""
+    return status.strip()
 
-@function_tool
-async def place_order(
-    context: RunContext,
-    customer_name: str,
-    delivery_address: str
-) -> str:
-    """
-    Place the order and save it to a file.
-    
-    Args:
-        customer_name: Customer's name
-        delivery_address: Delivery address
-    """
-    cart: ShoppingCart = context.userdata["cart"]
-    summary = cart.get_summary()
-    
-    if summary["empty"]:
-        return "ERROR: Cannot place order. Cart is empty."
-    
-    # Create order
-    order = {
-        "order_id": f"ORD_{datetime.now().strftime('%Y%m%d_%H%M%S')}",
-        "customer_name": customer_name,
-        "delivery_address": delivery_address,
-        "timestamp": datetime.now().isoformat(),
-        "items": summary["items"],
-        "total": summary["total"],
-        "status": "placed"
-    }
-    
-    # Save to file
-    filename = f"order_{order['order_id']}.json"
-    with open(filename, 'w') as f:
-        json.dump(order, f, indent=2)
-    
-    logger.info(f"Order placed: {filename}")
-    
-    # Clear cart
-    cart.clear()
-    context.userdata["cart"] = cart
-    
-    return (
-        f"ORDER_PLACED: Order {order['order_id']} confirmed! "
-        f"Total: ₹{order['total']}. "
-        f"Your order will be delivered to {delivery_address} within 30 minutes. "
-        f"Order saved to {filename}."
-    )
-
-# --- Shopping Assistant Agent ---
-class ShoppingAssistant(Agent):
-    """Food and grocery ordering voice agent."""
+# --- Game Master Agent ---
+class AnimeGameMaster(Agent):
+    """Anime-style adventure game master."""
     
     def __init__(self, llm) -> None:
         super().__init__(
             instructions=(
-                f"You are a friendly shopping assistant for {STORE_NAME}, a quick commerce platform. "
+                "You are an epic ANIME GAME MASTER running a shonen-style hero adventure! "
                 "\n\n"
-                f"**GREETING:** 'Hi! Welcome to {STORE_NAME}! I can help you order groceries, snacks, and prepared food. "
-                "You can ask me to search for items, add them to your cart, or even say things like "
-                "'I need ingredients for a sandwich' and I'll add everything you need!' "
+                "**UNIVERSE: Hero Academy - Anime Adventure**\n"
+                "- Modern world where people have 'Quirks' (superpowers)\n"
+                "- Player is a young hero-in-training with Lightning Strike quirk\n"
+                "- Think: My Hero Academia meets Demon Slayer energy\n"
+                "- Dramatic battles, character growth, intense emotions\n"
                 "\n\n"
-                "**HOW TO HELP:**\n"
-                "1. **Search Products:** Use search_products when user asks for items\n"
-                "2. **Add to Cart:** Use add_to_cart with product_id and quantity\n"
-                "3. **Recipe Requests:** If user says 'ingredients for X', use add_recipe_ingredients\n"
-                "4. **Manage Cart:** Use remove_from_cart, update_cart_quantity, or view_cart as needed\n"
-                "5. **Place Order:** When user says 'place order' or 'checkout', ask for name and address, then use place_order\n"
-                "\n"
-                "**AVAILABLE RECIPES:** peanut butter sandwich, pasta for two, breakfast, tea time\n"
-                "\n"
-                "**TIPS:**\n"
-                "- Always confirm what you're adding to the cart\n"
-                "- When showing cart, read the total clearly\n"
-                "- Ask clarifying questions if needed (size, brand, quantity)\n"
-                "- Be concise but friendly\n"
+                "**ANIME TROPES TO USE:**\n"
+                "- Power-up moments and dramatic reveals\n"
+                "- Friendly rivals and wise mentors\n"
+                "- Epic battle sequences with named attacks\n"
+                "- Emotional backstories for villains\n"
+                "- Training arcs and power progression\n"
+                "- 'Believe in yourself!' themes\n"
+                "\n\n"
+                "**YOUR ROLE:**\n"
+                "- Narrate like an anime episode\n"
+                "- Use action sound effects (BOOM! SLASH! WHOOSH!)\n"
+                "- Make battles dramatic and exciting\n"
+                "- ALWAYS end with 'What do you do?'\n"
+                "\n\n"
+                "**GAME FLOW:**\n"
+                "1. **Opening:** Hero receives urgent mission about Shadow Demon\n"
+                "2. **Investigation:** Gather info, meet NPCs\n"
+                "3. **Training:** Build up power if needed\n"
+                "4. **Confrontation:** Epic battle with villain\n"
+                "5. **Resolution:** Heroic victory!\n"
+                "\n\n"
+                "**TOOLS TO USE:**\n"
+                "- roll_dice: For any action checks\n"
+                "- use_quirk_power: When player uses their Lightning Strike\n"
+                "- update_player_health: For damage in battles\n"
+                "- restore_energy: After rest or using items\n"
+                "- defeat_villain: When villain is beaten\n"
+                "- change_location: Moving to new areas\n"
+                "- meet_character: Introducing NPCs\n"
+                "\n\n"
+                "**LOCATIONS:** Training Grounds, Village, Dark Forest, Shadow Demon's Lair\n"
+                "**CHARACTERS:** \n"
+                "- Master Takeshi (wise mentor)\n"
+                "- Sakura (rival hero-in-training)\n"
+                "- Shadow Demon (main villain)\n"
+                "- Lesser demons (minions)\n"
+                "\n\n"
+                "**CRITICAL RULES:**\n"
+                "- Make it feel like an anime episode!\n"
+                "- Use dramatic descriptions and sound effects\n"
+                "- Call roll_dice before resolving risky actions\n"
+                "- Make battles exciting with multiple exchanges\n"
+                "- Encourage use of quirk powers\n"
+                "- Session should last 8-15 exchanges\n"
+                "\n\n"
+                "START NOW: Set the opening scene with dramatic music energy! 🎌"
             ),
             tools=[
-                search_products,
-                add_to_cart,
-                add_recipe_ingredients,
-                remove_from_cart,
-                update_cart_quantity,
-                view_cart,
-                place_order
+                roll_dice,
+                use_quirk_power,
+                update_player_health,
+                restore_energy,
+                add_to_inventory,
+                use_item,
+                change_location,
+                meet_character,
+                defeat_villain,
+                complete_quest,
+                check_status
             ],
             llm=llm
         )
 
 # --- Entrypoint ---
 async def entrypoint(ctx: JobContext):
-    """Main entrypoint for shopping assistant."""
+    """Main entrypoint for anime game master."""
     
-    # Initialize cart
-    cart = ShoppingCart()
+    # Initialize game state
+    game_state = GameState()
     
     ctx.log_context_fields = {"room": ctx.room.name}
     llm = google.LLM(model="gemini-2.5-flash")
@@ -366,7 +436,7 @@ async def entrypoint(ctx: JobContext):
         stt=deepgram.STT(model="nova-3"),
         llm=llm,
         tts=murf.TTS(
-            voice="en-US-alicia",
+            voice="en-US-ken",  # Dramatic voice for anime narrator
             style="Conversation",
             tokenizer=tokenize.basic.SentenceTokenizer(min_sentence_len=2),
             text_pacing=True
@@ -376,7 +446,7 @@ async def entrypoint(ctx: JobContext):
         preemptive_generation=True,
     )
     
-    session.userdata = {"cart": cart}
+    session.userdata = {"game_state": game_state}
     
     # Metrics
     usage_collector = metrics.UsageCollector()
@@ -389,11 +459,19 @@ async def entrypoint(ctx: JobContext):
     async def log_usage():
         summary = usage_collector.get_summary()
         logger.info(f"Usage: {summary}")
+        
+        # Save game state
+        final_state = session.userdata.get("game_state")
+        if final_state:
+            filename = f"anime_adventure_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json"
+            with open(filename, 'w') as f:
+                json.dump(asdict(final_state), f, indent=2)
+            logger.info(f"🎌 Anime adventure saved to {filename}")
     
     ctx.add_shutdown_callback(log_usage)
     
     # Start session
-    await session.start(agent=ShoppingAssistant(llm=llm), room=ctx.room)
+    await session.start(agent=AnimeGameMaster(llm=llm), room=ctx.room)
     await ctx.connect()
 
 def prewarm(proc: JobProcess):

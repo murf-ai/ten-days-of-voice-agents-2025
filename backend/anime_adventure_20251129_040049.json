@@ -1,0 +1,28 @@
+{
+  "universe": "anime_hero_academy",
+  "current_location": "Village",
+  "player": {
+    "name": "Hero",
+    "quirk_power": "Lightning Strike",
+    "health": 100,
+    "energy": 100,
+    "strength": 10,
+    "speed": 10,
+    "intelligence": 10,
+    "inventory": [
+      "healing elixir",
+      "training manual",
+      "hero badge"
+    ]
+  },
+  "story_events": [
+    "Traveled to Village"
+  ],
+  "npcs_met": [],
+  "quests_active": [
+    "Defeat the Shadow Demon terrorizing the village"
+  ],
+  "quests_completed": [],
+  "villains_defeated": [],
+  "turn_count": 1
+}
