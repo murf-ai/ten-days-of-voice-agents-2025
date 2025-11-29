@@ -1,0 +1,14 @@
+{
+  "name": "Isle of Brine",
+  "locations": [
+    {"id": "salt_docks", "name": "Salt Docks", "desc": "Old packing warehouses and tide pools."},
+    {"id": "old_lighthouse", "name": "Old Lighthouse", "desc": "A ruined lighthouse that once guided ships."}
+  ],
+  "npcs": [
+    {"id": "maris", "name": "Maris", "role": "fisher", "note": "lost her husband at sea"},
+    {"id": "keeper", "name": "Lighthouse Keeper", "role": "mysterious guardian"}
+  ],
+  "items": [
+    {"id": "sea_charm", "name": "Sea Charm", "desc": "A shell that hums when danger is near"}
+  ]
+}

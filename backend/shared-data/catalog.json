@@ -1,0 +1,21 @@
+[
+  {"id": "bread_whole", "name": "Whole Wheat Bread (1 loaf)", "category": "Groceries", "price": 40, "units": "loaf", "tags": ["bread","vegan"]},
+  {"id": "eggs_6", "name": "Eggs (6 pcs)", "category": "Groceries", "price": 60, "units": "pack", "tags": ["eggs"]},
+  {"id": "milk_1l", "name": "Milk 1L", "category": "Groceries", "price": 55, "units": "bottle", "tags": ["milk","dairy"]},
+  {"id": "peanut_butter", "name": "Peanut Butter (200g)", "category": "Groceries", "price": 180, "units": "jar", "tags": ["spread","vegan"]},
+  {"id": "jam", "name": "Strawberry Jam (200g)", "category": "Groceries", "price": 120, "units": "jar", "tags": ["spread"]},
+  {"id": "pasta_500g", "name": "Pasta 500g", "category": "Groceries", "price": 100, "units": "pack", "tags": ["pasta"]},
+  {"id": "pasta_sauce", "name": "Tomato Pasta Sauce 350g", "category": "Groceries", "price": 150, "units": "jar", "tags": ["sauce"]},
+  {"id": "butter", "name": "Butter 200g", "category": "Groceries", "price": 140, "units": "pack", "tags": ["dairy"]},
+
+  {"id": "chips", "name": "Potato Chips 100g", "category": "Snacks", "price": 40, "units": "bag", "tags": ["snack"]},
+
+  {"id": "samosa_2", "name": "Samosa (2 pcs)", "category": "Snacks", "price": 30, "units": "pack", "tags": ["snack","indian"]},
+  {"id": "kachori_2", "name": "Kachori (2 pcs)", "category": "Snacks", "price": 35, "units": "pack", "tags": ["snack","indian"]},
+  {"id": "fries", "name": "French Fries (150g)", "category": "Snacks", "price": 60, "units": "pack", "tags": ["snack","fried"]},
+  {"id": "nachos", "name": "Cheese Nachos (150g)", "category": "Snacks", "price": 90, "units": "bag", "tags": ["snack","crispy"]},
+  {"id": "cookies", "name": "Chocolate Cookies (100g)", "category": "Snacks", "price": 50, "units": "pack", "tags": ["snack","sweet"]},
+
+  {"id": "pizza_margherita", "name": "Margherita Pizza (ready)", "category": "Prepared Food", "price": 399, "units": "piece", "tags": ["pizza"]},
+  {"id": "sandwich_veg", "name": "Veg Sandwich (ready)", "category": "Prepared Food", "price": 129, "units": "piece", "tags": ["sandwich"]}
+]

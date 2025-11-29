@@ -1,0 +1,27 @@
+[
+  {
+    "timestamp": "2025-11-29T06:43:15.806375",
+    "story": [
+      {
+        "ts": "2025-11-29T06:40:20.479689",
+        "actor": "player",
+        "text": "The player went to the lighthouse."
+      },
+      {
+        "ts": "2025-11-29T06:41:41.145499",
+        "actor": "player",
+        "text": "The player investigates the old machinery in the lighthouse and searches for clues."
+      },
+      {
+        "ts": "2025-11-29T06:42:27.150614",
+        "actor": "player",
+        "text": "The player continues their search for other clues in the lighthouse, ignoring the journal for now."
+      },
+      {
+        "ts": "2025-11-29T06:42:47.399380",
+        "actor": "player",
+        "text": "The player indicates they are done and wants to save their adventure."
+      }
+    ]
+  }
+]
