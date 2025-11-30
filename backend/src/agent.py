@@ -1,399 +1,536 @@
-# agent.py - Voice Game Master (D&D-Style Adventure) for Day 8
+# agent.py
+"""
+Voice E-commerce Shopping Assistant — Implementation for Day 9 with ACP-inspired design:
+- Product catalog with filtering
+- Order creation and persistence
+- Voice-driven shopping flow
+- Simple order history
+
+Patched so all function tools accept flexible payloads to avoid Pydantic "Field required" errors.
+"""
 import logging
 import os
 import json
-import random
+import uuid
+import asyncio
 from datetime import datetime
-from typing import Optional, List, Dict, Any
-
+from typing import List, Dict, Optional
 from dotenv import load_dotenv
-from livekit import rtc
+
 from livekit.agents import (
     Agent,
     AgentSession,
     JobContext,
     JobProcess,
     RunContext,
-    cli,
-    MetricsCollectedEvent,
     RoomInputOptions,
     WorkerOptions,
-    metrics,
-    tokenize,
+    cli,
     function_tool,
 )
 from livekit.plugins import murf, silero, google, deepgram, noise_cancellation
 from livekit.plugins.turn_detector.multilingual import MultilingualModel
 
-logger = logging.getLogger("game_master")
-
+logger = logging.getLogger("shopping_assistant")
 load_dotenv(".env.local")
 
-# ---------- Game Universes & World Templates ---------- #
+# ------------------- Storage paths -------------------
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+DATA_DIR = os.path.join(os.path.dirname(BASE_DIR), "shared-data")
+os.makedirs(DATA_DIR, exist_ok=True)
+ORDERS_PATH = os.path.join(DATA_DIR, "orders.json")
 
-GAME_UNIVERSES = {
-    "fantasy": {
-        "name": "Fantasy Realm",
-        "system_prompt": """You are a wise and dramatic Fantasy Game Master in a world of dragons, magic, and ancient kingdoms.
+# Ensure orders file exists
+if not os.path.exists(ORDERS_PATH):
+    with open(ORDERS_PATH, "w", encoding="utf-8") as f:
+        json.dump([], f, indent=2)
 
-UNIVERSE: The realm of Eldoria, where magic flows through the land and ancient prophecies guide destinies.
-
-YOUR ROLE:
-- Describe vivid scenes with rich sensory details (sights, sounds, smells)
-- Create compelling NPCs with distinct personalities
-- Present meaningful choices that affect the story
-- Build tension and drama through your narration
-- End each message with a clear choice or question: "What do you do?"
-
-STORY ARC: The player is a young adventurer who discovers an ancient artifact that holds the key to saving the kingdom from an ancient evil.
-
-GAME MASTER GUIDELINES:
-- Always maintain continuity with previous events
-- Remember NPC names, locations, and player decisions
-- Incorporate player choices into the evolving narrative
-- Provide 2-3 clear options when presenting choices
-- Use descriptive language that immerses the player
-- Balance combat, exploration, and roleplaying
-- Make the player feel their decisions matter""",
-        "initial_world": {
-            "player": {
-                "name": "Adventurer",
-                "health": 100,
-                "max_health": 100,
-                "inventory": ["rusty sword", "leather armor", "healing potion"],
-                "gold": 50,
-                "level": 1,
-                "location": "Whispering Woods"
-            },
-            "npcs": {
-                "elder_merlin": {"name": "Elder Merlin", "attitude": "friendly", "alive": True},
-                "dragon_ignis": {"name": "Ignis the Dragon", "attitude": "hostile", "alive": True}
-            },
-            "locations": {
-                "whispering_woods": {"name": "Whispering Woods", "visited": True},
-                "stonehaven_keep": {"name": "Stonehaven Keep", "visited": False},
-                "crystal_caverns": {"name": "Crystal Caverns", "visited": False}
-            },
-            "quests": {
-                "main": {"name": "The Crystal of Eldoria", "status": "active", "progress": 0},
-                "side": {"name": "Help the Village", "status": "available", "progress": 0}
-            },
-            "events": ["arrived_in_whispering_woods"]
-        }
+# ------------------- Product Catalog -------------------
+PRODUCTS = [
+    {
+        "id": "mug-001",
+        "name": "Stoneware Coffee Mug",
+        "description": "Handcrafted ceramic mug perfect for your morning coffee",
+        "price": 800,
+        "currency": "INR",
+        "category": "mug",
+        "color": "white",
+        "in_stock": True,
+        "attributes": {"material": "ceramic", "capacity_ml": 350}
     },
-    "sci_fi": {
-        "name": "Cyberpunk City", 
-        "system_prompt": """You are a gritty Cyberpunk Game Master in the neon-drenched metropolis of Neo-Tokyo 2088.
-
-UNIVERSE: A dystopian future where mega-corporations rule, cyber-enhancements are common, and hackers fight for freedom.
-
-YOUR ROLE:
-- Describe the cyberpunk world with neon lights, rain-slicked streets, and high-tech gadgets
-- Create morally ambiguous characters and situations
-- Present choices that test the player's ethics and survival instincts
-- Build tension through corporate conspiracies and technological threats
-- End each message with: "What's your move, runner?"
-
-STORY ARC: The player is a freelance hacker who uncovers a corporate plot that could enslave humanity.
-
-GAME MASTER GUIDELINES:
-- Maintain the cyberpunk aesthetic throughout descriptions
-- Remember the player's cyberware, contacts, and reputation
-- Incorporate high-tech elements and hacking opportunities
-- Present dilemmas between profit and principles
-- Use tech jargon appropriately but explain when needed"""
+    {
+        "id": "mug-002",
+        "name": "Blue Enamel Camping Mug",
+        "description": "Durable enamel mug for outdoor adventures",
+        "price": 650,
+        "currency": "INR",
+        "category": "mug",
+        "color": "blue",
+        "in_stock": True,
+        "attributes": {"material": "enamel", "capacity_ml": 400}
     },
-    "space": {
-        "name": "Space Opera",
-        "system_prompt": """You are an epic Space Opera Game Master navigating the vast reaches of the Galactic Federation.
-
-UNIVERSE: A universe of alien civilizations, star empires, and ancient cosmic mysteries.
-
-YOUR ROLE:
-- Describe alien worlds, star systems, and futuristic technology
-- Create diverse alien species with unique cultures
-- Present interstellar politics and cosmic threats
-- Build epic space battles and first contact scenarios
-- End each message with: "What's your course of action, Captain?"
-
-STORY ARC: The player commands a starship and must unite warring factions against an extragalactic invasion.
-
-GAME MASTER GUIDELINES:
-- Maintain the scale and wonder of space exploration
-- Remember alien species, political alliances, and star systems
-- Incorporate zero-gravity and space travel elements
-- Present choices that affect interstellar relations
-- Balance scientific accuracy with dramatic storytelling"""
+    {
+        "id": "mug-003",
+        "name": "Premium Coffee Mug Set",
+        "description": "Set of 4 elegant coffee mugs with saucers",
+        "price": 1200,
+        "currency": "INR",
+        "category": "mug",
+        "color": "brown",
+        "in_stock": True,
+        "attributes": {"material": "porcelain", "capacity_ml": 300, "set_size": 4}
+    },
+    {
+        "id": "tshirt-001",
+        "name": "Cotton Crew Neck T-Shirt",
+        "description": "Soft 100% cotton t-shirt for everyday wear",
+        "price": 450,
+        "currency": "INR",
+        "category": "clothing",
+        "color": "black",
+        "size": "M",
+        "in_stock": True,
+        "attributes": {"material": "cotton", "sleeve": "short"}
+    },
+    {
+        "id": "tshirt-002",
+        "name": "Premium Organic T-Shirt",
+        "description": "Eco-friendly organic cotton t-shirt",
+        "price": 850,
+        "currency": "INR",
+        "category": "clothing",
+        "color": "white",
+        "size": "L",
+        "in_stock": True,
+        "attributes": {"material": "organic_cotton", "sleeve": "short"}
+    },
+    {
+        "id": "hoodie-001",
+        "name": "Classic Fleece Hoodie",
+        "description": "Warm and comfortable fleece hoodie",
+        "price": 1200,
+        "currency": "INR",
+        "category": "clothing",
+        "color": "black",
+        "size": "M",
+        "in_stock": True,
+        "attributes": {"material": "fleece", "hood": "yes", "pocket": "kangaroo"}
+    },
+    {
+        "id": "hoodie-002",
+        "name": "Sport Tech Hoodie",
+        "description": "Lightweight technical hoodie for active wear",
+        "price": 1800,
+        "currency": "INR",
+        "category": "clothing",
+        "color": "navy",
+        "size": "L",
+        "in_stock": True,
+        "attributes": {"material": "polyester", "hood": "yes", "moisture_wicking": "yes"}
     }
-}
+]
 
-# ---------- Murf TTS voices ---------- #
+# ------------------- Commerce Logic (ACP-inspired) -------------------
 
-TTS_GAME_MASTER = murf.TTS(
-    voice="en-US-matthew",
-    style="Story",
-    tokenizer=tokenize.basic.SentenceTokenizer(min_sentence_len=2),
-    text_pacing=True,
-)
 
-# ---------- Game Master Agent ---------- #
+def list_products(filters: Optional[Dict] = None, search_term: Optional[str] = None) -> List[Dict]:
+    """Filter products based on criteria - ACP-inspired catalog browsing"""
+    filtered_products = PRODUCTS.copy()
 
-class GameMasterAgent(Agent):
-    """
-    D&D-Style Voice Game Master for Interactive Adventures
-    """
+    if filters:
+        # Apply filters
+        if "category" in filters:
+            filtered_products = [p for p in filtered_products if p["category"] == filters["category"]]
 
-    def __init__(self, universe: str = "fantasy", **kwargs):
-        self.universe = universe
-        universe_config = GAME_UNIVERSES[universe]
+        if "max_price" in filters:
+            filtered_products = [p for p in filtered_products if p["price"] <= filters["max_price"]]
 
-        super().__init__(
-            instructions=universe_config["system_prompt"],
-            tts=TTS_GAME_MASTER,
-            **kwargs
+        if "color" in filters:
+            filtered_products = [p for p in filtered_products if p.get("color") == filters["color"]]
+
+        if "in_stock" in filters:
+            filtered_products = [p for p in filtered_products if p["in_stock"] == filters["in_stock"]]
+
+    # Apply search term if provided
+    if search_term:
+        search_lower = search_term.lower()
+        filtered_products = [
+            p for p in filtered_products
+            if (search_lower in p["name"].lower() or
+                search_lower in p["description"].lower() or
+                search_lower in p["category"].lower())
+        ]
+
+    return filtered_products
+
+
+def create_order(line_items: List[Dict]) -> Dict:
+    """Create an order - ACP-inspired order creation"""
+    # Load existing orders
+    try:
+        with open(ORDERS_PATH, "r", encoding="utf-8") as f:
+            orders = json.load(f)
+    except:
+        orders = []
+
+    # Calculate order total and validate products
+    total = 0
+    order_items = []
+
+    for item in line_items:
+        product = next((p for p in PRODUCTS if p["id"] == item["product_id"]), None)
+        if not product:
+            raise ValueError(f"Product {item['product_id']} not found")
+
+        if not product["in_stock"]:
+            raise ValueError(f"Product {product['name']} is out of stock")
+
+        quantity = item.get("quantity", 1)
+        item_total = product["price"] * quantity
+
+        order_items.append({
+            "product_id": product["id"],
+            "name": product["name"],
+            "quantity": quantity,
+            "unit_price": product["price"],
+            "currency": product["currency"],
+            "item_total": item_total
+        })
+
+        total += item_total
+
+    # Create order object
+    order = {
+        "id": str(uuid.uuid4()),
+        "created_at": datetime.utcnow().isoformat() + "Z",
+        "status": "CONFIRMED",
+        "items": order_items,
+        "total": total,
+        "currency": "INR",
+        "buyer": {"name": "Voice Customer"}  # Simplified buyer info
+    }
+
+    # Save order
+    orders.append(order)
+    with open(ORDERS_PATH, "w", encoding="utf-8") as f:
+        json.dump(orders, f, indent=2, ensure_ascii=False)
+
+    return order
+
+
+def get_order_history(limit: Optional[int] = None) -> List[Dict]:
+    """Get order history - ACP-inspired order queries"""
+    try:
+        with open(ORDERS_PATH, "r", encoding="utf-8") as f:
+            orders = json.load(f)
+    except:
+        orders = []
+
+    # Sort by creation date, newest first
+    orders.sort(key=lambda x: x.get("created_at", ""), reverse=True)
+
+    if limit:
+        orders = orders[:limit]
+
+    return orders
+
+
+def get_last_order() -> Optional[Dict]:
+    """Get the most recent order"""
+    orders = get_order_history(limit=1)
+    return orders[0] if orders else None
+
+
+# ------------------- Shopping Assistant Agent -------------------
+class ShoppingAssistantAgent(Agent):
+    def __init__(self, *, tts=None):
+        system_prompt = """You are a friendly and helpful voice shopping assistant. You help users browse products and place orders.
+
+Key capabilities:
+- Browse and filter products by category, price, color, etc.
+- Search products by name or description
+- Help users find what they're looking for
+- Create orders when users want to buy something
+- Check order history
+
+Always be conversational and helpful. When showing products, mention key details like name, price, color, and notable features. When creating orders, confirm the details before proceeding.
+
+When users ask for specific products like "coffee mugs", search across product names, descriptions, and categories to find relevant items.
+
+Follow the ACP-inspired pattern: use the provided tools for all commerce operations."""
+        super().__init__(instructions=system_prompt, tts=tts)
+
+    @function_tool()
+    async def browse_products(self, context: RunContext, payload: Optional[Dict] = None) -> str:
+        """Browse products with optional filters and search (robust payload parsing)"""
+        payload = payload or {}
+
+        # Extract fields safely
+        category = payload.get("category")
+        max_price = payload.get("max_price")
+        color = payload.get("color")
+        search = payload.get("search") or payload.get("q")
+
+        filters = {}
+
+        if category:
+            filters["category"] = category
+
+        if max_price is not None:
+            try:
+                filters["max_price"] = int(max_price)
+            except:
+                pass
+
+        if color:
+            filters["color"] = color.lower()
+
+        products = list_products(filters, search)
+
+        if not products:
+            msg = f"No products found matching '{search}'." if search else "No products found."
+            return json.dumps({"message": msg, "products": []})
+
+        summaries = []
+        for p in products:
+            d = {
+                "id": p["id"],
+                "name": p["name"],
+                "price": p["price"],
+                "currency": p["currency"],
+                "color": p.get("color"),
+                "in_stock": p["in_stock"],
+                "description": p["description"],
+            }
+            if "size" in p:
+                d["size"] = p["size"]
+            summaries.append(d)
+
+        return json.dumps({
+            "message": f"Found {len(products)} products.",
+            "products": summaries
+        })
+
+    @function_tool()
+    async def place_order(self, context: RunContext, payload: Optional[Dict] = None) -> str:
+        """Place an order. Accepts:
+           - payload={'product_id': 'hoodie-002', 'quantity': 2}
+           - payload={'order_details': [{'product_id': 'hoodie-002', 'quantity': 2}, ...]}
+           - payload={'items': [...]}
+        Normalizes input and calls create_order().
+        """
+        payload = payload or {}
+
+        # 1) Try list-style order_details / items
+        items_payload = payload.get("order_details") or payload.get("items")
+        line_items = []
+
+        if items_payload and isinstance(items_payload, list):
+            for it in items_payload:
+                # accept forgiving keys
+                pid = it.get("product_id") or it.get("id") or it.get("product")
+                qty = it.get("quantity", it.get("qty", 1))
+                try:
+                    qty = int(qty)
+                except:
+                    qty = 1
+                if not pid:
+                    # skip malformed item entries
+                    continue
+                line_items.append({"product_id": pid, "quantity": qty})
+
+        else:
+            # 2) Try single-item payload
+            pid = payload.get("product_id") or payload.get("id") or payload.get("product")
+            qty = payload.get("quantity", payload.get("qty", 1))
+            try:
+                qty = int(qty)
+            except:
+                qty = 1
+            if pid:
+                line_items.append({"product_id": pid, "quantity": qty})
+
+        if not line_items:
+            return json.dumps({
+                "success": False,
+                "message": "No valid product items found in payload. Provide 'product_id' or 'order_details' list."
+            })
+
+        # Validate products exist & are in stock before creating order (nice to fail early)
+        bad = []
+        for li in line_items:
+            prod = next((p for p in PRODUCTS if p["id"] == li["product_id"]), None)
+            if not prod:
+                bad.append(f"{li['product_id']} (not found)")
+            elif not prod.get("in_stock", False):
+                bad.append(f"{prod['name']} (out of stock)")
+
+        if bad:
+            return json.dumps({
+                "success": False,
+                "message": "Cannot place order due to invalid items: " + "; ".join(bad)
+            })
+
+        # Create the order using authoritative prices from PRODUCTS
+        try:
+            order = create_order([{"product_id": li["product_id"], "quantity": li["quantity"]} for li in line_items])
+        except Exception as e:
+            return json.dumps({
+                "success": False,
+                "message": f"Failed to create order: {str(e)}"
+            })
+
+        # Build human-friendly summary
+        items_desc = ", ".join([f"{it['quantity']} x {it['name']}" for it in order["items"]])
+        return json.dumps({
+            "success": True,
+            "order_id": order["id"],
+            "message": f"Order placed: {items_desc}. Total {order['total']} {order['currency']}.",
+            "order_details": {
+                "total": order["total"],
+                "currency": order["currency"],
+                "status": order["status"]
+            }
+        })
+
+
+    @function_tool()
+    async def get_last_order_info(self, context: RunContext, payload: Optional[Dict] = None) -> str:
+        """Return the most recent order (no required params)"""
+        order = get_last_order()
+
+        if not order:
+            return json.dumps({"message": "No previous orders found."})
+
+        items_desc = ", ".join(
+            f"{i['quantity']} x {i['name']}" for i in order["items"]
         )
+
+        return json.dumps({
+            "order_id": order["id"],
+            "message": (
+                f"Your last order was on {order['created_at'][:10]} "
+                f"for {order['total']} INR. Items: {items_desc}."
+            ),
+            "total": order["total"],
+            "currency": order["currency"],
+            "status": order["status"]
+        })
+
+    @function_tool()
+    async def get_order_history(self, context: RunContext, payload: Optional[Dict] = None) -> str:
+        """Return order history with optional limit"""
+        payload = payload or {}
+
+        limit = payload.get("limit", 5)
+        try:
+            limit = int(limit)
+        except:
+            limit = 5
+
+        orders = get_order_history(limit)
+
+        if not orders:
+            return json.dumps({"message": "No order history available."})
+
+        history = []
+        total_spent = 0
+
+        for order in orders:
+            items = ", ".join([f"{i['quantity']}x {i['name']}" for i in order["items"]])
+            history.append({
+                "date": order["created_at"][:10],
+                "total": order["total"],
+                "items": items
+            })
+            total_spent += order["total"]
+
+        return json.dumps({
+            "message": f"Found {len(orders)} past orders.",
+            "orders": history,
+            "total_orders": len(orders),
+            "total_spent": total_spent
+        })
 
     async def on_enter(self) -> None:
-        # Initialize game state
-        game_state = _ensure_game_state(self.session)
-        universe_config = GAME_UNIVERSES[self.universe]
+        """Welcome message when agent enters"""
+        welcome_msg = "Hello! I'm your shopping assistant. I can help you browse products, check prices, and place orders. What would you like to do today?"
+        await self.speak_text(welcome_msg)
 
-        if "initial_world" in universe_config:
-            game_state["world"] = universe_config["initial_world"].copy()
+    async def speak_text(self, text: str):
+        """Helper to speak text with TTS"""
+        if not text.strip():
+            return
 
-        # Start the adventure
-        await self.session.generate_reply(
-            instructions=(
-                "Begin the adventure with an immersive opening scene that introduces the setting, "
-                "establishes the initial conflict, and presents the player with their first meaningful choice. "
-                "Describe the environment vividly and end by asking what the player wants to do."
-            )
-        )
+        max_chars = 700
+        chunks = [text[i:i + max_chars] for i in range(0, len(text), max_chars)]
 
-    # ---------- Game Mechanics Tools ---------- #
+        for chunk in chunks:
+            try:
+                if hasattr(self.session.tts, "stream_text"):
+                    async for _ in self.session.tts.stream_text(chunk):
+                        pass
+                elif hasattr(self.session.tts, "synthesize"):
+                    result = self.session.tts.synthesize(chunk)
+                    if asyncio.iscoroutine(result):
+                        await result
+            except Exception:
+                logger.exception("TTS chunk failed")
+                break
 
-    @function_tool()
-    async def roll_dice(self, context: RunContext, sides: int = 20, modifier: int = 0) -> str:
-        """Roll dice for game mechanics - used for skill checks, combat, and random events"""
-        roll = random.randint(1, sides)
-        total = roll + modifier
 
-        logger.info(f"Dice roll: {roll} (d{sides}) + {modifier} = {total}")
+# ------------------- prewarm & entrypoint -------------------
 
-        # Determine success level
-        if roll == 1:
-            outcome = "CRITICAL FAILURE"
-        elif roll == 20:
-            outcome = "CRITICAL SUCCESS" 
-        elif total >= 15:
-            outcome = "SUCCESS"
-        elif total >= 10:
-            outcome = "PARTIAL SUCCESS"
-        else:
-            outcome = "FAILURE"
-
-        return f"🎲 Roll: {roll} (d{sides}) + {modifier} = {total} - {outcome}"
-
-    @function_tool()
-    async def update_player_stats(self, context: RunContext, 
-                                health_change: int = 0,
-                                gold_change: int = 0,
-                                add_item: str = "",
-                                remove_item: str = "") -> str:
-        """Update player character statistics and inventory"""
-        session = context.session
-        game_state = _ensure_game_state(session)
-
-        player = game_state["world"]["player"]
-
-        # Update health
-        if health_change != 0:
-            player["health"] = max(0, min(player["max_health"], player["health"] + health_change))
-
-        # Update gold
-        if gold_change != 0:
-            player["gold"] = max(0, player["gold"] + gold_change)
-
-        # Add item
-        if add_item and add_item not in player["inventory"]:
-            player["inventory"].append(add_item)
-
-        # Remove item
-        if remove_item and remove_item in player["inventory"]:
-            player["inventory"].remove(remove_item)
-
-        return f"Player stats updated. Health: {player['health']}, Gold: {player['gold']}, Items: {len(player['inventory'])}"
-
-    @function_tool()
-    async def check_inventory(self, context: RunContext) -> str:
-        """Check player's current inventory and stats"""
-        session = context.session
-        game_state = _ensure_game_state(session)
-
-        player = game_state["world"]["player"]
-
-        inventory_text = ", ".join(player["inventory"]) if player["inventory"] else "Empty"
-
-        return (f"🧙‍♂️ Character Sheet:\n"
-                f"Health: {player['health']}/{player['max_health']} ❤️\n"
-                f"Gold: {player['gold']} 🪙\n"
-                f"Level: {player['level']} ⭐\n"
-                f"Location: {player['location']} 🗺️\n"
-                f"Inventory: {inventory_text}")
-
-    @function_tool()
-    async def add_game_event(self, context: RunContext, event: str) -> str:
-        """Record a significant game event that affects the story"""
-        session = context.session
-        game_state = _ensure_game_state(session)
-
-        if "events" not in game_state["world"]:
-            game_state["world"]["events"] = []
-
-        game_state["world"]["events"].append(event)
-        logger.info(f"Game event recorded: {event}")
-
-        return f"Event '{event}' added to game history."
-
-    @function_tool()
-    async def change_location(self, context: RunContext, new_location: str) -> str:
-        """Move player to a new location in the game world"""
-        session = context.session
-        game_state = _ensure_game_state(session)
-
-        old_location = game_state["world"]["player"]["location"]
-        game_state["world"]["player"]["location"] = new_location
-
-        # Mark location as visited
-        for loc_key, loc_data in game_state["world"]["locations"].items():
-            if loc_data["name"] == new_location:
-                loc_data["visited"] = True
-
-        return f"Player moved from {old_location} to {new_location}."
-
-    @function_tool()
-    async def save_game(self, context: RunContext) -> str:
-        """Save current game state to a JSON file"""
-        session = context.session
-        game_state = _ensure_game_state(session)
-
-        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        filename = f"game_save_{timestamp}.json"
-
-        save_data = {
-            "timestamp": datetime.now().isoformat(),
-            "universe": self.universe,
-            "world_state": game_state["world"],
-            "summary": f"Adventure in {GAME_UNIVERSES[self.universe]['name']}"
-        }
-
-        with open(filename, 'w') as f:
-            json.dump(save_data, f, indent=2)
-
-        logger.info(f"Game saved to {filename}")
-        return f"Game saved successfully! File: {filename}"
-
-    @function_tool()
-    async def combat_round(self, context: RunContext, enemy: str, enemy_health: int) -> str:
-        """Execute a combat round against an enemy"""
-        session = context.session
-        game_state = _ensure_game_state(session)
-
-        # Player attack
-        player_roll = random.randint(1, 20)
-        player_damage = random.randint(5, 15)
-
-        # Enemy attack
-        enemy_roll = random.randint(1, 20)
-        enemy_damage = random.randint(3, 12)
-
-        result = f"⚔️ COMBAT ROUND vs {enemy}:\n"
-        result += f"Player attacks: {player_roll} (d20) - "
-
-        if player_roll >= 12:
-            result += f"HIT! {enemy} takes {player_damage} damage!\n"
-            enemy_health -= player_damage
-        else:
-            result += "MISS!\n"
-
-        result += f"{enemy} attacks: {enemy_roll} (d20) - "
-
-        if enemy_roll >= 10:
-            result += f"HIT! You take {enemy_damage} damage!\n"
-            game_state["world"]["player"]["health"] -= enemy_damage
-        else:
-            result += "MISS!\n"
-
-        result += f"Your health: {game_state['world']['player']['health']}\n"
-        result += f"{enemy} health: {max(0, enemy_health)}"
-
-        return result
-
-# ---------- Game State Helpers ---------- #
-
-def _ensure_game_state(session) -> Dict[str, Any]:
-    """Ensure game state exists in session userdata"""
-    ud = session.userdata
-    game = ud.get("game")
-    if not isinstance(game, dict):
-        game = {
-            "world": {},
-            "turn_count": 0,
-            "active_quests": []
-        }
-        ud["game"] = game
-    return game
-
-# ---------- Prewarm ---------- #
 
 def prewarm(proc: JobProcess):
-    proc.userdata["vad"] = silero.VAD.load()
+    try:
+        proc.userdata['vad'] = silero.VAD.load()
+    except Exception:
+        logger.exception('Failed to prewarm VAD')
 
-# ---------- Entrypoint ---------- #
 
 async def entrypoint(ctx: JobContext):
-    # Logging context
-    ctx.log_context_fields = {
-        "room": ctx.room.name,
-    }
+    ctx.log_context_fields = {"room": ctx.room.name}
 
+    # Initialize Murf TTS
+    tts = murf.TTS(voice="en-US-matthew", style="Conversational")
+    logger.info("Created Murf TTS instance for ShoppingAssistantAgent.")
+
+    # Create agent session
     session = AgentSession(
         stt=deepgram.STT(model="nova-3"),
-        llm=google.LLM(
-            model="gemini-2.5-flash",
-        ),
-        tts=TTS_GAME_MASTER,
+        llm=google.LLM(model="gemini-2.5-flash"),
+        tts=tts,
         turn_detection=MultilingualModel(),
-        vad=ctx.proc.userdata["vad"],
+        vad=ctx.proc.userdata.get('vad'),
         preemptive_generation=True,
     )
 
-    # Initialize userdata; game state lives under session.userdata["game"]
-    session.userdata = {}
+    # Cleanup callback
+    async def _close_tts():
+        try:
+            close_coro = getattr(tts, "close", None)
+            if close_coro:
+                if asyncio.iscoroutinefunction(close_coro):
+                    await close_coro()
+                else:
+                    close_coro()
+                logger.info("Closed Murf TTS instance cleanly on shutdown.")
+        except Exception as e:
+            logger.exception("Error closing Murf TTS: %s", e)
 
-    usage_collector = metrics.UsageCollector()
+    ctx.add_shutdown_callback(_close_tts)
 
-    @session.on("metrics_collected")
-    def _on_metrics_collected(ev: MetricsCollectedEvent):
-        metrics.log_metrics(ev.metrics)
-        usage_collector.collect(ev.metrics)
-
-    async def log_usage():
-        summary = usage_collector.get_summary()
-        logger.info(f"Usage: {summary}")
-
-    ctx.add_shutdown_callback(log_usage)
-
-    # Start with Game Master Agent (Fantasy universe by default)
+    # Start the shopping assistant
     await session.start(
-        agent=GameMasterAgent(universe="fantasy"),
+        agent=ShoppingAssistantAgent(tts=tts),
         room=ctx.room,
         room_input_options=RoomInputOptions(
             noise_cancellation=noise_cancellation.BVC(),
         ),
     )
-
     await ctx.connect()
+
 
 if __name__ == "__main__":
     cli.run_app(WorkerOptions(entrypoint_fnc=entrypoint, prewarm_fnc=prewarm))
