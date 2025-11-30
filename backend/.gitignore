@@ -1,13 +1,44 @@
+# Python environment
+.venv
+venv/
+env/
+ENV/
+*.egg-info
+dist/
+build/
+
+# Python cache
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+.ruff_cache/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Environment variables
 .env
+.env.local
 .env.*
 !.env.example
-.DS_Store
-__pycache__
-.idea
-KMS
-.venv
-.vscode
-*.egg-info
-.pytest_cache
-.ruff_cache
-.env.example
+
+# LiveKit
+KMS/
+*.sqlite
+*.db
+
+# Logs
+*.log
+logs/
+
+# Build/dist
+dist/
+build/

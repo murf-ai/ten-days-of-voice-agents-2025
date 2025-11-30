@@ -32,26 +32,30 @@ SCENARIOS_FILE = os.path.join(os.path.dirname(__file__), "../shared-data/day10_s
 # Global state for current session
 class ImprovGameState:
     def __init__(self):
-        self.player_name = None
-        self.current_round = 0
-        self.max_rounds = 4  # 4 scenarios per game
-        self.rounds = []  # list of {"scenario": str, "player_response": str, "host_reaction": str}
-        self.phase = "intro"  # "intro" | "awaiting_improv" | "reacting" | "done"
-        self.current_scenario = None
-        self.scenarios_used = []
-        self.all_scenarios = []
-        self.improv_count = 0  # Counter to track how many times player has improvised
+        self.player_name: Optional[str] = None
+        self.current_round: int = 0
+        self.max_rounds: int = 4  # 4 scenarios per game
+        self.rounds: List[Dict[str, Any]] = []  # list of {"scenario": str, "player_response": str, "host_reaction": str}
+        self.phase: str = "intro"  # "intro" | "awaiting_improv" | "reacting" | "done"
+        self.current_scenario: Optional[Dict[str, Any]] = None
+        self.scenarios_used: List[str] = []
+        self.all_scenarios: List[Dict[str, Any]] = []
+        self.improv_count: int = 0  # Counter to track how many times player has improvised
+        self.language = "hinglish"  # Support for Hindi/Hinglish
 
 game_state = ImprovGameState()
 
 def load_scenarios() -> List[Dict[str, Any]]:
     """Load improv scenarios from JSON file."""
     try:
-        with open(SCENARIOS_FILE, "r") as f:
+        with open(SCENARIOS_FILE, "r", encoding="utf-8") as f:
             data = json.load(f)
             return data.get("scenarios", [])
     except FileNotFoundError:
         logger.error(f"Scenarios file not found at {SCENARIOS_FILE}")
+        return []
+    except Exception as e:
+        logger.error(f"Error loading scenarios: {e}")
         return []
 
 def get_random_scenario() -> Optional[Dict[str, Any]]:
@@ -70,49 +74,65 @@ def get_random_scenario() -> Optional[Dict[str, Any]]:
 
 def build_system_prompt() -> str:
     return """
-You are the energetic, witty host of "Improv Battle," a high-energy improv game show. Your role is to guide players through absurd and hilarious improv scenarios.
+तुम "Improv Battle - भारतीय संस्करण" के एक बहुत ही energetic और मजेदार host हो। तुम्हारा नाम है... "IMPROV MASTER JI"!
 
-PERSONALITY:
-- High-energy, enthusiastic, and comedic
-- You're a seasoned improv show host with a sharp sense of humor
-- You can be supportive, neutral, or mildly critical - but always constructive and respectful
-- You genuinely enjoy when players do well, but you're not afraid to tease a bit
-- You stay in character as the host throughout
+आपका PERSONALITY:
+- बहुत high-energy, enthusiastic, और बहुत funny हो
+- एक legendary improv show host जो Bollywood और Indian culture को समझता हो
+- तुम Hinglish में बोलते हो - Hindi और English का mix
+- तुम supportive भी हो सकते हो, funny भी हो सकते हो, और तेज़ भी टीज़ कर सकते हो - लेकिन हमेशा respectful और constructive
+- तुम genuinely enjoy करते हो जब players अच्छा performance करते हैं
+- तुम्हारा accent Delhi/North India का है
+- तुम बार-बार "अरे!", "वाह!", "बहुत खूब!", "क्या drama है!", "जबरदस्त!" जैसे expressions use करते हो
 
 SHOW STRUCTURE:
-1. INTRO: Welcome the player warmly and explain the show format briefly
-2. SCENARIOS: Run through improv scenarios one by one
-3. REACTIONS: After each improv, react authentically - comment on what worked, what was funny, or what could improve
-4. OUTRO: After all scenarios, give a brief summary of their performance as an improviser
+1. INTRO: Player को warmly welcome करो, show को explain करो, उनका नाम पूछो
+2. SCENARIOS: 4 crazy Indian scenarios एक-एक करके
+3. REACTIONS: हर scenario के बाद authentic reaction दो
+4. OUTRO: सब scenarios के बाद अच्छा closing summary दो
+
+HINGLISH EXAMPLES:
+- "अरे, तुम कौन हो भाई? नाम बताओ!"
+- "वाह! बहुत जबरदस्त था वो drama!"
+- "क्या हो गया यार? बिल्कुल flop था!"
+- "हा हा हा! वो wala dialogue सुनो... बहुत maza आया!"
+- "अरे! तुम बहुत अच्छे हो actors के लिए!"
+- "अभी से ही समझ आ रहा है कि तुम बहुत creative हो!"
 
 DURING EACH ROUND:
-1. You'll receive a scenario
-2. You MUST clearly read the scenario to the player
-3. You MUST explicitly tell them: "Alright, START IMPROVISING NOW!"
-4. Wait for their response
-5. Once they finish (indicated by pause, "end scene", or your judgement), react
-6. Mix your reactions - sometimes positive, sometimes constructively critical, sometimes amused
+1. Scenario को clearly and dramatically पढ़ो - बहुत जोर से!
+2. Player को explicitly बोलो: "अरे! अब तुम START करो! अभिनय करना शुरू करो अभी!"
+3. उनके response का wait करो
+4. जब वो finish करे, तो एक authentic reaction दो
+5. हमेशा varied reactions - कभी positive, कभी funny critique, कभी surprised
 
-REACTION STYLES (vary between these):
-- SUPPORTIVE: "That was hilarious! The way you [specific detail] really sold it."
-- CRITICAL-BUT-KIND: "That was good, but you could have leaned more into the character's emotions."
-- SURPRISED: "Wow, I didn't see that coming! That was a bold choice."
-- TEASING: "Okay, that was... interesting. Let's just say the pigeons might not approve!"
-- MIXED: "I liked your energy, but maybe commit to the bit a little more."
+REACTION STYLES (इन सब के बीच vary करो):
+- SUPPORTIVE: "वाह! बहुत खूब! तुम तो बहुत अच्छे हो! वो drama तुमने किया - शानदार!"
+- FUNNY-CRITICAL: "अरे यार! बहुत अच्छा था, लेकिन थोड़ा और drama करते तो बहुत better होता!"
+- SURPRISED: "क्या? इतना alag turn लिया तुमने? बहुत bold है भाई!"
+- TEASING: "अरे! वो kya drama था? पर मुझे मजा आया, confuse तो हूँ पर मजा आया!"
+- MIXED: "अच्छा, energy तो है तुम्हारे में, पर character को और जोर से play करो भाई!"
 
 IMPORTANT RULES:
-- Keep host reactions SHORT and punchy (1-2 sentences max)
-- Always move to the next scenario or outro smoothly
-- Never make fun of the player personally - only react to their improv choices
-- Stay respectful and fun
-- If they say "stop game" or "end show", wrap up gracefully
+- Host reactions SHORT रखो - 1-2 sentences max
+- हमेशा Hindi/Hinglish use करो - English avoid करो
+- बार-बार "अरे", "वाह", "क्या drama है" जैसे expressions use करो
+- अगर player Hinglish में बात करे, तो समझ जाओ
+- Player को personally attack मत करो - उनके improv choices को react करो
+- हमेशा respectful रहो, लेकिन funny हो
+- अगर वो "stop game" या "end show" बोले तो gracefully खतम कर दो
+- बार-बार "भाई", "यार", "अरे" जैसे colloquial terms use करो
 
-TONE: Think of legendary improv hosts like Colin Mochrie or Aisha Tyler from "Whose Line Is It Anyway?" - quick-witted, supportive but not saccharine, and genuinely enjoying the chaos.
+TONE: Colin Mochrie की तरह quick-witted, लेकिन बहुत Indian vibe के साथ। Kapil Sharma की तरह funny और dramatic भी हो सकते हो!
+
+IMPORTANT: 
+अगर player कोई भी Indian language use करे (Hindi, Hinglish, Marathi, आदि), तो तुम हमेशा Hinglish में reply करना। 
+तुम उनकी language को समझो और appreciate करो।
 """
 
 class ImprovBattleAgent(Agent):
     def __init__(self):
-        print(">>> [AGENT INIT] Improv Battle Host starting...")
+        print(">>> [AGENT INIT] Improv Battle Host starting... भारतीय संस्करण!")
         game_state.all_scenarios = load_scenarios()
         super().__init__(instructions=build_system_prompt())
 
@@ -122,26 +142,29 @@ class ImprovBattleAgent(Agent):
         game_state.phase = "intro"
         await self.session.generate_reply(
             instructions=(
-                "Welcome the player to 'Improv Battle'! Be high-energy and excited. Briefly explain that they'll go through "
-                "several absurd scenarios and act them out, and you'll react and judge their improv. Ask for their name. "
-                "Keep it under 30 seconds. End with something like: 'What's your name, my fellow improviser?'"
+                "तुम्हें अभी player को 'Improv Battle - भारतीय संस्करण' में welcome करना है। "
+                "बहुत high-energy और excited रहो। Hinglish use करो। "
+                "कहो कि यह एक crazy Indian improv show है जहाँ तुम्हें absurd scenarios में अभिनय करना है। "
+                "सब को react करूँगा और judge करूँगा। "
+                "अब उनका नाम पूछो। कहो: 'अरे! नाम बताओ भाई, तुम कौन हो? मेरे Improv Battle में तुम्हारा स्वागत है!' "
+                "30 सेकंड से ज्यादा मत बोलो। बहुत dramatic हो!"
             )
         )
 
     @function_tool()
     async def set_player_name(self, ctx: RunContext, name: str) -> str:
         """
-        Set the player's name.
+        Set the player's name and greet them in Hinglish.
         
         Args:
             name: The player's name
             
         Returns:
-            Confirmation message
+            Confirmation message in Hinglish
         """
         game_state.player_name = name
         logger.info(f"Player name set to: {name}")
-        return f"Great to meet you, {name}! Let's start Improv Battle!"
+        return f"वाह! {name}! बहुत खूब भाई! अब चलो, तुम्हारा Improv Battle शुरू हो जाता है। तैयार हो?"
 
     @function_tool()
     async def get_next_scenario(self, ctx: RunContext) -> Dict[str, Any]:
@@ -149,10 +172,10 @@ class ImprovBattleAgent(Agent):
         Get the next improv scenario for this round.
         
         Returns:
-            Scenario object with id, title, and scenario text
+            Scenario object with id, title, and scenario text in Hindi/Hinglish
         """
         if game_state.current_round >= game_state.max_rounds:
-            return {"error": "Game over - all scenarios completed"}
+            return {"error": "Game over - सब scenarios खत्म हो गए!"}
         
         scenario = get_random_scenario()
         if not scenario:
@@ -169,37 +192,38 @@ class ImprovBattleAgent(Agent):
             "max_rounds": game_state.max_rounds,
             "title": scenario["title"],
             "scenario": scenario["scenario"],
+            "host_message": f"अरे! यह है Round {game_state.current_round + 1}! सुनो ध्यान से।"
         }
 
     @function_tool()
     async def improv_turn_completed(self, ctx: RunContext, user_response: Optional[str] = None) -> Dict[str, Any]:
         """
         Called when user finishes their improv for this scenario.
-        Store their response and generate a host reaction.
+        Store their response and generate a host reaction in Hinglish.
         
         Args:
             user_response: Optional transcription of what the user said/did
             
         Returns:
-            Host reaction and next steps
+            Host reaction and next steps in Hinglish
         """
         game_state.improv_count += 1
         
         if not game_state.current_scenario:
-            return {"error": "No current scenario"}
+            return {"error": "कोई scenario नहीं है!"}
         
-        # Generate varied host reactions
+        # Generate varied host reactions in Hinglish
         reaction_styles = [
-            "That was hilarious! I loved the energy you brought.",
-            "Interesting choices there. I appreciate the commitment to the bit!",
-            "Okay, that was... something! Pretty creative, I'll give you that.",
-            "Nice! You really leaned into the absurdity. Well done!",
-            "That was wild! I didn't expect you to go in that direction, but respect.",
-            "Good effort! You could have maybe held the character beat a little longer though.",
-            "Wow, bold moves! Some landed better than others, but the confidence was there.",
-            "That made me laugh! The way you handled that was genuinely funny.",
-            "Alright, I see what you did there. A little rough around the edges, but creative!",
-            "That's the improv spirit! Now THAT'S what I'm talking about!",
+            "वाह! बहुत खूब भाई! तुम तो बहुत अच्छे हो! शानदार drama था!",
+            "अरे! क्या था यह? पर मुझे मजा आया, confuse तो हूँ पर बहुत मजा आया!",
+            "हा हा हा! बहुत funny था! तुम एक अच्छे comedian बन सकते हो!",
+            "वाह! बहुत energetic था भाई! तुम्हें लगता है कि तुम एक अच्छे actor हो सकते हो!",
+            "अरे! यह तो कुछ और ही निकला! पर वाह, बहुत bold था!",
+            "क्या drama है! अभी और जोर दिया होता तो और बेहतर होता भाई!",
+            "हा हा! शानदार! तुम्हारे character work को मुझे पसंद आया!",
+            "वाह! इतना अलग turn लिया? बहुत creative हो तुम!",
+            "अरे! बहुत अच्छा अभिनय किया! अब अगले round के लिए तैयार हो जाओ!",
+            "बहुत खूब! तुम्हारी dedication देख रहा हूँ - शानदार है!",
         ]
         
         host_reaction = random.choice(reaction_styles)
@@ -222,7 +246,7 @@ class ImprovBattleAgent(Agent):
                 "status": "round_complete",
                 "reaction": host_reaction,
                 "game_status": "finished",
-                "message": "That was the last scenario!",
+                "message": "अरे! यह तो आखरी scenario था भाई!",
             }
         else:
             return {
@@ -230,16 +254,16 @@ class ImprovBattleAgent(Agent):
                 "reaction": host_reaction,
                 "game_status": "continuing",
                 "next_round": game_state.current_round + 1,
-                "message": f"Alright, ready for Round {game_state.current_round + 1}?",
+                "message": f"अब Round {game_state.current_round + 1} के लिए तैयार हो जाओ? आने वाली scenario और भी crazy है!",
             }
 
     @function_tool()
     async def end_game(self, ctx: RunContext) -> Dict[str, Any]:
         """
-        End the game and provide a summary of the player's performance.
+        End the game and provide a summary of the player's performance in Hinglish.
         
         Returns:
-            Game summary and closing message
+            Game summary and closing message in Hinglish
         """
         game_state.phase = "done"
         
@@ -255,32 +279,49 @@ class ImprovBattleAgent(Agent):
         }
 
     def _analyze_performance(self) -> str:
-        """Generate a performance summary based on reactions."""
+        """Generate a performance summary based on reactions in Hinglish."""
         if not game_state.rounds:
-            return "You showed great potential for an improviser!"
+            return "तुम्हारे में बहुत potential है! अगली बार और भी अच्छा करना!"
         
         summaries = [
-            "You've got real comedic timing! Your characters were distinct and memorable.",
-            "You're a natural at thinking on your feet. Some great moments in there!",
-            "You showed good instincts for character work. Keep embracing the absurdity!",
-            "You brought genuine energy to every scenario. That's the spirit of improv!",
-            "You proved you can roll with the chaos. Nice work out there!",
-            "You demonstrated flexibility and creativity. Those are the tools of great improvisers!",
+            "वाह! तुम एक natural comedian हो! तुम्हारे timing और expressions बहुत शानदार थे!",
+            "अरे! तुम तो बहुत creative हो! हर scenario में तुमने कुछ नया किया - बहुत खूब!",
+            "भाई, तुम्हारा character work excellent था! तुम सच में एक अच्छे actor हो सकते हो!",
+            "क्या drama है तुम्हारे में! Energy, creativity, confidence - सब कुछ था! Shukriya!",
+            "तुम्हारा energy देखकर मुझे लगता है कि तुम stage के लिए बने हो भाई! शानदार performance!",
+            "अरे! तुम्हारे improvisation skills बहुत अच्छे हैं! बार-बार comeback करना!",
         ]
         
         return random.choice(summaries)
 
     @function_tool()
     async def get_game_status(self, ctx: RunContext) -> Dict[str, Any]:
-        """Get current game status."""
+        """Get current game status in Hinglish format."""
         return {
             "player_name": game_state.player_name,
             "current_round": game_state.current_round,
             "max_rounds": game_state.max_rounds,
             "phase": game_state.phase,
             "rounds_completed": len(game_state.rounds),
-            "current_scenario": game_state.current_scenario["title"] if game_state.current_scenario else None,
+            "current_scenario": game_state.current_scenario["title"] if game_state.current_scenario else "कोई नहीं",
         }
+
+    @function_tool()
+    async def provide_closing_message(self, ctx: RunContext) -> str:
+        """
+        Provide a closing message after game ends in Hinglish.
+        
+        Returns:
+            A closing message with gratitude and encouragement
+        """
+        closing_messages = [
+            f"अरे {game_state.player_name}! तुम बहुत शानदार थे! आओ फिर कभी Improv Battle खेलने! धन्यवाद!",
+            f"वाह भाई {game_state.player_name}! तुम एक true improviser हो! हमेशा यूँ ही creative रहना! दिल्लगी के लिए शुक्रिया!",
+            f"क्या drama था {game_state.player_name}! तुम्हारी creativity और energy देखकर मुझे खुशी हुई! फिर से आना!",
+            f"{game_state.player_name}, तुम Improv Battle के champion हो! सब को बताना कि तुम कितने अच्छे हो! धन्यवाद!",
+        ]
+        
+        return random.choice(closing_messages)
 
 
 def prewarm(proc: JobProcess):
@@ -289,7 +330,7 @@ def prewarm(proc: JobProcess):
 
 
 async def entrypoint(ctx: JobContext):
-    print(">>> [BOOT] Improv Battle Agent starting...")
+    print(">>> [BOOT] Improv Battle Agent starting... भारतीय संस्करण!")
     vad = ctx.proc.userdata["vad"]
     
     session = AgentSession(

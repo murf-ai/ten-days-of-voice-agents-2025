@@ -17,6 +17,12 @@ const eslintConfig = [
     'prettier',
     'plugin:prettier/recommended'
   ),
+  {
+    rules: {
+      '@next/next/no-style-component-with-dynamic-styles': 'off',
+      '@next/next/no-img-element': 'off',
+    },
+  },
 ];
 
 export default eslintConfig;
