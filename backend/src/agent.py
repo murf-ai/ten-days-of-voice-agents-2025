@@ -9,6 +9,7 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from typing import List, Dict, Optional, Annotated
 
+import asyncio
 from dotenv import load_dotenv
 from pydantic import Field
 from livekit.agents import (
@@ -54,7 +55,7 @@ CATALOG = [
     },
     {
         "id": "tee-001",
-        "name": "Suyash Tee (Cotton)",
+        "name": "Rose Tshirt (Cotton)",
         "description": "Comfort-fit cotton t-shirt with subtle logo.",
         "price": 799,
         "currency": "INR",
@@ -750,6 +751,7 @@ async def entrypoint(ctx: JobContext):
 
     # Start the agent session with the GameMasterAgent (Suyash)
     await session.start(
+        agent=GameMasterAgent(),
         agent=GameMasterAgent(),
         room=ctx.room,
         room_input_options=RoomInputOptions(noise_cancellation=noise_cancellation.BVC()),
