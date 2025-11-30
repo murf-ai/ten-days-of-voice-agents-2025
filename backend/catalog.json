@@ -1,49 +1,116 @@
 {
-    "store_name": "QuickMart Express",
-    "categories": {
-      "groceries": [
-        {"id": "bread_001", "name": "Whole Wheat Bread", "brand": "Harvest Gold", "price": 45, "unit": "1 loaf", "tags": ["vegetarian"]},
-        {"id": "milk_001", "name": "Full Cream Milk", "brand": "Amul", "price": 65, "unit": "1 liter", "tags": ["vegetarian"]},
-        {"id": "eggs_001", "name": "Brown Eggs", "brand": "Keggs", "price": 90, "unit": "12 pieces", "tags": ["protein"]},
-        {"id": "butter_001", "name": "Salted Butter", "brand": "Amul", "price": 55, "unit": "100g", "tags": ["vegetarian"]},
-        {"id": "cheese_001", "name": "Processed Cheese", "brand": "Amul", "price": 140, "unit": "200g", "tags": ["vegetarian"]},
-        {"id": "rice_001", "name": "Basmati Rice", "brand": "India Gate", "price": 220, "unit": "1 kg", "tags": ["vegetarian", "gluten-free"]},
-        {"id": "oil_001", "name": "Sunflower Oil", "brand": "Fortune", "price": 185, "unit": "1 liter", "tags": ["vegetarian", "vegan"]},
-        {"id": "sugar_001", "name": "White Sugar", "brand": "Madhur", "price": 50, "unit": "1 kg", "tags": ["vegetarian", "vegan"]},
-        {"id": "salt_001", "name": "Iodized Salt", "brand": "Tata", "price": 25, "unit": "1 kg", "tags": ["vegetarian", "vegan"]},
-        {"id": "atta_001", "name": "Wheat Flour (Atta)", "brand": "Aashirvaad", "price": 250, "unit": "5 kg", "tags": ["vegetarian", "vegan"]}
-      ],
-      "snacks": [
-        {"id": "chips_001", "name": "Potato Chips", "brand": "Lays", "price": 20, "unit": "52g", "tags": ["vegetarian"], "flavor": "Classic Salted"},
-        {"id": "biscuit_001", "name": "Cream Biscuits", "brand": "Parle-G", "price": 35, "unit": "200g", "tags": ["vegetarian"]},
-        {"id": "namkeen_001", "name": "Aloo Bhujia", "brand": "Haldiram's", "price": 40, "unit": "200g", "tags": ["vegetarian", "vegan"]},
-        {"id": "chocolate_001", "name": "Dairy Milk", "brand": "Cadbury", "price": 35, "unit": "38g", "tags": ["vegetarian"]},
-        {"id": "cookies_001", "name": "Chocolate Cookies", "brand": "Britannia", "price": 30, "unit": "120g", "tags": ["vegetarian"]}
-      ],
-      "beverages": [
-        {"id": "tea_001", "name": "Tea Bags", "brand": "Taj Mahal", "price": 85, "unit": "25 bags", "tags": ["vegetarian", "vegan"]},
-        {"id": "coffee_001", "name": "Instant Coffee", "brand": "Nescafe", "price": 95, "unit": "50g", "tags": ["vegetarian", "vegan"]},
-        {"id": "juice_001", "name": "Mango Juice", "brand": "Real", "price": 120, "unit": "1 liter", "tags": ["vegetarian"]},
-        {"id": "cola_001", "name": "Cola", "brand": "Coca-Cola", "price": 40, "unit": "600ml", "tags": ["vegetarian", "vegan"]}
-      ],
-      "prepared_food": [
-        {"id": "pizza_001", "name": "Margherita Pizza", "brand": "QuickMart Kitchen", "price": 199, "unit": "1 pizza", "size": "Medium", "tags": ["vegetarian"]},
-        {"id": "sandwich_001", "name": "Veg Sandwich", "brand": "QuickMart Kitchen", "price": 89, "unit": "1 sandwich", "tags": ["vegetarian"]},
-        {"id": "pasta_001", "name": "White Sauce Pasta", "brand": "QuickMart Kitchen", "price": 149, "unit": "1 bowl", "tags": ["vegetarian"]},
-        {"id": "biryani_001", "name": "Veg Biryani", "brand": "QuickMart Kitchen", "price": 179, "unit": "1 serving", "tags": ["vegetarian", "spicy"]}
-      ],
-      "cooking_ingredients": [
-        {"id": "tomato_001", "name": "Tomatoes", "brand": "Fresh", "price": 30, "unit": "500g", "tags": ["vegetarian", "vegan", "fresh"]},
-        {"id": "onion_001", "name": "Onions", "brand": "Fresh", "price": 25, "unit": "500g", "tags": ["vegetarian", "vegan", "fresh"]},
-        {"id": "pasta_dry_001", "name": "Penne Pasta", "brand": "Del Monte", "price": 85, "unit": "500g", "tags": ["vegetarian", "vegan"]},
-        {"id": "sauce_001", "name": "Pasta Sauce", "brand": "Kissan", "price": 120, "unit": "400g", "tags": ["vegetarian"]},
-        {"id": "peanut_butter_001", "name": "Peanut Butter", "brand": "Sundrop", "price": 225, "unit": "462g", "tags": ["vegetarian", "vegan", "protein"]}
-      ]
+  "store_name": "Urban Drip India",
+  "currency": "INR",
+  "products": [
+    {
+      "id": "hoodie-001",
+      "name": "Oversized Black Hoodie",
+      "description": "Premium cotton blend oversized hoodie with embroidered logo",
+      "price": 1499,
+      "currency": "INR",
+      "category": "hoodies",
+      "color": "black",
+      "sizes": ["S", "M", "L", "XL"],
+      "in_stock": true
     },
-    "recipes": {
-      "peanut butter sandwich": ["bread_001", "peanut_butter_001", "butter_001"],
-      "pasta for two": ["pasta_dry_001", "sauce_001", "cheese_001"],
-      "breakfast": ["bread_001", "eggs_001", "butter_001", "milk_001"],
-      "tea time": ["tea_001", "biscuit_001", "milk_001", "sugar_001"]
+    {
+      "id": "hoodie-002",
+      "name": "Cream Pullover Hoodie",
+      "description": "Minimalist design with soft fleece interior",
+      "price": 1299,
+      "currency": "INR",
+      "category": "hoodies",
+      "color": "cream",
+      "sizes": ["M", "L", "XL"],
+      "in_stock": true
+    },
+    {
+      "id": "tshirt-001",
+      "name": "Graphic Print T-Shirt",
+      "description": "100% cotton with bold graphic design",
+      "price": 599,
+      "currency": "INR",
+      "category": "tshirts",
+      "color": "white",
+      "sizes": ["S", "M", "L", "XL"],
+      "in_stock": true
+    },
+    {
+      "id": "tshirt-002",
+      "name": "Minimalist Black Tee",
+      "description": "Essential oversized black t-shirt",
+      "price": 499,
+      "currency": "INR",
+      "category": "tshirts",
+      "color": "black",
+      "sizes": ["S", "M", "L", "XL", "XXL"],
+      "in_stock": true
+    },
+    {
+      "id": "cap-001",
+      "name": "Embroidered Dad Cap",
+      "description": "Adjustable cotton cap with embroidered logo",
+      "price": 699,
+      "currency": "INR",
+      "category": "accessories",
+      "color": "navy",
+      "sizes": ["onesize"],
+      "in_stock": true
+    },
+    {
+      "id": "bag-001",
+      "name": "Canvas Tote Bag",
+      "description": "Eco-friendly heavy canvas tote with leather handles",
+      "price": 899,
+      "currency": "INR",
+      "category": "accessories",
+      "color": "beige",
+      "sizes": ["onesize"],
+      "in_stock": true
+    },
+    {
+      "id": "joggers-001",
+      "name": "Cotton Joggers",
+      "description": "Comfortable tapered joggers with elastic waistband",
+      "price": 1099,
+      "currency": "INR",
+      "category": "bottoms",
+      "color": "grey",
+      "sizes": ["S", "M", "L", "XL"],
+      "in_stock": true
+    },
+    {
+      "id": "jacket-001",
+      "name": "Denim Jacket",
+      "description": "Classic blue denim jacket with distressed finish",
+      "price": 2499,
+      "currency": "INR",
+      "category": "jackets",
+      "color": "blue",
+      "sizes": ["M", "L", "XL"],
+      "in_stock": true
+    },
+    {
+      "id": "socks-001",
+      "name": "Ankle Socks (Pack of 3)",
+      "description": "Breathable cotton blend ankle socks",
+      "price": 299,
+      "currency": "INR",
+      "category": "accessories",
+      "color": "assorted",
+      "sizes": ["onesize"],
+      "in_stock": true
+    },
+    {
+      "id": "sweatshirt-001",
+      "name": "Crewneck Sweatshirt",
+      "description": "Heavyweight crewneck with vintage wash",
+      "price": 1399,
+      "currency": "INR",
+      "category": "sweatshirts",
+      "color": "olive",
+      "sizes": ["S", "M", "L", "XL"],
+      "in_stock": true
     }
-  }
+  ]
+}

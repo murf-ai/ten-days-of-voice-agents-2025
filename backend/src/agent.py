@@ -1,9 +1,10 @@
 import logging
 import json
-import random
+import os
 from dataclasses import dataclass, field, asdict
 from typing import Optional, List, Dict, Any
 from datetime import datetime
+import uuid
 
 from dotenv import load_dotenv
 from livekit.agents import (
@@ -25,409 +26,366 @@ from livekit.plugins.turn_detector.multilingual import MultilingualModel
 logger = logging.getLogger("agent")
 load_dotenv(".env.local")
 
-# --- Game State Management ---
+# --- Load Catalog ---
+CATALOG_FILE = "catalog.json"
+
+def load_catalog():
+    """Load product catalog from JSON."""
+    try:
+        with open(CATALOG_FILE, 'r') as f:
+            return json.load(f)
+    except FileNotFoundError:
+        logger.error(f"Catalog not found: {CATALOG_FILE}")
+        return {"store_name": "Store", "currency": "INR", "products": []}
+
+CATALOG = load_catalog()
+STORE_NAME = CATALOG.get("store_name", "Store")
+CURRENCY = CATALOG.get("currency", "INR")
+PRODUCTS = {p["id"]: p for p in CATALOG.get("products", [])}
+
+# --- ACP-Inspired Data Models ---
 @dataclass
-class PlayerCharacter:
-    """Player's character stats."""
-    name: str = "Hero"
-    quirk_power: str = "Lightning Strike"  # Their special anime power
-    health: int = 100
-    energy: int = 100  # For using quirk powers
-    strength: int = 10
-    speed: int = 10
-    intelligence: int = 10
-    inventory: List[str] = field(default_factory=lambda: ["healing elixir", "training manual", "hero badge"])
+class LineItem:
+    """Represents a single item in an order."""
+    product_id: str
+    product_name: str
+    quantity: int
+    unit_price: float
+    size: Optional[str] = None
+    color: Optional[str] = None
     
-    def is_alive(self) -> bool:
-        return self.health > 0
-    
-    def can_use_quirk(self) -> bool:
-        return self.energy >= 20
+    def subtotal(self) -> float:
+        return self.quantity * self.unit_price
 
 @dataclass
-class GameState:
-    """Tracks the game world state."""
-    universe: str = "anime_hero_academy"
-    current_location: str = "Hero Academy Training Grounds"
-    player: PlayerCharacter = field(default_factory=PlayerCharacter)
-    story_events: List[str] = field(default_factory=list)
-    npcs_met: List[str] = field(default_factory=list)
-    quests_active: List[str] = field(default_factory=lambda: ["Defeat the Shadow Demon terrorizing the village"])
-    quests_completed: List[str] = field(default_factory=list)
-    villains_defeated: List[str] = field(default_factory=list)
-    turn_count: int = 0
+class Order:
+    """ACP-inspired order structure."""
+    order_id: str
+    line_items: List[LineItem]
+    total: float
+    currency: str
+    status: str = "PENDING"  # PENDING, CONFIRMED, CANCELLED
+    buyer_name: Optional[str] = None
+    buyer_email: Optional[str] = None
+    created_at: str = field(default_factory=lambda: datetime.now().isoformat())
     
-    def add_event(self, event: str):
-        """Add a story event."""
-        self.story_events.append(event)
-        self.turn_count += 1
-    
-    def meet_npc(self, npc_name: str):
-        """Record meeting an NPC."""
-        if npc_name not in self.npcs_met:
-            self.npcs_met.append(npc_name)
-    
-    def defeat_villain(self, villain_name: str):
-        """Record defeating a villain."""
-        if villain_name not in self.villains_defeated:
-            self.villains_defeated.append(villain_name)
-    
-    def complete_quest(self, quest: str):
-        """Mark a quest as completed."""
-        if quest in self.quests_active:
-            self.quests_active.remove(quest)
-            self.quests_completed.append(quest)
+    def get_summary(self) -> Dict[str, Any]:
+        return {
+            "order_id": self.order_id,
+            "items": [
+                {
+                    "name": item.product_name,
+                    "quantity": item.quantity,
+                    "size": item.size,
+                    "price": item.unit_price,
+                    "subtotal": item.subtotal()
+                }
+                for item in self.line_items
+            ],
+            "total": self.total,
+            "currency": self.currency,
+            "status": self.status,
+            "created_at": self.created_at
+        }
 
-# --- Game Tools ---
-@function_tool
-async def roll_dice(
-    context: RunContext,
-    dice_type: str = "d20",
-    modifier: int = 0
-) -> str:
+@dataclass
+class ShoppingCart:
+    """Shopping cart for building orders."""
+    items: List[LineItem] = field(default_factory=list)
+    
+    def add_item(self, product_id: str, quantity: int = 1, size: Optional[str] = None) -> str:
+        """Add item to cart."""
+        if product_id not in PRODUCTS:
+            return f"ERROR: Product {product_id} not found"
+        
+        product = PRODUCTS[product_id]
+        
+        # Check if already in cart
+        for item in self.items:
+            if item.product_id == product_id and item.size == size:
+                item.quantity += quantity
+                return f"UPDATED: {product['name']} quantity to {item.quantity}"
+        
+        # Add new item
+        self.items.append(LineItem(
+            product_id=product_id,
+            product_name=product["name"],
+            quantity=quantity,
+            unit_price=product["price"],
+            size=size,
+            color=product.get("color")
+        ))
+        return f"ADDED: {quantity}x {product['name']} (₹{product['price']})"
+    
+    def remove_item(self, product_id: str) -> str:
+        """Remove item from cart."""
+        for i, item in enumerate(self.items):
+            if item.product_id == product_id:
+                removed = self.items.pop(i)
+                return f"REMOVED: {removed.product_name}"
+        return "ERROR: Item not in cart"
+    
+    def get_total(self) -> float:
+        """Calculate cart total."""
+        return sum(item.subtotal() for item in self.items)
+    
+    def clear(self):
+        """Clear the cart."""
+        self.items = []
+    
+    def is_empty(self) -> bool:
+        """Check if cart is empty."""
+        return len(self.items) == 0
+
+# --- Commerce Functions (ACP-Inspired Merchant Layer) ---
+def list_products(
+    category: Optional[str] = None,
+    max_price: Optional[int] = None,
+    color: Optional[str] = None
+) -> List[Dict[str, Any]]:
     """
-    Roll dice for checks and challenges.
+    Browse product catalog with filters.
     
     Args:
-        dice_type: Type of dice (d20, d6, d12)
-        modifier: Modifier to add to the roll
+        category: Filter by category
+        max_price: Maximum price filter
+        color: Filter by color
     """
-    dice_max = {
-        "d20": 20,
-        "d12": 12,
-        "d10": 10,
-        "d6": 6
-    }.get(dice_type, 20)
+    results = CATALOG.get("products", [])
     
-    roll = random.randint(1, dice_max)
-    total = roll + modifier
+    if category:
+        results = [p for p in results if p.get("category") == category.lower()]
     
-    result = "CRITICAL SUCCESS! ⚡" if roll == dice_max else "CRITICAL FAILURE! 💥" if roll == 1 else "SUCCESS! ✨" if total >= 15 else "PARTIAL SUCCESS" if total >= 10 else "FAILURE"
+    if max_price:
+        results = [p for p in results if p.get("price", 0) <= max_price]
     
-    return f"🎲 ROLL: {roll} (+ {modifier}) = {total} → {result}"
+    if color:
+        results = [p for p in results if p.get("color", "").lower() == color.lower()]
+    
+    return results
 
-@function_tool
-async def use_quirk_power(
-    context: RunContext,
-    power_description: str,
-    target: str
-) -> str:
+def create_order(
+    cart: ShoppingCart,
+    buyer_name: Optional[str] = None,
+    buyer_email: Optional[str] = None
+) -> Order:
     """
-    Use the player's special anime quirk power.
+    Create an order from cart contents.
     
     Args:
-        power_description: Description of how the power is used
-        target: What/who the power is aimed at
+        cart: Shopping cart with line items
+        buyer_name: Customer name
+        buyer_email: Customer email
     """
-    game: GameState = context.userdata["game_state"]
+    order = Order(
+        order_id=f"ORD-{uuid.uuid4().hex[:8].upper()}",
+        line_items=cart.items.copy(),
+        total=cart.get_total(),
+        currency=CURRENCY,
+        status="CONFIRMED",
+        buyer_name=buyer_name,
+        buyer_email=buyer_email
+    )
     
-    if not game.player.can_use_quirk():
-        return f"❌ EXHAUSTED: Not enough energy! Current energy: {game.player.energy}/100"
+    # Save order to file
+    filename = f"order_{order.order_id}.json"
+    with open(filename, 'w') as f:
+        json.dump(order.get_summary(), f, indent=2)
     
-    # Use energy
-    game.player.energy -= 20
+    logger.info(f"Order created: {order.order_id}")
     
-    # Roll for power effectiveness
-    roll = random.randint(1, 20)
-    
-    if roll >= 15:
-        effect = "DEVASTATING! Your quirk power was incredibly effective! 💫"
-    elif roll >= 10:
-        effect = "EFFECTIVE! Your quirk power worked well! ⚡"
-    else:
-        effect = "WEAK! Your quirk power barely affected the target... 😓"
-    
-    context.userdata["game_state"] = game
-    
-    return f"⚡ QUIRK ACTIVATED: {game.player.quirk_power}! Energy: {game.player.energy}/100. {effect}"
+    return order
 
+# --- Agent Tools ---
 @function_tool
-async def update_player_health(
+async def browse_catalog(
     context: RunContext,
-    change: int,
-    reason: str
+    category: Optional[str] = None,
+    max_price: Optional[int] = None,
+    color: Optional[str] = None
 ) -> str:
     """
-    Update player's health.
+    Browse the product catalog with optional filters.
     
     Args:
-        change: Health change (positive for healing, negative for damage)
-        reason: Reason for the change
+        category: Product category (hoodies, tshirts, accessories, bottoms, jackets, sweatshirts)
+        max_price: Maximum price in INR
+        color: Color filter
     """
-    game: GameState = context.userdata["game_state"]
+    products = list_products(category=category, max_price=max_price, color=color)
     
-    old_health = game.player.health
-    game.player.health = max(0, min(100, game.player.health + change))
+    if not products:
+        return "NO_RESULTS: No products found matching your criteria"
     
-    context.userdata["game_state"] = game
+    result = f"PRODUCTS_FOUND ({len(products)} items):\n"
+    for i, p in enumerate(products[:5], 1):  # Limit to 5 results
+        sizes = ", ".join(p.get("sizes", []))
+        result += f"{i}. {p['name']} - ₹{p['price']} ({p['color']}, sizes: {sizes}) [ID: {p['id']}]\n"
     
-    if change > 0:
-        return f"💚 HEALED: {old_health} → {game.player.health} HP ({reason})"
-    else:
-        if game.player.health <= 0:
-            return f"💀 DEFEATED: Hero has fallen! ({reason}) GAME OVER..."
-        elif game.player.health <= 20:
-            return f"🩸 CRITICAL DAMAGE: {old_health} → {game.player.health} HP ({reason}). Warning: Very low health!"
-        else:
-            return f"💥 DAMAGED: {old_health} → {game.player.health} HP ({reason})"
-
-@function_tool
-async def restore_energy(
-    context: RunContext,
-    amount: int,
-    method: str
-) -> str:
-    """
-    Restore player's quirk energy.
+    if len(products) > 5:
+        result += f"... and {len(products) - 5} more items"
     
-    Args:
-        amount: Energy to restore
-        method: How energy is restored (rest, elixir, etc)
-    """
-    game: GameState = context.userdata["game_state"]
-    
-    old_energy = game.player.energy
-    game.player.energy = min(100, game.player.energy + amount)
-    
-    context.userdata["game_state"] = game
-    
-    return f"⚡ ENERGY RESTORED: {old_energy} → {game.player.energy}/100 ({method})"
-
-@function_tool
-async def add_to_inventory(
-    context: RunContext,
-    item: str
-) -> str:
-    """
-    Add an item to player's inventory.
-    
-    Args:
-        item: Item to add
-    """
-    game: GameState = context.userdata["game_state"]
-    game.player.inventory.append(item)
-    context.userdata["game_state"] = game
-    
-    return f"🎁 ACQUIRED: {item}! Inventory: {', '.join(game.player.inventory)}"
-
-@function_tool
-async def use_item(
-    context: RunContext,
-    item: str
-) -> str:
-    """
-    Use an item from inventory.
-    
-    Args:
-        item: Item to use
-    """
-    game: GameState = context.userdata["game_state"]
-    
-    if item not in game.player.inventory:
-        return f"❌ ERROR: {item} not in inventory"
-    
-    game.player.inventory.remove(item)
-    
-    # Handle item effects
-    if "elixir" in item.lower() or "potion" in item.lower():
-        heal = 30
-        game.player.health = min(100, game.player.health + heal)
-        result = f"💚 USED: {item}! Healed {heal} HP. Current: {game.player.health}/100"
-    elif "energy" in item.lower():
-        restore = 40
-        game.player.energy = min(100, game.player.energy + restore)
-        result = f"⚡ USED: {item}! Restored {restore} energy. Current: {game.player.energy}/100"
-    else:
-        result = f"✨ USED: {item}"
-    
-    context.userdata["game_state"] = game
     return result
 
 @function_tool
-async def change_location(
+async def add_to_cart(
     context: RunContext,
-    new_location: str,
-    description: str
+    product_id: str,
+    quantity: int = 1,
+    size: Optional[str] = None
 ) -> str:
     """
-    Move to a new location.
+    Add a product to the shopping cart.
     
     Args:
-        new_location: Name of the new location
-        description: Brief description of the location
+        product_id: Product ID from catalog
+        quantity: Quantity to add
+        size: Size selection (S, M, L, XL, etc)
     """
-    game: GameState = context.userdata["game_state"]
-    old_location = game.current_location
-    game.current_location = new_location
-    game.add_event(f"Traveled to {new_location}")
-    
-    context.userdata["game_state"] = game
-    
-    return f"🌍 LOCATION: Now at {new_location}. {description}"
+    cart: ShoppingCart = context.userdata["cart"]
+    result = cart.add_item(product_id, quantity, size)
+    context.userdata["cart"] = cart
+    return result
 
 @function_tool
-async def meet_character(
+async def remove_from_cart(
     context: RunContext,
-    npc_name: str,
-    npc_description: str
+    product_id: str
 ) -> str:
     """
-    Introduce a new character.
+    Remove a product from the cart.
     
     Args:
-        npc_name: Name of the character
-        npc_description: Brief description
+        product_id: Product ID to remove
     """
-    game: GameState = context.userdata["game_state"]
-    game.meet_npc(npc_name)
-    game.add_event(f"Met {npc_name}")
-    
-    context.userdata["game_state"] = game
-    
-    return f"👤 CHARACTER MET: {npc_name} - {npc_description}"
+    cart: ShoppingCart = context.userdata["cart"]
+    result = cart.remove_item(product_id)
+    context.userdata["cart"] = cart
+    return result
 
 @function_tool
-async def defeat_villain(
-    context: RunContext,
-    villain_name: str
-) -> str:
-    """
-    Record defeating a villain.
-    
-    Args:
-        villain_name: Name of the villain
-    """
-    game: GameState = context.userdata["game_state"]
-    game.defeat_villain(villain_name)
-    game.add_event(f"Defeated {villain_name}")
-    
-    context.userdata["game_state"] = game
-    
-    return f"🏆 VICTORY: {villain_name} has been defeated! Villains defeated: {len(game.villains_defeated)}"
-
-@function_tool
-async def complete_quest(
-    context: RunContext,
-    quest_name: str
-) -> str:
-    """
-    Mark a quest as completed.
-    
-    Args:
-        quest_name: Name of the quest
-    """
-    game: GameState = context.userdata["game_state"]
-    game.complete_quest(quest_name)
-    
-    context.userdata["game_state"] = game
-    
-    return f"✅ QUEST COMPLETE: {quest_name}! Quests remaining: {', '.join(game.quests_active) if game.quests_active else 'None - You are a true hero!'}"
-
-@function_tool
-async def check_status(
+async def view_cart(
     context: RunContext
 ) -> str:
-    """
-    Check player's current status.
-    """
-    game: GameState = context.userdata["game_state"]
+    """View current shopping cart contents."""
+    cart: ShoppingCart = context.userdata["cart"]
     
-    status = f"""
-📊 HERO STATUS:
-🌍 Location: {game.current_location}
-💚 Health: {game.player.health}/100
-⚡ Energy: {game.player.energy}/100
-⚡ Quirk: {game.player.quirk_power}
-🎒 Inventory: {', '.join(game.player.inventory)}
-📜 Active Quests: {', '.join(game.quests_active)}
-🏆 Villains Defeated: {len(game.villains_defeated)}
-"""
-    return status.strip()
+    if cart.is_empty():
+        return "CART_EMPTY: Your cart is empty. Browse products to get started!"
+    
+    cart_text = "CART_CONTENTS:\n"
+    for item in cart.items:
+        size_info = f" (Size: {item.size})" if item.size else ""
+        cart_text += f"• {item.quantity}x {item.product_name}{size_info} - ₹{item.subtotal()}\n"
+    
+    cart_text += f"\nTotal: ₹{cart.get_total()}"
+    return cart_text
 
-# --- Game Master Agent ---
-class AnimeGameMaster(Agent):
-    """Anime-style adventure game master."""
+@function_tool
+async def checkout(
+    context: RunContext,
+    buyer_name: str,
+    buyer_email: Optional[str] = None
+) -> str:
+    """
+    Checkout and create an order from cart contents.
+    
+    Args:
+        buyer_name: Customer's name
+        buyer_email: Customer's email (optional)
+    """
+    cart: ShoppingCart = context.userdata["cart"]
+    
+    if cart.is_empty():
+        return "ERROR: Cannot checkout with empty cart"
+    
+    # Create order
+    order = create_order(cart, buyer_name, buyer_email)
+    
+    # Store in session
+    orders: List[Order] = context.userdata.get("orders", [])
+    orders.append(order)
+    context.userdata["orders"] = orders
+    
+    # Clear cart
+    cart.clear()
+    context.userdata["cart"] = cart
+    
+    return (
+        f"ORDER_CONFIRMED: Order {order.order_id} placed successfully!\n"
+        f"Total: ₹{order.total}\n"
+        f"Items: {len(order.line_items)}\n"
+        f"Order saved to order_{order.order_id}.json"
+    )
+
+@function_tool
+async def view_last_order(
+    context: RunContext
+) -> str:
+    """View the most recent order."""
+    orders: List[Order] = context.userdata.get("orders", [])
+    
+    if not orders:
+        return "NO_ORDERS: You haven't placed any orders yet"
+    
+    order = orders[-1]
+    summary = order.get_summary()
+    
+    result = f"LAST_ORDER ({order.order_id}):\n"
+    for item in summary["items"]:
+        size_info = f" (Size: {item['size']})" if item['size'] else ""
+        result += f"• {item['quantity']}x {item['name']}{size_info} - ₹{item['subtotal']}\n"
+    
+    result += f"\nTotal: ₹{summary['total']}\nStatus: {order.status}"
+    return result
+
+# --- Commerce Agent ---
+class CommerceAgent(Agent):
+    """ACP-inspired voice commerce agent."""
     
     def __init__(self, llm) -> None:
         super().__init__(
             instructions=(
-                "You are an epic ANIME GAME MASTER running a shonen-style hero adventure! "
+                f"You are a helpful shopping assistant for {STORE_NAME}, an Indian streetwear brand. "
                 "\n\n"
-                "**UNIVERSE: Hero Academy - Anime Adventure**\n"
-                "- Modern world where people have 'Quirks' (superpowers)\n"
-                "- Player is a young hero-in-training with Lightning Strike quirk\n"
-                "- Think: My Hero Academia meets Demon Slayer energy\n"
-                "- Dramatic battles, character growth, intense emotions\n"
+                f"**GREETING:** 'Hey! Welcome to {STORE_NAME}! We've got hoodies, tees, joggers, and more. "
+                "What are you looking for today?'"
                 "\n\n"
-                "**ANIME TROPES TO USE:**\n"
-                "- Power-up moments and dramatic reveals\n"
-                "- Friendly rivals and wise mentors\n"
-                "- Epic battle sequences with named attacks\n"
-                "- Emotional backstories for villains\n"
-                "- Training arcs and power progression\n"
-                "- 'Believe in yourself!' themes\n"
+                "**HOW TO HELP:**\n"
+                "1. **Browse:** Use browse_catalog when user asks about products\n"
+                "   - Categories: hoodies, tshirts, accessories, bottoms, jackets, sweatshirts\n"
+                "   - Can filter by category, price, color\n"
+                "2. **Add to Cart:** Use add_to_cart with product_id, quantity, and size\n"
+                "   - ALWAYS ask for size if the product has sizes\n"
+                "3. **Manage Cart:** Use remove_from_cart or view_cart as needed\n"
+                "4. **Checkout:** When user says 'checkout' or 'place order', ask for name and use checkout\n"
+                "5. **Order Info:** Use view_last_order when user asks about their order\n"
                 "\n\n"
-                "**YOUR ROLE:**\n"
-                "- Narrate like an anime episode\n"
-                "- Use action sound effects (BOOM! SLASH! WHOOSH!)\n"
-                "- Make battles dramatic and exciting\n"
-                "- ALWAYS end with 'What do you do?'\n"
-                "\n\n"
-                "**GAME FLOW:**\n"
-                "1. **Opening:** Hero receives urgent mission about Shadow Demon\n"
-                "2. **Investigation:** Gather info, meet NPCs\n"
-                "3. **Training:** Build up power if needed\n"
-                "4. **Confrontation:** Epic battle with villain\n"
-                "5. **Resolution:** Heroic victory!\n"
-                "\n\n"
-                "**TOOLS TO USE:**\n"
-                "- roll_dice: For any action checks\n"
-                "- use_quirk_power: When player uses their Lightning Strike\n"
-                "- update_player_health: For damage in battles\n"
-                "- restore_energy: After rest or using items\n"
-                "- defeat_villain: When villain is beaten\n"
-                "- change_location: Moving to new areas\n"
-                "- meet_character: Introducing NPCs\n"
-                "\n\n"
-                "**LOCATIONS:** Training Grounds, Village, Dark Forest, Shadow Demon's Lair\n"
-                "**CHARACTERS:** \n"
-                "- Master Takeshi (wise mentor)\n"
-                "- Sakura (rival hero-in-training)\n"
-                "- Shadow Demon (main villain)\n"
-                "- Lesser demons (minions)\n"
-                "\n\n"
-                "**CRITICAL RULES:**\n"
-                "- Make it feel like an anime episode!\n"
-                "- Use dramatic descriptions and sound effects\n"
-                "- Call roll_dice before resolving risky actions\n"
-                "- Make battles exciting with multiple exchanges\n"
-                "- Encourage use of quirk powers\n"
-                "- Session should last 8-15 exchanges\n"
-                "\n\n"
-                "START NOW: Set the opening scene with dramatic music energy! 🎌"
+                "**IMPORTANT:**\n"
+                "- Always confirm what you're adding to cart\n"
+                "- Ask for size when needed (S, M, L, XL)\n"
+                "- Be helpful with product recommendations\n"
+                "- Keep responses conversational and brief\n"
+                "- All prices are in Indian Rupees (₹)\n"
             ),
             tools=[
-                roll_dice,
-                use_quirk_power,
-                update_player_health,
-                restore_energy,
-                add_to_inventory,
-                use_item,
-                change_location,
-                meet_character,
-                defeat_villain,
-                complete_quest,
-                check_status
+                browse_catalog,
+                add_to_cart,
+                remove_from_cart,
+                view_cart,
+                checkout,
+                view_last_order
             ],
             llm=llm
         )
 
 # --- Entrypoint ---
 async def entrypoint(ctx: JobContext):
-    """Main entrypoint for anime game master."""
+    """Main entrypoint."""
     
-    # Initialize game state
-    game_state = GameState()
+    # Initialize cart and orders
+    cart = ShoppingCart()
+    orders = []
     
     ctx.log_context_fields = {"room": ctx.room.name}
     llm = google.LLM(model="gemini-2.5-flash")
@@ -436,7 +394,7 @@ async def entrypoint(ctx: JobContext):
         stt=deepgram.STT(model="nova-3"),
         llm=llm,
         tts=murf.TTS(
-            voice="en-US-ken",  # Dramatic voice for anime narrator
+            voice="en-US-alicia",
             style="Conversation",
             tokenizer=tokenize.basic.SentenceTokenizer(min_sentence_len=2),
             text_pacing=True
@@ -446,7 +404,7 @@ async def entrypoint(ctx: JobContext):
         preemptive_generation=True,
     )
     
-    session.userdata = {"game_state": game_state}
+    session.userdata = {"cart": cart, "orders": orders}
     
     # Metrics
     usage_collector = metrics.UsageCollector()
@@ -459,19 +417,11 @@ async def entrypoint(ctx: JobContext):
     async def log_usage():
         summary = usage_collector.get_summary()
         logger.info(f"Usage: {summary}")
-        
-        # Save game state
-        final_state = session.userdata.get("game_state")
-        if final_state:
-            filename = f"anime_adventure_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json"
-            with open(filename, 'w') as f:
-                json.dump(asdict(final_state), f, indent=2)
-            logger.info(f"🎌 Anime adventure saved to {filename}")
     
     ctx.add_shutdown_callback(log_usage)
     
     # Start session
-    await session.start(agent=AnimeGameMaster(llm=llm), room=ctx.room)
+    await session.start(agent=CommerceAgent(llm=llm), room=ctx.room)
     await ctx.connect()
 
 def prewarm(proc: JobProcess):
