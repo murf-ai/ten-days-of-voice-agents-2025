@@ -1,0 +1,22 @@
+{
+    "leads": [
+        {
+            "name": "Bidit",
+            "email": "bidit@havells.com",
+            "company": "Havells",
+            "role": "Project Manager, Industrial Solutions",
+            "use_case": "Smart Energy Management Systems for Manufacturing Plants",
+            "timeline": "6-12 months",
+            "timestamp": "2025-11-26T18:31:00.000000"
+        },
+        {
+            "name": "Abhinav",
+            "email": "abhinav@havells.com",
+            "company": "Havells",
+            "role": "Head of Procurement, Lighting Division",
+            "use_case": "Bulk Sourcing and Supply Chain Optimization for LED Components",
+            "timeline": "3-6 months",
+            "timestamp": "2025-11-26T18:31:00.000000"
+        }
+    ]
+}

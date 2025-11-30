@@ -1,0 +1,14 @@
+[
+  {
+    "id": "functions",
+    "title": "Functions",
+    "summary": "Functions allow you to encapsulate code into reusable blocks, accepting inputs and returning outputs.",
+    "sample_question": "What is the difference between parameters and arguments?"
+  },
+  {
+    "id": "conditionals",
+    "title": "Conditionals",
+    "summary": "Conditionals control the flow of the program based on whether a statement evaluates to true or false.",
+    "sample_question": "When is it better to use a switch statement instead of an if-else chain?"
+  }
+]

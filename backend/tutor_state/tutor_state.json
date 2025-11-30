@@ -1,0 +1,20 @@
+{
+  "last_mode": "teach_back",
+  "last_concept": "conditionals",
+  "mastery": {
+    "functions": {
+      "times_explained": 1,
+      "times_quizzed": 0,
+      "times_taught_back": 4,
+      "last_score": 14,
+      "avg_score": 17.5
+    },
+    "conditionals": {
+      "times_explained": 2,
+      "times_quizzed": 0,
+      "times_taught_back": 1,
+      "last_score": 56,
+      "avg_score": 56
+    }
+  }
+}
