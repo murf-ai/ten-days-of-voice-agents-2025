@@ -55,7 +55,7 @@ CATALOG = [
     },
     {
         "id": "tee-001",
-        "name": "Rose Tshirt (Cotton)",
+        "name": "Rose-Tshirt (Cotton)",
         "description": "Comfort-fit cotton t-shirt with subtle logo.",
         "price": 799,
         "currency": "INR",
