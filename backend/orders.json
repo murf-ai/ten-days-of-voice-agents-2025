@@ -1,0 +1,136 @@
+[
+  {
+    "id": "order-b3a07714",
+    "items": [
+      {
+        "product_id": "hoodie-002",
+        "name": "Black Zip Hoodie",
+        "unit_price": 1299,
+        "quantity": 2,
+        "line_total": 2598,
+        "attrs": {
+          "size": "XL"
+        }
+      },
+      {
+        "product_id": "hoodie-002",
+        "name": "Black Zip Hoodie",
+        "unit_price": 1299,
+        "quantity": 1,
+        "line_total": 1299,
+        "attrs": {
+          "size": "L"
+        }
+      }
+    ],
+    "total": 3897,
+    "currency": "INR",
+    "created_at": "2025-11-29T16:59:32.076667Z"
+  },
+  {
+    "id": "order-4d2b8aed",
+    "items": [
+      {
+        "product_id": "mug-001",
+        "name": "Stoneware Chai Mug",
+        "unit_price": 299,
+        "quantity": 2,
+        "line_total": 598,
+        "attrs": {}
+      }
+    ],
+    "total": 598,
+    "currency": "INR",
+    "created_at": "2025-11-29T17:01:56.280189Z"
+  },
+  {
+    "id": "order-4826e6ce",
+    "items": [
+      {
+        "product_id": "tee-001",
+        "name": "Dr Abhishek Tee (Cotton)",
+        "unit_price": 799,
+        "quantity": 1,
+        "line_total": 799,
+        "attrs": {
+          "size": "XL"
+        }
+      },
+      {
+        "product_id": "tee-001",
+        "name": "Dr Abhishek Tee (Cotton)",
+        "unit_price": 799,
+        "quantity": 1,
+        "line_total": 799,
+        "attrs": {
+          "size": "XL"
+        }
+      },
+      {
+        "product_id": "tee-001",
+        "name": "Dr Abhishek Tee (Cotton)",
+        "unit_price": 799,
+        "quantity": 1,
+        "line_total": 799,
+        "attrs": {
+          "size": "XL"
+        }
+      }
+    ],
+    "total": 2397,
+    "currency": "INR",
+    "created_at": "2025-11-29T17:13:54.940020Z"
+  },
+  {
+    "id": "order-6efa0293",
+    "items": [
+      {
+        "product_id": "hoodie-002",
+        "name": "Black Zip Hoodie",
+        "unit_price": 1299,
+        "quantity": 1,
+        "line_total": 1299,
+        "attrs": {
+          "size": "M"
+        }
+      },
+      {
+        "product_id": "hoodie-001",
+        "name": "Cozy Hoodie",
+        "unit_price": 1499,
+        "quantity": 1,
+        "line_total": 1499,
+        "attrs": {
+          "size": "M"
+        }
+      }
+    ],
+    "total": 2798,
+    "currency": "INR",
+    "created_at": "2025-11-30T04:07:34.059827Z"
+  },
+  {
+    "id": "order-15e2b8b4",
+    "items": [
+      {
+        "product_id": "hoodie-002",
+        "name": "Black Zip Hoodie",
+        "unit_price": 1299,
+        "quantity": 1,
+        "line_total": 1299,
+        "attrs": {}
+      },
+      {
+        "product_id": "hoodie-001",
+        "name": "Cozy Hoodie",
+        "unit_price": 1499,
+        "quantity": 1,
+        "line_total": 1499,
+        "attrs": {}
+      }
+    ],
+    "total": 2798,
+    "currency": "INR",
+    "created_at": "2025-11-30T04:11:26.026930Z"
+  }
+]
