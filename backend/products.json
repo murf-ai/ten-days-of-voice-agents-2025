@@ -1,0 +1,145 @@
+[
+  {
+    "id": "mug-001",
+    "name": "Stoneware Coffee Mug",
+    "description": "Classic white stoneware coffee mug, perfect for your morning brew",
+    "price": 800,
+    "currency": "INR",
+    "category": "mug",
+    "color": "white"
+  },
+  {
+    "id": "mug-002",
+    "name": "Travel Coffee Mug",
+    "description": "Insulated travel mug with leak-proof lid, keeps your coffee hot for hours",
+    "price": 1200,
+    "currency": "INR",
+    "category": "mug",
+    "color": "black"
+  },
+  {
+    "id": "mug-003",
+    "name": "Ceramic Coffee Mug - Blue",
+    "description": "Beautiful blue ceramic coffee mug with ergonomic handle",
+    "price": 750,
+    "currency": "INR",
+    "category": "mug",
+    "color": "blue"
+  },
+  {
+    "id": "tshirt-001",
+    "name": "Classic Cotton T-Shirt",
+    "description": "100% cotton comfortable t-shirt, perfect for everyday wear",
+    "price": 599,
+    "currency": "INR",
+    "category": "tshirt",
+    "color": "white",
+    "size": "M"
+  },
+  {
+    "id": "tshirt-002",
+    "name": "Classic Cotton T-Shirt",
+    "description": "100% cotton comfortable t-shirt, perfect for everyday wear",
+    "price": 599,
+    "currency": "INR",
+    "category": "tshirt",
+    "color": "white",
+    "size": "L"
+  },
+  {
+    "id": "tshirt-003",
+    "name": "Premium V-Neck T-Shirt",
+    "description": "Soft premium cotton v-neck t-shirt in black",
+    "price": 799,
+    "currency": "INR",
+    "category": "tshirt",
+    "color": "black",
+    "size": "M"
+  },
+  {
+    "id": "tshirt-004",
+    "name": "Premium V-Neck T-Shirt",
+    "description": "Soft premium cotton v-neck t-shirt in black",
+    "price": 799,
+    "currency": "INR",
+    "category": "tshirt",
+    "color": "black",
+    "size": "L"
+  },
+  {
+    "id": "hoodie-001",
+    "name": "Classic Black Hoodie",
+    "description": "Warm and cozy black hoodie with front pocket",
+    "price": 1999,
+    "currency": "INR",
+    "category": "hoodie",
+    "color": "black",
+    "size": "M"
+  },
+  {
+    "id": "hoodie-002",
+    "name": "Classic Black Hoodie",
+    "description": "Warm and cozy black hoodie with front pocket",
+    "price": 1999,
+    "currency": "INR",
+    "category": "hoodie",
+    "color": "black",
+    "size": "L"
+  },
+  {
+    "id": "hoodie-003",
+    "name": "Gray Pullover Hoodie",
+    "description": "Comfortable gray pullover hoodie, perfect for casual wear",
+    "price": 1799,
+    "currency": "INR",
+    "category": "hoodie",
+    "color": "gray",
+    "size": "M"
+  },
+  {
+    "id": "notebook-001",
+    "name": "Leather Bound Notebook",
+    "description": "Premium leather-bound notebook with lined pages",
+    "price": 450,
+    "currency": "INR",
+    "category": "notebook",
+    "color": "brown"
+  },
+  {
+    "id": "notebook-002",
+    "name": "Spiral Notebook Set",
+    "description": "Set of 3 spiral-bound notebooks, college-ruled",
+    "price": 299,
+    "currency": "INR",
+    "category": "notebook",
+    "color": "multicolor"
+  },
+  {
+    "id": "bag-001",
+    "name": "Canvas Tote Bag",
+    "description": "Durable canvas tote bag, perfect for shopping or daily use",
+    "price": 499,
+    "currency": "INR",
+    "category": "bag",
+    "color": "beige"
+  },
+  {
+    "id": "bag-002",
+    "name": "Backpack - Black",
+    "description": "Stylish black backpack with multiple compartments",
+    "price": 1299,
+    "currency": "INR",
+    "category": "bag",
+    "color": "black"
+  },
+  {
+    "id": "bag-003",
+    "name": "Laptop Sleeve",
+    "description": "Protective laptop sleeve with padding, fits up to 15 inches",
+    "price": 899,
+    "currency": "INR",
+    "category": "bag",
+    "color": "gray"
+  }
+]
+

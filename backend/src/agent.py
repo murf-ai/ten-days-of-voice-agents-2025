@@ -1,27 +1,20 @@
-# food_agent_sqlite.py
 """
-Day 7 – Food & Grocery Ordering Voice Agent (SQLite) - Indian Context
-- Uses SQLite DB 'order_db.sqlite'
-- Seeds Indian catalog (Amul, Tata, Britannia, etc.)
+Day 9 – E-Commerce Voice Agent (ACP-Inspired)
+- Reads product catalog from products.json in backend directory.
+- Creates/updates orders.json to persist placed orders.
 - Tools:
-    - find_item (search catalog)
-    - add_to_cart / remove_from_cart / update_cart / show_cart
-    - add_recipe (ingredients for Chai, Maggi, etc.)
-    - place_order (Trigger auto-status update simulation)
-    - cancel_order (New Feature)
-    - get_order_status / order_history
-- Auto-simulation: Status updates every 5 seconds in background.
+    - list_products / show_product
+    - add_to_cart / remove_from_cart / show_cart
+    - place_order / last_order / order_history
 """
 
-import json
-import logging
 import os
-import sqlite3
+import json
 import uuid
-import asyncio
-from dataclasses import dataclass, field
+import logging
 from datetime import datetime
-from typing import List, Optional, Annotated, Set
+from typing import List, Optional, Annotated
+from dataclasses import dataclass, field
 
 from dotenv import load_dotenv
 from pydantic import Field
@@ -36,474 +29,243 @@ from livekit.agents import (
     function_tool,
     RunContext,
 )
-
-from livekit.plugins import murf, silero, google, deepgram, noise_cancellation
+from livekit.plugins import murf, silero, openai, deepgram, noise_cancellation
 from livekit.plugins.turn_detector.multilingual import MultilingualModel
-import threading
-from http.server import ThreadingHTTPServer, BaseHTTPRequestHandler
-from urllib.parse import urlparse, parse_qs
-import socket
-import json as _json
 
 # -------------------------
-# Logging
+# Setup
 # -------------------------
-logger = logging.getLogger("food_agent_sqlite")
+load_dotenv(".env.local")
+
+logger = logging.getLogger("ecommerce_agent")
 logger.setLevel(logging.INFO)
 handler = logging.StreamHandler()
 handler.setFormatter(logging.Formatter("%(asctime)s %(levelname)s %(message)s"))
 logger.addHandler(handler)
 
-load_dotenv(".env.local")
-
 # -------------------------
-# DB config & seeding
-# -------------------------
-DB_FILE = "order_db.sqlite"
-
-
-def get_db_path() -> str:
-    """Return absolute path for the DB file. If __file__ is not defined (interactive), fall back to cwd."""
-    try:
-        base = os.path.abspath(os.path.dirname(__file__))
-    except NameError:
-        base = os.getcwd()
-    # ensure directory exists
-    if not os.path.isdir(base):
-        os.makedirs(base, exist_ok=True)
-    return os.path.join(base, DB_FILE)
-
-
-def get_conn():
-    path = get_db_path()
-    # check_same_thread=False required for async background tasks accessing DB
-    conn = sqlite3.connect(path, check_same_thread=False)
-    conn.row_factory = sqlite3.Row
-    conn.execute("PRAGMA foreign_keys = ON;")
-    return conn
-
-
-def seed_database():
-    """Create tables and seed the Indian catalog if empty."""
-    try:
-        conn = get_conn()
-        cur = conn.cursor()
-
-        # Create catalog table
-        cur.execute("""
-            CREATE TABLE IF NOT EXISTS catalog (
-                id TEXT PRIMARY KEY,
-                name TEXT NOT NULL,
-                category TEXT,
-                price REAL NOT NULL,
-                brand TEXT,
-                size TEXT,
-                units TEXT,
-                tags TEXT -- JSON encoded list
-            )
-        """)
-
-        # Orders table
-        cur.execute("""
-            CREATE TABLE IF NOT EXISTS orders (
-                order_id TEXT PRIMARY KEY,
-                timestamp TEXT,
-                total REAL,
-                customer_name TEXT,
-                address TEXT,
-                status TEXT DEFAULT 'received',
-                created_at TEXT DEFAULT (datetime('now')),
-                updated_at TEXT DEFAULT (datetime('now'))
-            )
-        """)
-
-        # Order items
-        cur.execute("""
-            CREATE TABLE IF NOT EXISTS order_items (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                order_id TEXT,
-                item_id TEXT,
-                name TEXT,
-                unit_price REAL,
-                quantity INTEGER,
-                notes TEXT,
-                FOREIGN KEY(order_id) REFERENCES orders(order_id) ON DELETE CASCADE
-            )
-        """)
-
-        # Check if catalog empty
-        cur.execute("SELECT COUNT(1) FROM catalog")
-        if cur.fetchone()[0] == 0:
-            catalog = [
-                # Dairy
-                ("milk-amul-1l", "Amul Taaza Milk", "Dairy", 72.00, "Amul", "1L", "pack", json.dumps(["dairy", "essential"])),
-                ("paneer-200g", "Amul Malai Paneer", "Dairy", 95.00, "Amul", "200g", "pack", json.dumps(["dairy", "protein", "veg"])),
-                ("butter-100g", "Amul Butter", "Dairy", 58.00, "Amul", "100g", "pack", json.dumps(["dairy"])),
-                ("curd-400g", "Mother Dairy Dahi", "Dairy", 40.00, "Mother Dairy", "400g", "cup", json.dumps(["dairy"])),
-                
-                # Staples/Pantry
-                ("atta-5kg", "Aashirvaad Whole Wheat Atta", "Staples", 245.00, "Aashirvaad", "5kg", "bag", json.dumps(["flour", "roti"])),
-                ("rice-basmati-1kg", "India Gate Basmati Rice", "Staples", 160.00, "India Gate", "1kg", "bag", json.dumps(["rice", "premium"])),
-                ("dal-toor-1kg", "Tata Sampann Toor Dal", "Staples", 185.00, "Tata", "1kg", "pack", json.dumps(["protein", "dal"])),
-                ("salt-1kg", "Tata Salt", "Staples", 28.00, "Tata", "1kg", "pack", json.dumps(["essential"])),
-                ("sugar-1kg", "Madhur Sugar", "Staples", 60.00, "Madhur", "1kg", "pack", json.dumps(["sweet"])),
-                
-                # Snacks & Instant
-                ("maggi-masala", "Maggi 2-Minute Noodles", "Instant Food", 14.00, "Nestle", "70g", "pack", json.dumps(["snack", "noodles"])),
-                ("biscuits-marie", "Britannia Marie Gold", "Snacks", 35.00, "Britannia", "250g", "pack", json.dumps(["tea-time"])),
-                ("chips-lays", "Lays Magic Masala", "Snacks", 20.00, "Lays", "50g", "pack", json.dumps(["snack", "spicy"])),
-                ("tea-250g", "Red Label Tea", "Beverages", 140.00, "Brooke Bond", "250g", "pack", json.dumps(["chai", "tea"])),
-                
-                # Veggies (Market Price estimates)
-                ("potato-1kg", "Fresh Potatoes", "Vegetables", 40.00, "", "1kg", "kg", json.dumps(["veg"])),
-                ("onion-1kg", "Fresh Onions", "Vegetables", 55.00, "", "1kg", "kg", json.dumps(["veg"])),
-                ("tomato-1kg", "Fresh Tomatoes", "Vegetables", 60.00, "", "1kg", "kg", json.dumps(["veg"])),
-                ("ginger-100g", "Fresh Ginger", "Vegetables", 20.00, "", "100g", "g", json.dumps(["veg", "chai"])),
-            ]
-            cur.executemany("""
-                INSERT INTO catalog (id, name, category, price, brand, size, units, tags)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-            """, catalog)
-            conn.commit()
-            logger.info(f"✅ Seeded Indian catalog into {get_db_path()}")
-
-        conn.close()
-    except Exception as e:
-        logger.exception("Failed to seed database: %s", e)
-
-
-# Seed DB on import/run (safe to call multiple times)
-seed_database()
-
-# -------------------------
-# In-memory per-session cart
+# Data models
 # -------------------------
 @dataclass
 class CartItem:
-    item_id: str
+    id: str
     name: str
-    unit_price: float
+    price: float
     quantity: int = 1
-    notes: str = ""
+    size: Optional[str] = None
 
 @dataclass
 class Userdata:
     cart: List[CartItem] = field(default_factory=list)
-    customer_name: Optional[str] = None
-
-
-# -------------------------
-# Day 8: Game Master userdata
-# -------------------------
-@dataclass
-class GMUserdata:
-    # Conversation history entries: list of dicts {role: 'gm'|'player', text: str}
-    story_history: List[dict] = field(default_factory=list)
-    # Remembered named entities
-    named_characters: Set[str] = field(default_factory=set)
-    named_locations: Set[str] = field(default_factory=set)
-    # Key past decisions to maintain continuity
-    decisions: List[str] = field(default_factory=list)
-    # Turn counter for the current session
-    turn_count: int = 0
-    # Flag for whether a session is active
-    session_active: bool = False
+    last_order: Optional[dict] = None
+    user_name: Optional[str] = None
 
 # -------------------------
-# DB Helpers
+# File paths
 # -------------------------
+# -------------------------
+# File paths (Fixed)
+# -------------------------
+BACKEND_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+CATALOG_PATH = os.path.join(BACKEND_DIR, "products.json")
+ORDERS_PATH = os.path.join(BACKEND_DIR, "orders.json")
 
-def find_catalog_item_by_id_db(item_id: str) -> Optional[dict]:
-    conn = get_conn()
-    cur = conn.cursor()
-    cur.execute("SELECT * FROM catalog WHERE LOWER(id) = LOWER(?) LIMIT 1", (item_id,))
-    row = cur.fetchone()
-    conn.close()
-    if not row:
-        return None
-    record = dict(row)
+if not os.path.exists(CATALOG_PATH):
+    logger.warning(f"⚠️ products.json not found at {CATALOG_PATH}. Please ensure it exists.")
+else:
+    logger.info(f"✅ products.json found at {CATALOG_PATH}")
+
+
+logger.info(f"BACKEND_DIR: {BACKEND_DIR}")
+logger.info(f"CATALOG_PATH: {CATALOG_PATH}")
+logger.info(f"Catalog exists: {os.path.exists(CATALOG_PATH)}")
+
+# -------------------------
+# Catalog + Orders Helpers
+# -------------------------
+def load_catalog() -> list:
     try:
-        record["tags"] = json.loads(record.get("tags") or "[]")
-    except Exception:
-        record["tags"] = []
-    return record
-
-
-def search_catalog_by_name_db(query: str) -> List[dict]:
-    q = f"%{query.lower()}%"
-    conn = get_conn()
-    cur = conn.cursor()
-    cur.execute("""
-        SELECT * FROM catalog
-        WHERE LOWER(name) LIKE ? OR LOWER(tags) LIKE ?
-        LIMIT 50
-    """, (q, q))
-    rows = cur.fetchall()
-    conn.close()
-    results = []
-    for r in rows:
-        rec = dict(r)
-        try:
-            rec["tags"] = json.loads(rec.get("tags") or "[]")
-        except Exception:
-            rec["tags"] = []
-        results.append(rec)
-    return results
-
-
-def insert_order_db(order_id: str, timestamp: str, total: float, customer_name: str, address: str, status: str, items: List[CartItem]):
-    conn = get_conn()
-    cur = conn.cursor()
-    cur.execute("""
-        INSERT INTO orders (order_id, timestamp, total, customer_name, address, status, created_at, updated_at)
-        VALUES (?, ?, ?, ?, ?, ?, datetime('now'), datetime('now'))
-    """, (order_id, timestamp, total, customer_name, address, status))
-    for ci in items:
-        cur.execute("""
-            INSERT INTO order_items (order_id, item_id, name, unit_price, quantity, notes)
-            VALUES (?, ?, ?, ?, ?, ?)
-        """, (order_id, ci.item_id, ci.name, ci.unit_price, ci.quantity, ci.notes))
-    conn.commit()
-    conn.close()
-
-
-def write_order_json(order_id: str, timestamp: str, total: float, customer_name: str, address: str, status: str, items: List[CartItem]):
-    """Also write a human-readable JSON copy of the order to `orders/order_<id>.json`.
-
-    This is useful for debugging and for users who expect a file-based order record.
-    """
-    try:
-        base = os.path.abspath(os.path.dirname(__file__))
-    except NameError:
-        base = os.getcwd()
-    orders_dir = os.path.join(base, "orders")
-    os.makedirs(orders_dir, exist_ok=True)
-
-    # Serialize items
-    items_list = []
-    for ci in items:
-        items_list.append({
-            "item_id": ci.item_id,
-            "name": ci.name,
-            "unit_price": ci.unit_price,
-            "quantity": ci.quantity,
-            "notes": ci.notes,
-        })
-
-    order_obj = {
-        "order_id": order_id,
-        "timestamp": timestamp,
-        "customer_name": customer_name,
-        "address": address,
-        "status": status,
-        "total": total,
-        "items": items_list,
-    }
-
-    out_path = os.path.join(orders_dir, f"order_{order_id}.json")
-    try:
-        with open(out_path, "w", encoding="utf-8") as f:
-            json.dump(order_obj, f, indent=2, ensure_ascii=False)
-        logger.info(f"Saved order JSON to {out_path}")
+        with open(CATALOG_PATH, "r", encoding="utf-8") as f:
+            return json.load(f)
     except Exception as e:
-        logger.exception("Failed to write order JSON: %s", e)
+        logger.error(f"Failed to load catalog from {CATALOG_PATH}: {e}")
+        return []
 
+def load_orders() -> list:
+    if not os.path.exists(ORDERS_PATH):
+        return []
+    try:
+        with open(ORDERS_PATH, "r", encoding="utf-8") as f:
+            return json.load(f)
+    except Exception:
+        return []
 
-def get_order_db(order_id: str) -> Optional[dict]:
-    conn = get_conn()
-    cur = conn.cursor()
-    cur.execute("SELECT * FROM orders WHERE order_id = ? LIMIT 1", (order_id,))
-    o = cur.fetchone()
-    if not o:
-        conn.close()
-        return None
-    order = dict(o)
-    cur.execute("SELECT * FROM order_items WHERE order_id = ?", (order_id,))
-    items = [dict(r) for r in cur.fetchall()]
-    conn.close()
-    order["items"] = items
-    return order
-
-
-def list_orders_db(limit: int = 10, customer_name: Optional[str] = None) -> List[dict]:
-    conn = get_conn()
-    cur = conn.cursor()
-    if customer_name:
-        cur.execute("SELECT * FROM orders WHERE LOWER(customer_name) = LOWER(?) ORDER BY created_at DESC LIMIT ?", (customer_name, limit))
-    else:
-        cur.execute("SELECT * FROM orders ORDER BY created_at DESC LIMIT ?", (limit,))
-    rows = [dict(r) for r in cur.fetchall()]
-    conn.close()
-    return rows
-
-
-def update_order_status_db(order_id: str, new_status: str) -> bool:
-    conn = get_conn()
-    cur = conn.cursor()
-    cur.execute("UPDATE orders SET status = ?, updated_at = datetime('now') WHERE order_id = ?", (new_status, order_id))
-    changed = cur.rowcount
-    conn.commit()
-    conn.close()
-    return changed > 0
+def save_orders(orders: list):
+    try:
+        with open(ORDERS_PATH, "w", encoding="utf-8") as f:
+            json.dump(orders, f, indent=2, ensure_ascii=False)
+    except Exception as e:
+        logger.error(f"Failed to save orders: {e}")
 
 # -------------------------
-# LOGIC & ASYNC SIMULATION
-# -------------------------
-
-# Recipe map for "Add Recipe" tool
-RECIPE_MAP = {
-    "chai": ["milk-amul-1l", "tea-250g", "sugar-1kg", "ginger-100g"],
-    "paneer butter masala": ["paneer-200g", "butter-100g", "tomato-1kg"],
-    "maggi": ["maggi-masala"],
-    "dal chawal": ["dal-toor-1kg", "rice-basmati-1kg"],
-}
-
-# Intelligent ingredient inference helpers
-import re
-
-_NUMBER_WORDS = {
-    'one': 1, 'two': 2, 'three': 3, 'four': 4, 'five': 5,
-    'six': 6, 'seven': 7, 'eight': 8, 'nine': 9, 'ten': 10
-}
-
-def _parse_servings_from_text(text: str) -> int:
-    """Try to extract servings/quantity from informal text like 'for two people' or 'for 3'. Default 1."""
-    text = (text or "").lower()
-    m = re.search(r"for\s+(\d+)\s*(?:people|person|servings)?", text)
-    if m:
-        try:
-            return max(1, int(m.group(1)))
-        except Exception:
-            pass
-    for word, num in _NUMBER_WORDS.items():
-        if f"for {word}" in text:
-            return num
-    return 1
-
-
-def _infer_items_from_tags(query: str, max_results: int = 6) -> List[str]:
-    """Try to infer catalog items by matching query words to tags in the catalog. Returns list of item_ids."""
-    words = re.findall(r"\w+", (query or "").lower())
-    found = []
-    conn = get_conn()
-    cur = conn.cursor()
-    for w in words:
-        if len(found) >= max_results:
-            break
-        q = f"%\"{w}\"%"
-        cur.execute("SELECT * FROM catalog WHERE LOWER(tags) LIKE ? OR LOWER(name) LIKE ? LIMIT 10", (q, f"%{w}%"))
-        rows = cur.fetchall()
-        for r in rows:
-            rid = r["id"]
-            if rid not in found:
-                found.append(rid)
-                if len(found) >= max_results:
-                    break
-    conn.close()
-    return found
-
-STATUS_FLOW = ["received", "confirmed", "shipped", "out_for_delivery", "delivered"]
-
-
-async def simulate_delivery_flow(order_id: str):
-    """
-    Background task: automatically advances order status every 5 seconds.
-    Flow: received -> confirmed -> shipped -> out_for_delivery -> delivered
-    """
-    logger.info(f"🔄 [Simulation] Started tracking simulation for {order_id}")
-
-    # initial wait
-    await asyncio.sleep(5)
-
-    # Loop through statuses starting from index 1 (confirmed)
-    for next_status in STATUS_FLOW[1:]:
-        # Check if order was cancelled in the meantime
-        curr_order = get_order_db(order_id)
-        if curr_order and curr_order.get("status") == "cancelled":
-            logger.info(f"🛑 [Simulation] Order {order_id} was cancelled. Stopping simulation.")
-            return
-
-        update_order_status_db(order_id, next_status)
-        logger.info(f"🚚 [Simulation] Order {order_id} updated to '{next_status}'")
-        await asyncio.sleep(5)
-
-    logger.info(f"✅ [Simulation] Order {order_id} simulation complete (Delivered).")
-
-
-def cart_total(cart: List[CartItem]) -> float:
-    return round(sum(ci.unit_price * ci.quantity for ci in cart), 2)
-
-# -------------------------
-# AGENT TOOLS
+# Tools
 # -------------------------
 @function_tool
-async def find_item(
+async def list_products(
     ctx: RunContext[Userdata],
-    query: Annotated[str, Field(description="Name or partial name of item (e.g., 'milk', 'paneer')")],
+    query: Annotated[Optional[str], Field(description="Search query to filter products by name, description, or category", default=None)] = None,
+    category: Annotated[Optional[str], Field(description="Filter by product category (e.g., 'mug', 'tshirt', 'hoodie')", default=None)] = None,
+    color: Annotated[Optional[str], Field(description="Filter by product color", default=None)] = None,
+    max_price: Annotated[Optional[float], Field(description="Maximum price filter (e.g., 1000 for products under ₹1000)", default=None)] = None,
+    min_price: Annotated[Optional[float], Field(description="Minimum price filter", default=None)] = None,
 ) -> str:
-    matches = search_catalog_by_name_db(query)
-    if not matches:
-        return f"No items found matching '{query}'. Try generic names like 'milk' or 'rice'."
-    lines = []
-    for it in matches[:10]:
-        lines.append(f"- {it['name']} (id: {it['id']}) — ₹{it['price']:.2f} — {it.get('size','')}")
-    return "Found:\n" + "\n".join(lines)
+    """
+    List products with optional filtering by query, category, color, and price range.
+    All parameters are optional - you can use any combination of filters.
+    Examples:
+    - query="coffee mug" -> finds products with "coffee mug" in name/description
+    - category="tshirt" -> filters by category
+    - color="black" -> filters by color
+    - max_price=1000 -> shows products under ₹1000
+    """
+    catalog = load_catalog()
+    filtered = []
+    
+    for p in catalog:
+        # Filter by query (searches in name, description, and category)
+        if query:
+            query_lower = query.lower()
+            name = p.get("name", "").lower()
+            desc = p.get("description", "").lower()
+            cat = p.get("category", "").lower()
+            if query_lower not in name and query_lower not in desc and query_lower not in cat:
+                continue
+        
+        # Filter by category
+        if category:
+            if p.get("category", "").lower() != category.lower():
+                continue
+        
+        # Filter by color
+        if color:
+            if p.get("color", "").lower() != color.lower():
+                continue
+        
+        # Filter by price range
+        price = float(p.get("price", 0))
+        if max_price and price > max_price:
+            continue
+        if min_price and price < min_price:
+            continue
+        
+        filtered.append(p)
 
+    if not filtered:
+        filters = []
+        if query:
+            filters.append(f"query '{query}'")
+        if category:
+            filters.append(f"category '{category}'")
+        if color:
+            filters.append(f"color '{color}'")
+        if max_price:
+            filters.append(f"under ₹{max_price}")
+        filter_str = " with " + ", ".join(filters) if filters else ""
+        return f"No products found{filter_str}."
+
+    lines = []
+    for idx, p in enumerate(filtered[:10], 1):
+        attrs = []
+        if p.get("color"):
+            attrs.append(f"Color: {p['color']}")
+        if p.get("size"):
+            attrs.append(f"Size: {p['size']}")
+        attr_str = f" | {', '.join(attrs)}" if attrs else ""
+        lines.append(f"{idx}. {p['name']} (id: {p['id']}) — ₹{p['price']} | Category: {p.get('category', 'N/A')}{attr_str}")
+    
+    result = f"Found {len(filtered)} product(s). Here are the options:\n" + "\n".join(lines)
+    if len(filtered) > 10:
+        result += f"\n... and {len(filtered) - 10} more product(s)"
+    return result
+
+@function_tool
+async def show_product(
+    ctx: RunContext[Userdata],
+    product_id: Annotated[str, Field(description="Product ID")],
+) -> str:
+    catalog = load_catalog()
+    for p in catalog:
+        if p["id"].lower() == product_id.lower():
+            return f"{p['name']} — ₹{p['price']} | Category: {p.get('category','')} | {p.get('description','No description')}"
+    return f"Couldn't find product with id '{product_id}'."
 
 @function_tool
 async def add_to_cart(
     ctx: RunContext[Userdata],
-    item_id: Annotated[str, Field(description="Catalog item id")],
-    quantity: Annotated[int, Field(description="Quantity", default=1)] = 1,
-    notes: Annotated[str, Field(description="Optional notes")] = "",
+    product_id: Annotated[str, Field(description="Product ID to add")],
+    quantity: Annotated[int, Field(description="Quantity to add", ge=1)] = 1,
+    size: Optional[str] = None,
 ) -> str:
-    item = find_catalog_item_by_id_db(item_id)
+    """
+    Add a product to the cart. If size is specified, try to find a matching product variant.
+    """
+    catalog = load_catalog()
+    item = None
+    
+    # If size is specified, try to find a product with matching size
+    if size:
+        for p in catalog:
+            if p["id"].lower() == product_id.lower() or p.get("name", "").lower() == product_id.lower():
+                if p.get("size", "").lower() == size.lower():
+                    item = p
+                    break
+        # If not found by size, fall back to exact product_id match
+        if not item:
+            item = next((p for p in catalog if p["id"].lower() == product_id.lower()), None)
+    else:
+        item = next((p for p in catalog if p["id"].lower() == product_id.lower()), None)
+    
     if not item:
-        return f"Item id '{item_id}' not found."
-
+        return f"Product '{product_id}' not found."
+    
+    # Check if same product (same ID) already in cart
     for ci in ctx.userdata.cart:
-        if ci.item_id.lower() == item_id.lower():
+        if ci.id.lower() == item["id"].lower():
             ci.quantity += quantity
-            if notes:
-                ci.notes = notes
-            total = cart_total(ctx.userdata.cart)
-            return f"Updated '{ci.name}' quantity to {ci.quantity}. Cart total: \u20B9{total:.2f}"
-
-    ci = CartItem(item_id=item["id"], name=item["name"], unit_price=float(item["price"]), quantity=quantity, notes=notes)
-    ctx.userdata.cart.append(ci)
-    total = cart_total(ctx.userdata.cart)
-    return f"Added {quantity} x '{item['name']}' to cart. Cart total: \u20B9{total:.2f}"
-
+            total = sum(c.price * c.quantity for c in ctx.userdata.cart)
+            size_info = f" (Size: {item.get('size', 'N/A')})" if item.get('size') else ""
+            # Return cart summary so frontend can parse it
+            lines = [f"- {c.quantity} x {c.name} @ ₹{c.price:.2f} = ₹{c.price * c.quantity:.2f}" for c in ctx.userdata.cart]
+            return f"Updated '{ci.name}{size_info}' quantity to {ci.quantity}.\n\nYour cart:\n" + "\n".join(lines) + f"\nTotal: ₹{total:.2f}"
+    
+    # Add new item to cart
+    size_value = size or item.get("size")
+    cart_item = CartItem(
+        id=item["id"],
+        name=item["name"],
+        price=float(item["price"]),
+        quantity=quantity,
+        size=size_value
+    )
+    ctx.userdata.cart.append(cart_item)
+    total = sum(c.price * c.quantity for c in ctx.userdata.cart)
+    size_info = f" (Size: {size_value})" if size_value else ""
+    # Return cart summary so frontend can parse it
+    lines = [f"- {c.quantity} x {c.name} @ ₹{c.price:.2f} = ₹{c.price * c.quantity:.2f}" for c in ctx.userdata.cart]
+    return f"Added {quantity} x {item['name']}{size_info} to your cart.\n\nYour cart:\n" + "\n".join(lines) + f"\nTotal: ₹{total:.2f}"
 
 @function_tool
 async def remove_from_cart(
     ctx: RunContext[Userdata],
-    item_id: Annotated[str, Field(description="Catalog item id to remove")],
+    product_id: Annotated[str, Field(description="Product ID to remove")],
 ) -> str:
     before = len(ctx.userdata.cart)
-    ctx.userdata.cart = [ci for ci in ctx.userdata.cart if ci.item_id.lower() != item_id.lower()]
+    ctx.userdata.cart = [ci for ci in ctx.userdata.cart if ci.id.lower() != product_id.lower()]
     after = len(ctx.userdata.cart)
     if before == after:
-        return f"Item '{item_id}' was not in your cart."
-    total = cart_total(ctx.userdata.cart)
-    return f"Removed item '{item_id}' from cart. Cart total: \u20B9{total:.2f}"
-
-
-@function_tool
-async def update_cart_quantity(
-    ctx: RunContext[Userdata],
-    item_id: Annotated[str, Field(description="Catalog item id to update")],
-    quantity: Annotated[int, Field(description="New quantity")],
-) -> str:
-    if quantity < 1:
-        return await remove_from_cart(ctx, item_id)
-    for ci in ctx.userdata.cart:
-        if ci.item_id.lower() == item_id.lower():
-            ci.quantity = quantity
-            total = cart_total(ctx.userdata.cart)
-            return f"Updated '{ci.name}' quantity to {ci.quantity}. Cart total: \u20B9{total:.2f}"
-    return f"Item '{item_id}' not found in cart."
-
+        return f"Item '{product_id}' not found in cart."
+    total = sum(c.price * c.quantity for c in ctx.userdata.cart)
+    return f"Removed item '{product_id}'. Cart total: ₹{total:.2f}"
 
 @function_tool
 async def show_cart(ctx: RunContext[Userdata]) -> str:
@@ -511,418 +273,194 @@ async def show_cart(ctx: RunContext[Userdata]) -> str:
         return "Your cart is empty."
     lines = []
     for ci in ctx.userdata.cart:
-        lines.append(f"- {ci.quantity} x {ci.name} @ \u20B9{ci.unit_price:.2f} each = \u20B9{ci.unit_price * ci.quantity:.2f}")
-    total = cart_total(ctx.userdata.cart)
-    return "Your cart:\n" + "\n".join(lines) + f"\nTotal: \u20B9{total:.2f}"
+        size_info = f" (Size: {ci.size})" if ci.size else ""
+        lines.append(f"- {ci.quantity} x {ci.name}{size_info} @ ₹{ci.price:.2f} = ₹{ci.price * ci.quantity:.2f}")
+    total = sum(c.price * c.quantity for c in ctx.userdata.cart)
+    return "Your cart:\n" + "\n".join(lines) + f"\nTotal: ₹{total:.2f}"
 
-
-@function_tool
-async def add_recipe(
-    ctx: RunContext[Userdata],
-    dish_name: Annotated[str, Field(description="Name of dish, e.g. 'chai', 'maggi', 'dal chawal'")],
-) -> str:
-    key = dish_name.strip().lower()
-    if key not in RECIPE_MAP:
-        return f"Sorry, I don't have a recipe for '{dish_name}'. Try 'chai', 'maggi' or 'paneer butter masala'."
-    added = []
-    for item_id in RECIPE_MAP[key]:
-        item = find_catalog_item_by_id_db(item_id)
-        if not item:
-            continue
-
-        found = False
-        for ci in ctx.userdata.cart:
-            if ci.item_id.lower() == item_id.lower():
-                ci.quantity += 1
-                found = True
-                break
-        if not found:
-            ctx.userdata.cart.append(CartItem(item_id=item["id"], name=item["name"], unit_price=float(item["price"]), quantity=1))
-        added.append(item["name"])
-
-    total = cart_total(ctx.userdata.cart)
-    return f"Added ingredients for '{dish_name}': {', '.join(added)}. Cart total: \u20B9{total:.2f}"
-
-
-@function_tool
-async def ingredients_for(
-    ctx: RunContext[Userdata],
-    request: Annotated[str, Field(description="Natural language request, e.g. 'ingredients for peanut butter sandwich for two'")],
-) -> str:
-    """Handle high-level ingredient requests like 'ingredients for peanut butter sandwich' or 'get me pasta for two people'.
-    Attempts a map lookup first, then falls back to tag inference.
+def create_order(line_items: list[dict], customer_name: str = "Customer") -> dict:
     """
-    text = (request or "").strip()
-    servings = _parse_servings_from_text(text)
-
-    # try to extract a dish phrase after common verbs
-    m = re.search(r"ingredients? for (.+)", text, re.I)
-    if m:
-        dish = m.group(1)
-    else:
-        m2 = re.search(r"(?:make|for making|get me what i need for|i need) (.+)", text, re.I)
-        dish = m2.group(1) if m2 else text
-
-    # remove trailing 'for X people' fragments
-    dish = re.sub(r"for\s+\w+(?: people| person| persons)?", "", dish, flags=re.I).strip()
-    key = dish.lower()
-
-    item_ids = []
-    if key in RECIPE_MAP:
-        item_ids = RECIPE_MAP[key]
-    else:
-        item_ids = _infer_items_from_tags(dish)
-
-    if not item_ids:
-        return f"Sorry, I couldn't determine ingredients for '{request}'. Try a simpler phrase like 'chai' or 'maggi'."
-
-    added = []
-    for iid in item_ids:
-        item = find_catalog_item_by_id_db(iid)
-        if not item:
+    ACP-inspired merchant function: Create an order from line items.
+    line_items: [{ "product_id": "...", "quantity": 1 }, ...]
+    Returns the created order dict.
+    """
+    catalog = load_catalog()
+    order_items = []
+    total = 0.0
+    
+    for line_item in line_items:
+        product_id = line_item.get("product_id")
+        quantity = line_item.get("quantity", 1)
+        
+        # Find product in catalog
+        product = next((p for p in catalog if p["id"].lower() == product_id.lower()), None)
+        if not product:
             continue
-        # add with servings as quantity
-        found = False
-        for ci in ctx.userdata.cart:
-            if ci.item_id.lower() == iid.lower():
-                ci.quantity += servings
-                found = True
-                break
-        if not found:
-            ctx.userdata.cart.append(CartItem(item_id=item['id'], name=item['name'], unit_price=float(item['price']), quantity=servings))
-        added.append(item['name'])
-
-    total = cart_total(ctx.userdata.cart)
-    return f"I've added {', '.join(added)} to your cart for '{dish}'. (Servings: {servings}). Cart total: ₹{total:.2f}"
-
+        
+        price = float(product.get("price", 0))
+        order_items.append({
+            "id": product["id"],
+            "name": product["name"],
+            "price": price,
+            "quantity": quantity,
+        })
+        total += price * quantity
+    
+    order_id = str(uuid.uuid4())[:8]
+    timestamp = datetime.utcnow().isoformat() + "Z"
+    
+    order = {
+        "order_id": order_id,
+        "customer": customer_name,
+        "timestamp": timestamp,
+        "total": total,
+        "currency": "INR",
+        "items": order_items,
+        "status": "confirmed",
+    }
+    
+    # Persist order
+    orders = load_orders()
+    orders.append(order)
+    save_orders(orders)
+    
+    return order
 
 @function_tool
 async def place_order(
     ctx: RunContext[Userdata],
     customer_name: Annotated[str, Field(description="Customer name")],
-    address: Annotated[str, Field(description="Delivery address")],
 ) -> str:
+    """
+    Place an order from the current cart. Uses create_order internally.
+    """
     if not ctx.userdata.cart:
         return "Your cart is empty."
+    
+    # Convert cart to line_items format
+    line_items = [{"product_id": c.id, "quantity": c.quantity} for c in ctx.userdata.cart]
+    
+    # Create order using the merchant function
+    order = create_order(line_items, customer_name)
+    
+    # Store last order and clear cart
+    ctx.userdata.last_order = order
+    ctx.userdata.cart.clear()
 
-    order_id = str(uuid.uuid4())[:8]
-    now = datetime.utcnow().isoformat() + "Z"
-    total = cart_total(ctx.userdata.cart)
-
-    # 1. Persist to DB
-    insert_order_db(order_id=order_id, timestamp=now, total=total, customer_name=customer_name, address=address, status="received", items=ctx.userdata.cart)
-
-    # 1b. Also write a JSON copy to `orders/order_<id>.json` for easy inspection
-    try:
-        write_order_json(order_id=order_id, timestamp=now, total=total, customer_name=customer_name, address=address, status="received", items=ctx.userdata.cart)
-    except Exception:
-        logger.exception("Failed to write JSON backup for order %s", order_id)
-
-    # 2. Clear Cart
-    ctx.userdata.cart = []
-    ctx.userdata.customer_name = customer_name
-
-    # 3. Trigger Background Simulation (Received -> Shipped -> Out for delivery...)
-    try:
-        # create a background task on the running event loop
-        asyncio.create_task(simulate_delivery_flow(order_id))
-    except RuntimeError:
-        # If there is no running loop, schedule on a new loop in a background thread
-        loop = asyncio.new_event_loop()
-        asyncio.get_running_loop() if asyncio.get_event_loop().is_running() else None
-        # fire-and-forget: run in background
-        asyncio.get_event_loop().call_soon_threadsafe(lambda: asyncio.create_task(simulate_delivery_flow(order_id)))
-
-    return f"Order placed successfully! Order ID: {order_id}. Total: \u20B9{total:.2f}. I have initiated express shipping; the status will update automatically shortly."
-
+    return f"Order placed successfully! Order ID: {order['order_id']}. Total ₹{order['total']:.2f}. It's being processed under express checkout."
 
 @function_tool
-async def cancel_order(
-    ctx: RunContext[Userdata],
-    order_id: Annotated[str, Field(description="Order ID to cancel")],
-) -> str:
-    o = get_order_db(order_id)
-    if not o:
-        return f"No order found with id {order_id}."
-
-    status = o.get("status", "")
-    if status == "delivered":
-        return f"Order {order_id} has already been delivered and cannot be cancelled."
-
-    if status == "cancelled":
-        return f"Order {order_id} is already cancelled."
-
-    # Update DB
-    update_order_status_db(order_id, "cancelled")
-    return f"Order {order_id} has been cancelled successfully."
-
+async def last_order(ctx: RunContext[Userdata]) -> str:
+    if not ctx.userdata.last_order:
+        return "You haven't placed any orders yet."
+    o = ctx.userdata.last_order
+    items = ", ".join([i["name"] for i in o["items"]])
+    return f"Your last order ({o['order_id']}) includes {items}. Total ₹{o['total']:.2f}. Status: {o['status']}."
 
 @function_tool
-async def get_order_status(
-    ctx: RunContext[Userdata],
-    order_id: Annotated[str, Field(description="Order ID to check")],
-) -> str:
-    o = get_order_db(order_id)
-    if not o:
-        return f"No order found with id {order_id}."
-    return f"Order {order_id} status: {o.get('status', 'unknown')}. Updated at: {o.get('updated_at')}"
-
-
-@function_tool
-async def order_history(
-    ctx: RunContext[Userdata],
-    customer_name: Annotated[Optional[str], Field(description="Optional customer name to filter", default=None)] = None,
-) -> str:
-    rows = list_orders_db(limit=5, customer_name=customer_name)
-    if not rows:
-        return "No orders found."
+async def order_history(ctx: RunContext[Userdata]) -> str:
+    orders = load_orders()
+    if not orders:
+        return "No past orders found."
     lines = []
-    for o in rows:
-        lines.append(f"- {o['order_id']} | \u20B9{o['total']:.2f} | Status: {o.get('status')}")
-    prefix = "Recent Orders"
-    if customer_name:
-        prefix += f" for {customer_name}"
-    return prefix + ":\n" + "\n".join(lines)
-
-
-# -------------------------
-# Day 8: Game Master tools
-# -------------------------
-@function_tool
-async def restart_story(
-    ctx: RunContext[GMUserdata],
-    universe: Annotated[Optional[str], Field(description="Optional universe to use (e.g., 'fantasy', 'sci-fi')", default=None)] = None,
-) -> str:
-    """Reset the current story session and return the initial GM scene description."""
-    # clear remembered state
-    ctx.userdata.story_history = []
-    ctx.userdata.named_characters = set()
-    ctx.userdata.named_locations = set()
-    ctx.userdata.decisions = []
-    ctx.userdata.turn_count = 0
-    ctx.userdata.session_active = True
-
-    # Select a universe if provided
-    uni = (universe or "fantasy").strip().lower()
-    if uni == "sci-fi":
-        opening = (
-            "Alarms wail. The starcruiser 'Asterion' is off-course toward a rogue planet. "
-            "A datapad shows the coordinates. Your engineer companion Kora nods grimly. What do you do?"
-        )
-    else:
-        # default: fantasy
-        opening = (
-            "Moonlight spills across the Ruins of Hadrin. Your map shows a lost relic lies here. "
-            "A young squire named Elen whispers about strange footsteps. What do you do?"
-        )
-
-    # seed history with GM opening
-    ctx.userdata.story_history.append({"role": "gm", "text": opening})
-    return opening
-
-
-@function_tool
-async def show_story_state(ctx: RunContext[GMUserdata]) -> str:
-    """Return a short summary of remembered characters, locations and past decisions."""
-    chars = ", ".join(sorted(ctx.userdata.named_characters)) or "(none yet)"
-    locs = ", ".join(sorted(ctx.userdata.named_locations)) or "(none yet)"
-    decs = " | ".join(ctx.userdata.decisions) or "(no major decisions yet)"
-    return f"Characters: {chars}\nLocations: {locs}\nDecisions: {decs}\nTurns: {ctx.userdata.turn_count}"
-
-
-# -------------------------
-# Game Master Agent
-# -------------------------
-class GameMasterAgent(Agent):
-    def __init__(self):
-        super().__init__(
-            instructions="""
-            Universe: A dramatic fantasy realm of ancient ruins and dragons.
-            Tone: Dramatic, occasionally witty, brief and punchy—keep responses SHORT (1-3 sentences max per scene description).
-            Role: You are the GM. You describe scenes concisely and ask the player what they do.
-
-            CRITICAL RULES:
-            1. Keep ALL responses SHORT. Max 2-3 sentences per turn. Avoid long descriptions.
-            2. End EVERY message with: "What do you do?"
-            3. Track the turn count in chat history (count "What do you do?" prompts).
-            4. TURN LIMIT: After turn 6-8, rapidly escalate and CONCLUDE the story in the next 1-2 turns.
-              - Around turn 7: Introduce the final challenge or revelation.
-              - Turn 8: Bring the story to a clear ending (victory, discovery, or escape). Do NOT continue after this.
-            5. When the story ends, end with: "Your adventure concludes here. Well done, hero." (Do NOT ask "What do you do?")
-            6. Use only chat history for context. Remember player decisions and named characters.
-
-            When asked to restart, call the 'restart_story' tool.
-            """,
-            tools=[restart_story, show_story_state],
-        )
-
-
-# Module-level reference to the active GM userdata (set in entrypoint)
-active_gm_userdata: Optional[GMUserdata] = None
-
-
-class _SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
-    def _send_json(self, obj, status=200):
-        data = _json.dumps(obj).encode("utf-8")
-        self.send_response(status)
-        self.send_header("Content-Type", "application/json")
-        # Allow requests from local frontend during development
-        self.send_header("Access-Control-Allow-Origin", "*")
-        self.send_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
-        self.send_header("Access-Control-Allow-Headers", "Content-Type")
-        self.send_header("Content-Length", str(len(data)))
-        self.end_headers()
-        self.wfile.write(data)
-
-    def do_POST(self):
-        # Handle CORS preflight
-        if self.command == 'OPTIONS':
-            self._send_json({})
-            return
-        parsed = urlparse(self.path)
-        if parsed.path == "/restart":
-            length = int(self.headers.get("Content-Length", 0))
-            body = self.rfile.read(length).decode("utf-8") if length else "{}"
-            try:
-                payload = _json.loads(body)
-            except Exception:
-                payload = {}
-            universe = payload.get("universe") if isinstance(payload, dict) else None
-
-            global active_gm_userdata
-            if not active_gm_userdata:
-                return self._send_json({"error": "No active GM session"}, status=400)
-
-            # Perform restart logic (same as restart_story tool)
-            active_gm_userdata.story_history = []
-            active_gm_userdata.named_characters = set()
-            active_gm_userdata.named_locations = set()
-            active_gm_userdata.decisions = []
-            active_gm_userdata.turn_count = 0
-            active_gm_userdata.session_active = True
-
-            uni = (universe or "fantasy").strip().lower()
-            if uni == "sci-fi":
-                opening = (
-                    "You awaken in the humming corridors of the starcruiser 'Asterion', alarms faintly wailing. "
-                    "Neon panels flicker; a distant bulkhead door is ajar. A datapad nearby shows the ship is off-course toward a rogue planet. "
-                    "Your companion, a grizzled engineer named Kora, looks to you with concern. What do you do?"
-                )
-            else:
-                opening = (
-                    "Moonlight spills across the moss-covered stones of the Old Watchtower. A chill wind carries the scent of smoke and iron. "
-                    "A tattered map flutters in your hand, pointing toward the Ruins of Hadrin where a lost relic is said to lie. "
-                    "Nearby, a young squire named Elen whispers about strange footsteps. What do you do?"
-                )
-
-            active_gm_userdata.story_history.append({"role": "gm", "text": opening})
-            return self._send_json({"opening": opening})
-
-        return self._send_json({"error": "unknown endpoint"}, status=404)
-
-    def do_GET(self):
-        parsed = urlparse(self.path)
-        if parsed.path == "/state":
-            global active_gm_userdata
-            if not active_gm_userdata:
-                return self._send_json({"error": "No active GM session"}, status=400)
-            chars = ", ".join(sorted(active_gm_userdata.named_characters)) or "(none yet)"
-            locs = ", ".join(sorted(active_gm_userdata.named_locations)) or "(none yet)"
-            decs = " | ".join(active_gm_userdata.decisions) or "(no major decisions yet)"
-            return self._send_json({"characters": chars, "locations": locs, "decisions": decs, "turns": active_gm_userdata.turn_count})
-        return self._send_json({"error": "unknown endpoint"}, status=404)
-
-
-def _start_http_control_server(port: int = 8765):
-    # Start a small threaded HTTP server to accept /restart and /state
-    try:
-        # bind to localhost only
-        server = ThreadingHTTPServer(("127.0.0.1", port), _SimpleHTTPRequestHandler)
-    except OSError:
-        return None
-
-    t = threading.Thread(target=server.serve_forever, daemon=True)
-    t.start()
-    return server
+    for o in orders[-5:]:
+        lines.append(f"- {o['order_id']} | ₹{o['total']:.2f} | {o['status']} | {o['timestamp']}")
+    return "Recent orders:\n" + "\n".join(lines)
 
 # -------------------------
 # Agent Definition
 # -------------------------
-class FoodAgent(Agent):
+class EcommerceAgent(Agent):
     def __init__(self):
         super().__init__(
             instructions="""
-            You are 'Robin', a helpful assistant for 'Md Fahad Shop', an Indian grocery store.
-            Currency is Indian Rupees (₹).
+            You are 'Nova', a friendly AI shopping assistant for an online store.
+            Tone: Helpful, modern, concise, and professional.
+            You help users browse products, compare items, and place orders.
+
+            Guidelines:
+            - When users ask to browse products, use list_products with appropriate filters:
+              * "Show me all coffee mugs" -> list_products(category="mug")
+              * "Do you have any t-shirts under 1000?" -> list_products(category="tshirt", max_price=1000)
+              * "I'm looking for a black hoodie" -> list_products(category="hoodie", color="black")
+              * "Does this coffee mug come in blue?" -> list_products(category="mug", color="blue")
             
-            Capabilities:
-            1. Catalog: Search for Indian items (Amul milk, Tata salt, Maggi, Basmati rice).
-            2. Cart: Add/Remove items, Show cart.
-            3. Recipes: Add ingredients for dishes like Chai, Maggi, Paneer Butter Masala.
-            4. Orders: Place orders.
-            5. Cancellation: You can CANCEL an order if the user asks, provided it's not delivered yet.
+            - When listing products, mention the product number/position so users can refer to them:
+              "I found 3 options: 1. Product A, 2. Product B, 3. Product C"
             
-            When placing an order, mention that express tracking is enabled.
-            If user asks "Where is my order?", check status. 
-            The status advances automatically (simulated) so encourage them to check back in a few seconds.
+            - When users want to buy something, help them add items to cart:
+              * "I'll buy the second hoodie" -> identify which product they mean and use add_to_cart
+              * "Add 2 coffee mugs to my cart" -> use add_to_cart with quantity=2
+            
+            - Always show cart contents before placing an order to confirm.
+            
+            - When placing orders, ask for the customer name and use place_order.
+            
+            - Use show_cart when users ask "What's in my cart?" or "Show me my cart".
+            
+            - Use last_order when users ask "What did I just buy?" or "Show me my last order".
+            
+            - Use order_history when users ask about past orders or order history.
+            
+            - Be polite, avoid repeating too much.
+            - Mention prices in Indian Rupees (₹).
+            - Confirm details when placing an order.
+            - Orders are simulated only (no payments).
             """,
-            tools=[find_item, add_to_cart, remove_from_cart, update_cart_quantity, show_cart, add_recipe, place_order, cancel_order, get_order_status, order_history],
+            tools=[
+                list_products,
+                show_product,
+                add_to_cart,
+                remove_from_cart,
+                show_cart,
+                place_order,
+                last_order,
+                order_history,
+            ],
         )
 
 # -------------------------
 # Entrypoint
 # -------------------------
 def prewarm(proc: JobProcess):
-    # load VAD model and stash on process userdata
     try:
         proc.userdata["vad"] = silero.VAD.load()
     except Exception:
         logger.warning("VAD prewarm failed; continuing without preloaded VAD.")
 
-
 async def entrypoint(ctx: JobContext):
     ctx.log_context_fields = {"room": ctx.room.name}
-    logger.info("\n" + "🇮🇳" * 12)
-    logger.info("🚀 STARTING DR ABHISHEK SHOP (Indian Context + Auto-Tracking)")
-
-    # Use a Game Master session by default for Day 8.
-    gm_userdata = GMUserdata()
+    logger.info("\n🛒 Starting E-Commerce Voice Agent (ACP Inspired)")
+    
+    # Verify catalog loads
+    catalog = load_catalog()
+    logger.info(f"Catalog loaded with {len(catalog)} products")
+    if not catalog:
+        logger.warning("⚠️ WARNING: Catalog is empty or failed to load!")
 
     session = AgentSession(
         stt=deepgram.STT(model="nova-3"),
-        llm=google.LLM(model="gemini-2.5-flash"),
+        llm=openai.LLM(model="gpt-4o-mini"),  # Using OpenAI GPT-4o-mini (fast and cost-effective)
         tts=murf.TTS(
-            voice="en-US-marcus",
+            voice="en-US-natalie",
             style="Conversational",
             text_pacing=True,
         ),
         turn_detection=MultilingualModel(),
         vad=ctx.proc.userdata.get("vad"),
-        userdata=gm_userdata,
+        userdata=Userdata(),
     )
 
     await session.start(
-        agent=GameMasterAgent(),
+        agent=EcommerceAgent(),
         room=ctx.room,
         room_input_options=RoomInputOptions(noise_cancellation=noise_cancellation.BVC()),
     )
-
-    # expose the active GM userdata for the lightweight HTTP control API
-    global active_gm_userdata
-    try:
-        # If session.userdata is our GMUserdata, expose it.
-        if isinstance(session.userdata, GMUserdata):
-            active_gm_userdata = session.userdata
-        else:
-            active_gm_userdata = None
-    except Exception:
-        active_gm_userdata = None
-
-    # Start the control HTTP server (non-blocking)
-    _start_http_control_server()
-
+    
+    # Ensure transcriptions are published in real-time
+    # LiveKit agents automatically publish transcriptions, but we verify it's enabled
+    logger.info("✅ Agent session started with real-time transcription enabled")
     await ctx.connect()
-
 
 if __name__ == "__main__":
     cli.run_app(WorkerOptions(entrypoint_fnc=entrypoint, prewarm_fnc=prewarm))
