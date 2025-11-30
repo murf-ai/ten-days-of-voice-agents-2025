@@ -1,0 +1,26 @@
+[
+  {
+    "id": "order-153dc97e",
+    "items": [
+      {
+        "product_id": "hoodie-001",
+        "name": "Cozy Hoodie",
+        "unit_price": 1499,
+        "quantity": 1,
+        "line_total": 1499,
+        "attrs": {}
+      },
+      {
+        "product_id": "phone-004",
+        "name": "iPhone (Standard)",
+        "unit_price": 50000,
+        "quantity": 1,
+        "line_total": 50000,
+        "attrs": {}
+      }
+    ],
+    "total": 51499,
+    "currency": "INR",
+    "created_at": "2025-11-30T10:48:39.044579Z"
+  }
+]
