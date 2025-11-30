@@ -1,0 +1,74 @@
+[
+  {
+    "id": "ORD20251130210623",
+    "status": "CONFIRMED",
+    "created_at": "2025-11-30T21:06:23.948338",
+    "customer_name": "Navneet",
+    "line_items": [
+      {
+        "product_id": "hoodie-001",
+        "product_name": "Black Hoodie Premium",
+        "quantity": 1,
+        "unit_amount": 1899,
+        "size": "L",
+        "subtotal": 1899
+      }
+    ],
+    "total": 1899,
+    "currency": "INR"
+  },
+  {
+    "id": "ORD20251130211546",
+    "status": "CONFIRMED",
+    "created_at": "2025-11-30T21:15:46.976249",
+    "customer_name": "Navneet",
+    "line_items": [
+      {
+        "product_id": "hoodie-001",
+        "product_name": "Black Hoodie Premium",
+        "quantity": 1,
+        "unit_amount": 1899,
+        "size": "L",
+        "subtotal": 1899
+      }
+    ],
+    "total": 1899,
+    "currency": "INR"
+  },
+  {
+    "id": "ORD20251130211720",
+    "status": "CONFIRMED",
+    "created_at": "2025-11-30T21:17:20.400986",
+    "customer_name": "Navneef",
+    "line_items": [
+      {
+        "product_id": "tshirt-002",
+        "product_name": "Cotton T-Shirt White",
+        "quantity": 1,
+        "unit_amount": 699,
+        "size": "L",
+        "subtotal": 699
+      }
+    ],
+    "total": 699,
+    "currency": "INR"
+  },
+  {
+    "id": "ORD20251130212453",
+    "status": "CONFIRMED",
+    "created_at": "2025-11-30T21:24:53.473003",
+    "customer_name": "Mur",
+    "line_items": [
+      {
+        "product_id": "mug-002",
+        "product_name": "Blue Ceramic Mug",
+        "quantity": 3,
+        "unit_amount": 550,
+        "size": null,
+        "subtotal": 1650
+      }
+    ],
+    "total": 1650,
+    "currency": "INR"
+  }
+]
