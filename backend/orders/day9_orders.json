@@ -1,0 +1,56 @@
+[
+  {
+    "id": "ORD-0001",
+    "items": [
+      {
+        "product_id": "hoodie-001",
+        "name": "Cozy Black Hoodie",
+        "quantity": 1,
+        "unit_price": 1299,
+        "currency": "INR",
+        "color": "black",
+        "size": "S",
+        "line_total": 1299
+      }
+    ],
+    "total": 1299,
+    "currency": "INR",
+    "created_at": "2025-11-30T13:39:01.082798"
+  },
+  {
+    "id": "ORD-0002",
+    "items": [
+      {
+        "product_id": "mug-002",
+        "name": "Matte Black Mug",
+        "quantity": 1,
+        "unit_price": 899,
+        "currency": "INR",
+        "color": "black",
+        "size": null,
+        "line_total": 899
+      }
+    ],
+    "total": 899,
+    "currency": "INR",
+    "created_at": "2025-11-30T13:39:35.208954"
+  },
+  {
+    "id": "ORD-0003",
+    "items": [
+      {
+        "product_id": "hoodie-001",
+        "name": "Cozy Black Hoodie",
+        "quantity": 1,
+        "unit_price": 1299,
+        "currency": "INR",
+        "color": "black",
+        "size": "S",
+        "line_total": 1299
+      }
+    ],
+    "total": 1299,
+    "currency": "INR",
+    "created_at": "2025-11-30T13:43:54.607999"
+  }
+]

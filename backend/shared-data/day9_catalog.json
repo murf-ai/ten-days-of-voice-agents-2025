@@ -1,0 +1,112 @@
+[
+  {
+    "id": "mug-001",
+    "name": "Stoneware Coffee Mug",
+    "description": "A sturdy stoneware mug for hot coffee or tea.",
+    "price": 799,
+    "currency": "INR",
+    "category": "mug",
+    "color": "white",
+    "sizes": [],
+    "tags": ["coffee", "mug", "ceramic"]
+  },
+  {
+    "id": "mug-002",
+    "name": "Matte Black Mug",
+    "description": "Matte black ceramic mug with a minimal FalconStore logo.",
+    "price": 899,
+    "currency": "INR",
+    "category": "mug",
+    "color": "black",
+    "sizes": [],
+    "tags": ["coffee", "mug", "black", "minimal"]
+  },
+  {
+    "id": "mug-003",
+    "name": "Blue Travel Mug",
+    "description": "Insulated stainless steel travel mug with spill-proof lid.",
+    "price": 1199,
+    "currency": "INR",
+    "category": "mug",
+    "color": "blue",
+    "sizes": [],
+    "tags": ["travel", "coffee", "blue", "insulated"]
+  },
+  {
+    "id": "tee-001",
+    "name": "Falcon Classic T-Shirt",
+    "description": "Soft cotton unisex t-shirt with small chest logo.",
+    "price": 699,
+    "currency": "INR",
+    "category": "tshirt",
+    "color": "black",
+    "sizes": ["S", "M", "L", "XL"],
+    "tags": ["tshirt", "black", "casual"]
+  },
+  {
+    "id": "tee-002",
+    "name": "Sky Blue Logo Tee",
+    "description": "Relaxed fit t-shirt in sky blue with front logo print.",
+    "price": 749,
+    "currency": "INR",
+    "category": "tshirt",
+    "color": "blue",
+    "sizes": ["S", "M", "L"],
+    "tags": ["tshirt", "blue", "casual"]
+  },
+  {
+    "id": "tee-003",
+    "name": "Minimal White Tee",
+    "description": "White t-shirt with subtle sleeve branding.",
+    "price": 649,
+    "currency": "INR",
+    "category": "tshirt",
+    "color": "white",
+    "sizes": ["M", "L", "XL"],
+    "tags": ["tshirt", "white", "minimal"]
+  },
+  {
+    "id": "hoodie-001",
+    "name": "Cozy Black Hoodie",
+    "description": "Fleece-lined hoodie for everyday comfort.",
+    "price": 1299,
+    "currency": "INR",
+    "category": "hoodie",
+    "color": "black",
+    "sizes": ["S", "M", "L", "XL"],
+    "tags": ["hoodie", "black", "winter"]
+  },
+  {
+    "id": "hoodie-002",
+    "name": "Grey Zip Hoodie",
+    "description": "Lightweight zip-up hoodie, ideal for layering.",
+    "price": 1399,
+    "currency": "INR",
+    "category": "hoodie",
+    "color": "grey",
+    "sizes": ["M", "L", "XL"],
+    "tags": ["hoodie", "grey", "zip"]
+  },
+  {
+    "id": "hoodie-003",
+    "name": "Blue Oversized Hoodie",
+    "description": "Oversized hoodie in deep blue with front pocket.",
+    "price": 1499,
+    "currency": "INR",
+    "category": "hoodie",
+    "color": "blue",
+    "sizes": ["M", "L"],
+    "tags": ["hoodie", "blue", "oversized"]
+  },
+  {
+    "id": "cap-001",
+    "name": "Black Baseball Cap",
+    "description": "Adjustable cap with embroidered Falcon logo.",
+    "price": 499,
+    "currency": "INR",
+    "category": "accessory",
+    "color": "black",
+    "sizes": [],
+    "tags": ["cap", "black", "accessory"]
+  }
+]
