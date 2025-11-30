@@ -1,0 +1,30 @@
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "day9-shopping-agent"
+version = "1.0.0"
+description = "E-commerce Voice Shopping Agent - ACP-inspired"
+requires-python = ">=3.9"
+
+dependencies = [
+    "livekit-agents[assemblyai,deepgram,google,silero,turn-detector]~=1.2",
+    "livekit-murf>=0.1.0",
+    "livekit-plugins-noise-cancellation~=0.2",
+    "python-dotenv",
+]
+
+[dependency-groups]
+dev = [
+    "pytest",
+    "pytest-asyncio",
+    "ruff",
+]
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-dir]
+"" = "src"
+

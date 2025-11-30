@@ -70,7 +70,7 @@ export const SessionView = ({
   useDebugMode({ enabled: IN_DEVELOPMENT });
 
   const messages = useChatMessages();
-  const [chatOpen, setChatOpen] = useState(true); // Always show chat for Game Master experience
+  const [chatOpen, setChatOpen] = useState(true); // Always show chat for transcripts
   const scrollAreaRef = useRef<HTMLDivElement>(null);
 
   const controls: ControlBarControls = {

@@ -29,8 +29,8 @@ export const ChatEntry = ({
   const time = new Date(timestamp);
   const title = time.toLocaleTimeString(locale, { timeStyle: 'full' });
 
-  // Display name for Game Master experience
-  const displayName = name || (messageOrigin === 'local' ? 'You' : 'Game Master');
+  // Display name for shopping assistant
+  const displayName = name || (messageOrigin === 'local' ? 'You' : 'Shopping Assistant');
 
   return (
     <li

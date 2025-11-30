@@ -1,5 +1,4 @@
 import { Button } from '@/components/livekit/button';
-import Image from 'next/image';
 
 interface WelcomeViewProps {
   startButtonText: string;
@@ -14,20 +13,29 @@ export const WelcomeView = ({
   return (
     <div ref={ref}>
       <section className="bg-background flex flex-col items-center justify-center text-center">
-        {/* Stranger Things Logo */}
+        {/* Shopping Icon */}
         <div className="mb-8">
-          <Image
-            src="/Stranger_Things_logo.png"
-            alt="Stranger Things"
-            width={400}
-            height={200}
-            priority
-            className="max-w-md w-full h-auto"
-          />
+          <svg
+            className="w-32 h-32 text-primary"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={1.5}
+              d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z"
+            />
+          </svg>
         </div>
 
+        <h1 className="text-foreground text-4xl font-bold mb-4">
+          Voice Shopping Assistant
+        </h1>
+
         <p className="text-foreground max-w-prose pt-1 leading-6 font-medium text-lg">
-          A D&D-style voice adventure set in Hawkins, 1985
+          Shop naturally with your voice - Browse products, ask questions, and place orders
         </p>
 
         <Button variant="primary" size="lg" onClick={onStartCall} className="mt-8 w-72 font-mono text-lg">

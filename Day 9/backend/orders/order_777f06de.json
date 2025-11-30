@@ -1,0 +1,17 @@
+{
+  "id": "777f06de",
+  "customer_name": "Test Customer",
+  "items": [
+    {
+      "product_id": "mug-001",
+      "product_name": "Stoneware Coffee Mug",
+      "quantity": 2,
+      "unit_price": 800,
+      "item_total": 1600
+    }
+  ],
+  "total": 1600,
+  "currency": "INR",
+  "created_at": "2025-11-30T14:42:16.280589",
+  "status": "confirmed"
+}

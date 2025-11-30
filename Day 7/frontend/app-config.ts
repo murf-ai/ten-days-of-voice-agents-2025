@@ -20,20 +20,20 @@ export interface AppConfig {
 }
 
 export const APP_CONFIG_DEFAULTS: AppConfig = {
-  companyName: 'Stranger Things',
-  pageTitle: 'Stranger Things Game Master',
-  pageDescription: 'A D&D-style voice adventure set in Hawkins, 1985',
+  companyName: 'Voice Shopping',
+  pageTitle: 'Voice Shopping Assistant',
+  pageDescription: 'Shop with your voice - Browse products and place orders naturally',
 
   supportsChatInput: true,
   supportsVideoInput: false,
   supportsScreenShare: false,
   isPreConnectBufferEnabled: true,
 
-  logo: '/Stranger_Things_logo.png',
-  accent: '#cc0000',  // Stranger Things red
-  logoDark: '/Stranger_Things_logo.png',
-  accentDark: '#ff0000',  // Brighter red for dark mode
-  startButtonText: 'Enter the Upside Down',
+  logo: '',  // No logo
+  accent: '#2563eb',  // Blue for shopping
+  logoDark: '',
+  accentDark: '#3b82f6',  // Brighter blue for dark mode
+  startButtonText: 'Start Shopping',
 
   // for LiveKit Cloud Sandbox
   sandboxId: undefined,

@@ -1,0 +1,17 @@
+{
+  "id": "fcd1057f",
+  "customer_name": "Robin Rajesh",
+  "items": [
+    {
+      "product_id": "mug-003",
+      "product_name": "Black Travel Mug",
+      "quantity": 3,
+      "unit_price": 1200,
+      "item_total": 3600
+    }
+  ],
+  "total": 3600,
+  "currency": "INR",
+  "created_at": "2025-11-30T16:19:40.460578",
+  "status": "confirmed"
+}
