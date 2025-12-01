@@ -1,7 +1,5 @@
 import logging
-import json
-from pathlib import Path
-from datetime import datetime
+from dataclasses import dataclass, asdict
 from typing import List, Dict, Any, Optional
 
 from dotenv import load_dotenv
@@ -16,347 +14,210 @@ from livekit.agents import (
     cli,
     metrics,
     tokenize,
-    function_tool,
-    RunContext,
 )
 from livekit.plugins import murf, silero, google, deepgram, noise_cancellation
 from livekit.plugins.turn_detector.multilingual import MultilingualModel
 
+# --------- logging setup ---------
+logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("agent")
 
 load_dotenv(".env.local")
 
-# ------------ SIMPLE BUILT-IN CATALOG (NO FILE NEEDED) ------------
 
-CATALOG: List[Dict[str, Any]] = [
-    {
-        "id": "mug-001",
-        "name": "Stoneware Coffee Mug",
-        "description": "A sturdy stoneware mug for hot coffee or tea.",
-        "price": 799,
-        "currency": "INR",
-        "category": "mug",
-        "color": "white",
-        "sizes": [],
-        "tags": ["coffee", "mug", "ceramic"],
-    },
-    {
-        "id": "mug-002",
-        "name": "Matte Black Mug",
-        "description": "Matte black ceramic mug with a minimal FalconStore logo.",
-        "price": 899,
-        "currency": "INR",
-        "category": "mug",
-        "color": "black",
-        "sizes": [],
-        "tags": ["coffee", "mug", "black", "minimal"],
-    },
-    {
-        "id": "hoodie-001",
-        "name": "Cozy Black Hoodie",
-        "description": "Fleece-lined hoodie for everyday comfort.",
-        "price": 1299,
-        "currency": "INR",
-        "category": "hoodie",
-        "color": "black",
-        "sizes": ["S", "M", "L", "XL"],
-        "tags": ["hoodie", "black", "winter"],
-    },
-    {
-        "id": "hoodie-002",
-        "name": "Blue Oversized Hoodie",
-        "description": "Oversized hoodie in deep blue with front pocket.",
-        "price": 1499,
-        "currency": "INR",
-        "category": "hoodie",
-        "color": "blue",
-        "sizes": ["M", "L"],
-        "tags": ["hoodie", "blue", "oversized"],
-    },
-    {
-        "id": "tee-001",
-        "name": "Falcon Classic T-Shirt",
-        "description": "Soft cotton unisex t-shirt with small chest logo.",
-        "price": 699,
-        "currency": "INR",
-        "category": "tshirt",
-        "color": "black",
-        "sizes": ["S", "M", "L", "XL"],
-        "tags": ["tshirt", "black", "casual"],
-    },
-]
+# ------------- Simple improv state container (per session) -------------
 
 
-# ------------ ORDERS JSON HELPERS ------------
+@dataclass
+class ImprovRound:
+    scenario: str
+    host_reaction: Optional[str] = None
 
 
-def load_orders() -> List[Dict[str, Any]]:
-    base_dir = Path(__file__).resolve().parent.parent
-    path = base_dir / "orders" / "day9_orders.json"
-    if not path.exists():
-        return []
-    try:
-        with path.open("r", encoding="utf-8") as f:
-            data = json.load(f)
-            if isinstance(data, list):
-                return data
-    except Exception as e:
-        logger.warning(f"Failed to load day9_orders.json: {e}")
-    return []
+@dataclass
+class ImprovState:
+    player_name: Optional[str] = None
+    current_round: int = 0
+    max_rounds: int = 3
+    phase: str = "intro"  # "intro" | "awaiting_improv" | "reacting" | "done"
+    rounds: List[ImprovRound] = None
+
+    def to_dict(self) -> Dict[str, Any]:
+        return {
+            "player_name": self.player_name,
+            "current_round": self.current_round,
+            "max_rounds": self.max_rounds,
+            "phase": self.phase,
+            "rounds": [asdict(r) for r in (self.rounds or [])],
+        }
 
 
-def save_orders(orders: List[Dict[str, Any]]) -> None:
-    base_dir = Path(__file__).resolve().parent.parent
-    orders_dir = base_dir / "orders"
-    orders_dir.mkdir(parents=True, exist_ok=True)
-    path = orders_dir / "day9_orders.json"
-    with path.open("w", encoding="utf-8") as f:
-        json.dump(orders, f, indent=2, ensure_ascii=False)
+# ------------- Improv Host Agent -------------
 
 
-# ------------ AGENT ------------
-
-
-class FalconStoreAgent(Agent):
+class ImprovHostAgent(Agent):
     """
-    Very simple ACP-inspired e-commerce voice agent.
+    Single-player Improv Battle host.
 
-    - Conversation handled by LLM.
-    - Commerce handled by tools:
-        * create_order_from_text
-        * get_last_order_summary
+    NOTE: The LLM controls the conversation flow, but we keep a simple
+    improv_state object on the backend for bookkeeping & logging.
     """
 
     def __init__(self) -> None:
-        self.catalog = CATALOG
-        self.brand_name = "FalconStore"
+        # pre-defined scenarios for 3 rounds
+        self.scenarios: List[str] = [
+            # Round 1
+            (
+                "Round 1! You are a time-travelling tour guide who has landed in 1800s "
+                "India. You must explain modern smartphones to a skeptical local who "
+                "thinks you are some kind of magician."
+            ),
+            # Round 2
+            (
+                "Round 2! You are a restaurant waiter who must calmly tell a customer "
+                "that their biryani has escaped the kitchen and is running around the city."
+            ),
+            # Round 3
+            (
+                "Final Round! You are a customer trying to return an obviously cursed "
+                "object to a very skeptical shop owner who insists it is perfectly normal."
+            ),
+        ]
+
+        self.improv_state = ImprovState(
+            player_name=None,
+            current_round=0,
+            max_rounds=len(self.scenarios),
+            phase="intro",
+            rounds=[],
+        )
 
         instructions = f"""
-You are a friendly e-commerce voice assistant for {self.brand_name},
-a fictional Indian online store that sells mugs, hoodies and t-shirts.
+You are the high-energy host of a TV improv game show called "Improv Battle".
 
-HIGH-LEVEL BEHAVIOR
-- Greet the user and explain you can help them browse products and place orders.
-- When they describe what they want to BUY, you MUST call the tool
-  `create_order_from_text` with their request text.
-- After the tool returns, speak out the confirmation naturally.
-- When they ask "What did I just buy?" or "last order", you MUST call
-  `get_last_order_summary` and read it back.
+You are running a **single-player** improv game over voice.
+The player joins from the browser with a name like "Eshwar".
+Your job is to:
 
-CATALOG (examples you can mention)
-- Cozy Black Hoodie (hoodie-001), black, ₹1299, sizes S–XL
-- Blue Oversized Hoodie (hoodie-002), blue, ₹1499
-- Falcon Classic T-Shirt (tee-001), black tee, ₹699
-- Matte Black Mug (mug-002), black mug, ₹899
-- Stoneware Coffee Mug (mug-001), white mug, ₹799
+1) Introduce the show and rules.
+2) Run exactly {self.improv_state.max_rounds} improv rounds using the fixed scenarios below.
+3) After each round, react with varied, realistic feedback.
+4) Give a fun closing summary when the game ends.
+5) Respect early exit if the player clearly wants to stop.
 
-WHEN TO CALL TOOLS
-- If user says anything like:
-    "I want to buy a black hoodie in size M"
-    "Order the black hoodie you mentioned"
-    "Get me that matte black mug"
-  → Call `create_order_from_text` with the entire user sentence
-    as the `request` argument. Do not guess totals yourself.
+------------------------
+GAME STRUCTURE (YOU MUST FOLLOW)
+------------------------
 
-- If user says:
-    "What did I just buy?"
-    "Tell me my last order"
-  → Call `get_last_order_summary`.
+When the conversation starts:
 
-RULES
-- Use only INR prices.
-- Do not invent products outside the catalog; pick the closest match.
-- Keep responses short and natural.
-- Do not mention tools or JSON to the user.
+- Greet the player as the host of "Improv Battle".
+- Ask for their name if it is not clear yet. Once you know it, use it often.
+- Briefly explain the rules, for example:
+  "I'll give you 3 wild scenarios. In each one, you act it out in character.
+   When you're done, say something like 'End scene' or 'I'm done',
+   and I'll react and move to the next round."
+
+Then play through these 3 rounds in order:
+
+SCENARIO 1:
+"{self.scenarios[0]}"
+
+SCENARIO 2:
+"{self.scenarios[1]}"
+
+SCENARIO 3:
+"{self.scenarios[2]}"
+
+For each round:
+
+1. Clearly announce the round number.
+2. State the scenario with energy and clarity.
+3. Tell the player to start improvising now.
+   Example: "3, 2, 1... and action!"
+4. Let the player speak in character for a bit.
+   - The player might talk for one or more turns.
+   - When they say something like "End scene", "I'm done", "Okay", or they pause,
+     you should treat the scene as finished.
+5. React as the host:
+   - Comment on what worked, what was funny, what was weird or flat.
+   - Vary your tone:
+        * Sometimes amused and supportive.
+        * Sometimes lightly critical or unimpressed.
+        * Sometimes pleasantly surprised.
+   - Always stay respectful and non-abusive.
+   - Keep your reaction to 2–4 sentences.
+6. Then move on to the next round, until all rounds are completed.
+
+------------------------
+HOST REACTION STYLE
+------------------------
+
+Your reactions should feel like a real improv coach / host:
+
+- Mention specific things the player did:
+  "I loved how you leaned into the idea that the phone was 'tiny magic TV'!"
+- Mix praise and critique:
+  - Positive: "That cursed object character had great attitude."
+  - Critical but kind: "You could have slowed down and made the waiter more panicked."
+- Sometimes tease the player lightly:
+  - "That ending was pure chaos, and I'm honestly proud of the nonsense."
+  - "You bailed out a bit early there, but the idea was solid."
+
+Do NOT be robotic or always positive. Add variety and personality.
+
+------------------------
+CLOSING SUMMARY
+------------------------
+
+After the final round:
+
+- Thank the player by name.
+- Summarize what kind of improviser they seemed to be:
+  - e.g. "very character-driven", "loves absurd scenarios", "good at emotional tone".
+- Mention 1–2 specific scenes or moments that stood out.
+- Close the show clearly, e.g.
+  "That’s all for tonight on Improv Battle. See you next time!"
+
+------------------------
+EARLY EXIT
+------------------------
+
+If the player clearly says they want to stop the game early,
+for example: "Stop game", "End show", "I'm done with this":
+
+- Confirm and end gracefully:
+  "Got it, we’ll wrap it up here. Thanks for playing Improv Battle!"
+
+------------------------
+IMPORTANT
+------------------------
+
+- Speak like a TV host: energetic, clear, playful.
+- Keep your turns reasonably short so the player gets to talk a lot.
+- DO NOT talk about tools, JSON, or backend state.
+- If the player goes off-topic, gently bring them back to the current round.
 """
         super().__init__(instructions=instructions)
 
-    # ---------- Internal helpers ----------
-
-    def _match_product_from_text(self, text: str) -> Dict[str, Any]:
-        """
-        Very naive matching: look for keywords like 'hoodie', 't-shirt', 'mug'
-        and colors like 'black', 'blue', etc. Pick the first product that matches.
-        """
-        t = text.lower()
-        category = None
-        if "hoodie" in t:
-            category = "hoodie"
-        elif "t-shirt" in t or "tshirt" in t or "tee" in t:
-            category = "tshirt"
-        elif "mug" in t:
-            category = "mug"
-
-        color = None
-        for c in ["black", "blue", "white"]:
-            if c in t:
-                color = c
-                break
-
-        # basic scan over catalog
-        candidates = []
-        for p in self.catalog:
-            if category and p.get("category") != category:
-                continue
-            if color and p.get("color") != color:
-                continue
-            candidates.append(p)
-
-        if candidates:
-            return candidates[0]
-
-        # fallback: any item from correct category
-        if category:
-            for p in self.catalog:
-                if p.get("category") == category:
-                    return p
-
-        # final fallback: just first product
-        return self.catalog[0]
-
-    def _extract_quantity(self, text: str) -> int:
-        t = text.lower().split()
-        for w in t:
-            digits = "".join(ch for ch in w if ch.isdigit())
-            if digits:
-                try:
-                    q = int(digits)
-                    if q > 0:
-                        return q
-                except ValueError:
-                    continue
-        return 1
-
-    def _extract_size(self, text: str) -> Optional[str]:
-        t = text.upper()
-        for size in ["XS", "S", "M", "L", "XL", "XXL"]:
-            if f" {size} " in f" {t} ":
-                return size
-        return None
-
-    # ---------- TOOLS ----------
-
-    @function_tool()
-    async def create_order_from_text(
-        self,
-        context: RunContext,
-        request: str,
-    ) -> str:
-        """
-        Create an order based on a natural language request.
-
-        Args:
-            request: What the user said, like
-                "I want to buy a black hoodie in size M"
-                or "Order two matte black mugs".
-        """
-        req = request.strip()
-        if not req:
-            return "I couldn't understand the order request."
-
-        product = self._match_product_from_text(req)
-        quantity = self._extract_quantity(req)
-        size = self._extract_size(req)
-
-        # if product supports sizes but none found, default to first size
-        sizes = product.get("sizes") or []
-        chosen_size = None
-        if sizes:
-            if size and size in sizes:
-                chosen_size = size
-            else:
-                chosen_size = sizes[0]
-
-        unit_price = product["price"]
-        currency = product.get("currency", "INR")
-        line_total = unit_price * quantity
-
-        orders = load_orders()
-        order_id = f"ORD-{len(orders) + 1:04d}"
-
-        order_item = {
-            "product_id": product["id"],
-            "name": product["name"],
-            "quantity": quantity,
-            "unit_price": unit_price,
-            "currency": currency,
-            "color": product.get("color"),
-            "size": chosen_size,
-            "line_total": line_total,
-        }
-
-        order = {
-            "id": order_id,
-            "items": [order_item],
-            "total": line_total,
-            "currency": currency,
-            "created_at": datetime.utcnow().isoformat(),
-        }
-
-        orders.append(order)
-        save_orders(orders)
-
-        logger.info(f"[Order] Created order {order_id} from text: {req}")
-
-        size_txt = f", size {chosen_size}" if chosen_size else ""
-        return (
-            f"Your order {order_id} is created: {quantity} x {product['name']}"
-            f"{size_txt} for a total of {currency} {line_total}."
-        )
-
-    @function_tool()
-    async def get_last_order_summary(
-        self,
-        context: RunContext,
-    ) -> str:
-        """
-        Return a short summary of the most recent order.
-        """
-        orders = load_orders()
-        if not orders:
-            return "You haven't placed any orders yet in this demo."
-
-        last = orders[-1]
-        items = last.get("items", [])
-        if not items:
-            return "Your last order appears to be empty."
-
-        lines = []
-        for item in items:
-            name = item.get("name", "Unknown item")
-            qty = item.get("quantity", 1)
-            color = item.get("color")
-            size = item.get("size")
-            extra = []
-            if color:
-                extra.append(color)
-            if size:
-                extra.append(f"size {size}")
-            extra_txt = f" ({', '.join(extra)})" if extra else ""
-            lines.append(f"{qty} x {name}{extra_txt}")
-
-        line_str = "; ".join(lines)
-        total = last.get("total", 0)
-        currency = last.get("currency", "INR")
-        order_id = last.get("id", "unknown ID")
-
-        return (
-            f"Your most recent order is {order_id}: {line_str}, "
-            f"for a total of {currency} {total}."
-        )
+    # Just for debugging, not required by the game:
+    def log_state(self):
+        logger.info(f"Improv state: {self.improv_state.to_dict()}")
 
 
 # ----------------------- Session Setup -----------------------
 
 
 def prewarm(proc: JobProcess):
+    # VAD model prewarm so turn-taking feels snappy
+    logger.info("Prewarming VAD model...")
     proc.userdata["vad"] = silero.VAD.load()
+    logger.info("VAD model loaded.")
 
 
 async def entrypoint(ctx: JobContext):
+    logger.info("Entrypoint starting...")
     ctx.log_context_fields = {"room": ctx.room.name}
-
-    logger.info(f"Day 9 FalconStore – catalog has {len(CATALOG)} products.")
 
     session = AgentSession(
         stt=deepgram.STT(model="nova-3"),
@@ -385,16 +246,22 @@ async def entrypoint(ctx: JobContext):
 
     ctx.add_shutdown_callback(log_usage)
 
+    agent = ImprovHostAgent()
+
+    logger.info("Starting ImprovHostAgent session...")
     await session.start(
-        agent=FalconStoreAgent(),
+        agent=agent,
         room=ctx.room,
         room_input_options=RoomInputOptions(
             noise_cancellation=noise_cancellation.BVC(),
         ),
     )
 
+    logger.info("Connecting context to room...")
     await ctx.connect()
+    logger.info("Entrypoint finished (ctx.connect returned).")
 
 
 if __name__ == "__main__":
+    print("🔥 Starting Improv Battle worker via cli.run_app ...")
     cli.run_app(WorkerOptions(entrypoint_fnc=entrypoint, prewarm_fnc=prewarm))
