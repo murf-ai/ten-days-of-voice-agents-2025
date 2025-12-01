@@ -28,18 +28,23 @@ logger.setLevel(logging.INFO)
 
 load_dotenv(".env.local")
 
-# Improv scenarios
+# Improv scenarios - Adult/Cinematic focused (generic descriptions)
 SCENARIOS = [
-    "You are a time-travelling tour guide explaining modern smartphones to someone from the 1800s.",
-    "You are a restaurant waiter who must calmly tell a customer that their order has escaped the kitchen.",
-    "You are a customer trying to return an obviously cursed object to a very skeptical shop owner.",
-    "You are a barista who has to tell a customer that their latte is actually a portal to another dimension.",
-    "You are a tech support agent helping someone who accidentally downloaded their consciousness into their smart fridge.",
-    "You are a yoga instructor teaching a class to aliens who just landed on Earth.",
-    "You are a detective interrogating a suspect who is clearly a time traveler but won't admit it.",
-    "You are a chef on a cooking show where all your ingredients have suddenly become sentient.",
-    "You are a museum tour guide explaining why a very ordinary stapler is actually priceless art.",
-    "You are a driving instructor teaching someone who thinks the car is a spaceship."
+    "You are a billionaire tech genius trying to convince your team that your latest invention is totally safe, despite it just exploding in the lab 5 minutes ago.",
+    "You are a time-enforcement agent explaining to a confused person why their timeline is being erased and they need to come with you immediately.",
+    "You are a master sorcerer negotiating with a dangerous villain to prevent them from destroying half the city, but you can only offer them a really disappointing compromise.",
+    "You are a secret agency operative interrogating someone who claims they're from the future and knows about an alien invasion happening tomorrow.",
+    "You are a young vigilante with a secret identity trying to explain to your boss why you're late again without revealing your double life.",
+    "You are a brilliant scientist from an advanced hidden nation pitching revolutionary technology to the council, but it has one major embarrassing flaw.",
+    "You are a smooth-talking trickster trying to charm your way out of trouble after getting caught scheming again.",
+    "You are meeting an alternate version of yourself from another dimension and trying to convince them you're real and not just losing your mind.",
+    "You are a gang leader in 1920s Birmingham trying to negotiate a dangerous deal with a rival family without starting a war.",
+    "You are an astronaut trying to explain to mission control that you've discovered something impossible near a black hole, but they think your equipment is malfunctioning.",
+    "You are a time-traveler from the future trying to warn someone about a catastrophic event tomorrow, but they think you're just a crazy conspiracy theorist.",
+    "You are someone with severe anger issues trying to stay calm during an extremely frustrating situation while feeling yourself about to lose control.",
+    "You are a mystical mentor trying to teach a skeptical student their first magic spell, but everything keeps going hilariously wrong.",
+    "You are a one-eyed spy director trying to recruit someone for a top-secret mission, but you legally can't tell them any actual details about it.",
+    "You are a master thief planning an elaborate heist with your crew, but your plan has one obvious flaw everyone keeps pointing out."
 ]
 
 # Game state storage
@@ -263,9 +268,12 @@ INTRO PHASE:
 - Call next_scenario() to begin Round 1
 
 SCENARIO PHASE (repeat 3 times):
-- Announce the scenario clearly
+- Call next_scenario() to get the scenario
+- The tool returns: "Round X of 3: SCENARIO TEXT Go ahead and act it out!"
+- Read the EXACT scenario text from the tool and announce it to the player
+- DO NOT make up your own scenarios - ONLY use what next_scenario() returns
 - Tell them to start improvising
-- LISTEN to their performance actively
+- Listen silently while they perform - DO NOT interrupt
 - When they clearly finish (say "end scene", long pause, or ask to move on):
   * Summarize what they did in 1-2 sentences
   * Call scene_complete(performance_summary)
@@ -273,11 +281,11 @@ SCENARIO PHASE (repeat 3 times):
 
 REACTION PHASE:
 - Based on STYLE from scene_complete:
-  * positive_enthusiastic: "That was HILARIOUS! The way you..."
-  * positive_mild: "Nice work, I liked how you..."
-  * critical_constructive: "That felt a bit rushed. You could have..."
-  * mixed: "Interesting choice! The [X] was great but [Y] could be stronger"
-  * surpris: "Wow, I did NOT expect you to..."
+  * positive_enthusiastic: "That was HILARIOUS! The way you did that was amazing!"
+  * positive_mild: "Nice work, I liked your approach there."
+  * critical_constructive: "That felt a bit rushed. You could have developed it more."
+  * mixed: "Interesting choice! The first part was great but the second could be stronger."
+  * surprised: "Wow, I did NOT expect you to go that direction!"
 
 - Keep reactions SHORT (2-3 sentences max)
 - Be specific about what they did
@@ -286,7 +294,7 @@ REACTION PHASE:
 
 CLOSING PHASE (after 3 rounds):
 - Call get_game_summary()
-- Give a character assessment: "You seem to be a [type] improviser"
+- Give a character assessment based on their overall style
 - Mention 1-2 specific memorable moments
 - Thank them: "Thanks for playing Improv Battle!"
 
@@ -295,8 +303,10 @@ EARLY EXIT:
   * Call end_game()
   * Give brief closing and thank them
 
-RULES:
+CRITICAL RULES:
 - Keep ALL responses SHORT (1-3 sentences) except intro and closing
+- NEVER use square brackets in your speech - speak naturally
+- DO NOT narrate your actions or thoughts
 - React authentically - sometimes critical, sometimes amazed
 - Never be mean, but honest feedback is good
 - After each reaction, move forward (next scenario or closing)
@@ -322,7 +332,10 @@ async def entrypoint(ctx: JobContext):
     # Create agent session
     session = AgentSession(
         stt=deepgram.STT(model="nova-3"),
-        llm=google.LLM(model="gemini-2.0-flash-lite"),
+        llm=google.LLM(
+            model="gemini-2.0-flash-lite",
+            temperature=0.8,
+        ),
         tts=murf.TTS(
             voice="en-IN-priya", 
             style="Conversation",
