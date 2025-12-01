@@ -45,13 +45,25 @@ export function useRoom(appConfig: AppConfig) {
         );
 
         try {
-          const res = await fetch(url.toString(), {
+          // Read player name saved from the welcome UI (if any)
+        let participantName = 'user';
+        try {
+          if (typeof window !== 'undefined') {
+            const name = localStorage.getItem('improv_player_name');
+            if (name && name.trim().length > 0) participantName = name.trim();
+          }
+        } catch (e) {
+          // ignore
+        }
+
+        const res = await fetch(url.toString(), {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
               'X-Sandbox-Id': appConfig.sandboxId ?? '',
             },
             body: JSON.stringify({
+              participant_name: participantName,
               room_config: appConfig.agentName
                 ? {
                     agents: [{ agent_name: appConfig.agentName }],

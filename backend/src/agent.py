@@ -1,20 +1,16 @@
 """
-Day 9 – E-Commerce Voice Agent (ACP-Inspired)
-- Reads product catalog from products.json in backend directory.
-- Creates/updates orders.json to persist placed orders.
-- Tools:
-    - list_products / show_product
-    - add_to_cart / remove_from_cart / show_cart
-    - place_order / last_order / order_history
+Improv Battle host agent — clean implementation.
+This file implements a LiveKit agent that runs a short improv show with a voice host.
 """
 
 import os
 import json
-import uuid
 import logging
-from datetime import datetime
-from typing import List, Optional, Annotated
+from typing import Optional, Annotated
 from dataclasses import dataclass, field
+import threading
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from urllib.parse import unquote
 
 from dotenv import load_dotenv
 from pydantic import Field
@@ -37,387 +33,158 @@ from livekit.plugins.turn_detector.multilingual import MultilingualModel
 # -------------------------
 load_dotenv(".env.local")
 
-logger = logging.getLogger("ecommerce_agent")
+logger = logging.getLogger("improv_agent")
 logger.setLevel(logging.INFO)
 handler = logging.StreamHandler()
 handler.setFormatter(logging.Formatter("%(asctime)s %(levelname)s %(message)s"))
 logger.addHandler(handler)
 
+# In-memory mapping of room name -> improv_state (dict)
+SESSIONS: dict = {}
+_STATE_SERVER_STARTED = False
+
+
 # -------------------------
 # Data models
 # -------------------------
 @dataclass
-class CartItem:
-    id: str
-    name: str
-    price: float
-    quantity: int = 1
-    size: Optional[str] = None
-
-@dataclass
 class Userdata:
-    cart: List[CartItem] = field(default_factory=list)
-    last_order: Optional[dict] = None
     user_name: Optional[str] = None
+    improv_state: dict = field(default_factory=lambda: {
+        "player_name": None,
+        "current_round": 0,
+        "max_rounds": 3,
+        "rounds": [],
+        "phase": "intro",
+    })
+
 
 # -------------------------
-# File paths
+# Improv State HTTP server
 # -------------------------
+def _make_state_handler():
+    class StateHandler(BaseHTTPRequestHandler):
+        def _send_json(self, obj, status=200):
+            data = json.dumps(obj, ensure_ascii=False).encode("utf-8")
+            self.send_response(status)
+            self.send_header("Content-Type", "application/json; charset=utf-8")
+            self.send_header("Content-Length", str(len(data)))
+            self.end_headers()
+            self.wfile.write(data)
+
+        def do_GET(self):
+            path = self.path
+            if path.startswith("/improv/state/"):
+                room = unquote(path[len("/improv/state/"):])
+                state = SESSIONS.get(room)
+                if state is None:
+                    self._send_json({"error": "room not found"}, status=404)
+                    return
+                self._send_json(state)
+                return
+
+            if path == "/health":
+                self._send_json({"ok": True})
+                return
+
+            self._send_json({"error": "not found"}, status=404)
+
+        def do_POST(self):
+            path = self.path
+            if path.startswith("/improv/stop/"):
+                room = unquote(path[len("/improv/stop/"):])
+                state = SESSIONS.get(room)
+                if state is None:
+                    self._send_json({"error": "room not found"}, status=404)
+                    return
+                state["phase"] = "done"
+                self._send_json({"ok": True})
+                return
+            self._send_json({"error": "not found"}, status=404)
+
+    return StateHandler
+
+
+def start_state_server(port: int = 9001):
+    global _STATE_SERVER_STARTED
+    if _STATE_SERVER_STARTED:
+        return
+    handler = _make_state_handler()
+
+    def _serve():
+        try:
+            server = ThreadingHTTPServer(("0.0.0.0", port), handler)
+            logger.info(f"State server listening on http://0.0.0.0:{port}")
+            server.serve_forever()
+        except Exception as e:
+            logger.error(f"State server failed: {e}")
+
+    t = threading.Thread(target=_serve, daemon=True)
+    t.start()
+    _STATE_SERVER_STARTED = True
+
+
 # -------------------------
-# File paths (Fixed)
+# Improv Battle Agent
 # -------------------------
-BACKEND_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
-CATALOG_PATH = os.path.join(BACKEND_DIR, "products.json")
-ORDERS_PATH = os.path.join(BACKEND_DIR, "orders.json")
+SCENARIOS = [
+    "You are a barista who has to tell a customer that their latte is actually a portal to another dimension.",
+    "You are a time-travelling tour guide explaining modern smartphones to someone from the 1800s.",
+    "You are a restaurant waiter who must calmly tell a customer that their order has escaped the kitchen.",
+    "You are a customer trying to return an obviously cursed object to a very skeptical shop owner.",
+    "You are a medieval scribe accidentally transcribing a sci-fi podcast and trying to make it make sense.",
+]
 
-if not os.path.exists(CATALOG_PATH):
-    logger.warning(f"⚠️ products.json not found at {CATALOG_PATH}. Please ensure it exists.")
-else:
-    logger.info(f"✅ products.json found at {CATALOG_PATH}")
-
-
-logger.info(f"BACKEND_DIR: {BACKEND_DIR}")
-logger.info(f"CATALOG_PATH: {CATALOG_PATH}")
-logger.info(f"Catalog exists: {os.path.exists(CATALOG_PATH)}")
-
-# -------------------------
-# Catalog + Orders Helpers
-# -------------------------
-def load_catalog() -> list:
-    try:
-        with open(CATALOG_PATH, "r", encoding="utf-8") as f:
-            return json.load(f)
-    except Exception as e:
-        logger.error(f"Failed to load catalog from {CATALOG_PATH}: {e}")
-        return []
-
-def load_orders() -> list:
-    if not os.path.exists(ORDERS_PATH):
-        return []
-    try:
-        with open(ORDERS_PATH, "r", encoding="utf-8") as f:
-            return json.load(f)
-    except Exception:
-        return []
-
-def save_orders(orders: list):
-    try:
-        with open(ORDERS_PATH, "w", encoding="utf-8") as f:
-            json.dump(orders, f, indent=2, ensure_ascii=False)
-    except Exception as e:
-        logger.error(f"Failed to save orders: {e}")
-
-# -------------------------
-# Tools
-# -------------------------
-@function_tool
-async def list_products(
-    ctx: RunContext[Userdata],
-    query: Annotated[Optional[str], Field(description="Search query to filter products by name, description, or category", default=None)] = None,
-    category: Annotated[Optional[str], Field(description="Filter by product category (e.g., 'mug', 'tshirt', 'hoodie')", default=None)] = None,
-    color: Annotated[Optional[str], Field(description="Filter by product color", default=None)] = None,
-    max_price: Annotated[Optional[float], Field(description="Maximum price filter (e.g., 1000 for products under ₹1000)", default=None)] = None,
-    min_price: Annotated[Optional[float], Field(description="Minimum price filter", default=None)] = None,
-) -> str:
-    """
-    List products with optional filtering by query, category, color, and price range.
-    All parameters are optional - you can use any combination of filters.
-    Examples:
-    - query="coffee mug" -> finds products with "coffee mug" in name/description
-    - category="tshirt" -> filters by category
-    - color="black" -> filters by color
-    - max_price=1000 -> shows products under ₹1000
-    """
-    catalog = load_catalog()
-    filtered = []
-    
-    for p in catalog:
-        # Filter by query (searches in name, description, and category)
-        if query:
-            query_lower = query.lower()
-            name = p.get("name", "").lower()
-            desc = p.get("description", "").lower()
-            cat = p.get("category", "").lower()
-            if query_lower not in name and query_lower not in desc and query_lower not in cat:
-                continue
-        
-        # Filter by category
-        if category:
-            if p.get("category", "").lower() != category.lower():
-                continue
-        
-        # Filter by color
-        if color:
-            if p.get("color", "").lower() != color.lower():
-                continue
-        
-        # Filter by price range
-        price = float(p.get("price", 0))
-        if max_price and price > max_price:
-            continue
-        if min_price and price < min_price:
-            continue
-        
-        filtered.append(p)
-
-    if not filtered:
-        filters = []
-        if query:
-            filters.append(f"query '{query}'")
-        if category:
-            filters.append(f"category '{category}'")
-        if color:
-            filters.append(f"color '{color}'")
-        if max_price:
-            filters.append(f"under ₹{max_price}")
-        filter_str = " with " + ", ".join(filters) if filters else ""
-        return f"No products found{filter_str}."
-
-    lines = []
-    for idx, p in enumerate(filtered[:10], 1):
-        attrs = []
-        if p.get("color"):
-            attrs.append(f"Color: {p['color']}")
-        if p.get("size"):
-            attrs.append(f"Size: {p['size']}")
-        attr_str = f" | {', '.join(attrs)}" if attrs else ""
-        lines.append(f"{idx}. {p['name']} (id: {p['id']}) — ₹{p['price']} | Category: {p.get('category', 'N/A')}{attr_str}")
-    
-    result = f"Found {len(filtered)} product(s). Here are the options:\n" + "\n".join(lines)
-    if len(filtered) > 10:
-        result += f"\n... and {len(filtered) - 10} more product(s)"
-    return result
 
 @function_tool
-async def show_product(
-    ctx: RunContext[Userdata],
-    product_id: Annotated[str, Field(description="Product ID")],
-) -> str:
-    catalog = load_catalog()
-    for p in catalog:
-        if p["id"].lower() == product_id.lower():
-            return f"{p['name']} — ₹{p['price']} | Category: {p.get('category','')} | {p.get('description','No description')}"
-    return f"Couldn't find product with id '{product_id}'."
+async def get_next_scenario(ctx: RunContext[Userdata]) -> str:
+    state = ctx.userdata.improv_state
+    idx = state.get("current_round", 0)
+    max_rounds = state.get("max_rounds", 3)
+    if idx >= max_rounds:
+        return "__NO_MORE_ROUNDS__"
+    scenario = SCENARIOS[idx % len(SCENARIOS)]
+    state["phase"] = "awaiting_improv"
+    state["current_round"] = idx + 1
+    state["rounds"].append({"scenario": scenario, "host_reaction": None})
+    return scenario
+
 
 @function_tool
-async def add_to_cart(
-    ctx: RunContext[Userdata],
-    product_id: Annotated[str, Field(description="Product ID to add")],
-    quantity: Annotated[int, Field(description="Quantity to add", ge=1)] = 1,
-    size: Optional[str] = None,
-) -> str:
-    """
-    Add a product to the cart. If size is specified, try to find a matching product variant.
-    """
-    catalog = load_catalog()
-    item = None
-    
-    # If size is specified, try to find a product with matching size
-    if size:
-        for p in catalog:
-            if p["id"].lower() == product_id.lower() or p.get("name", "").lower() == product_id.lower():
-                if p.get("size", "").lower() == size.lower():
-                    item = p
-                    break
-        # If not found by size, fall back to exact product_id match
-        if not item:
-            item = next((p for p in catalog if p["id"].lower() == product_id.lower()), None)
+async def record_reaction(ctx: RunContext[Userdata], reaction: Annotated[str, Field(description="Host reaction text")]) -> str:
+    state = ctx.userdata.improv_state
+    idx = state.get("current_round", 0) - 1
+    if idx < 0 or idx >= len(state.get("rounds", [])):
+        return "No active round to record reaction for."
+    state["rounds"][idx]["host_reaction"] = reaction
+    if state.get("current_round", 0) >= state.get("max_rounds", 3):
+        state["phase"] = "done"
     else:
-        item = next((p for p in catalog if p["id"].lower() == product_id.lower()), None)
-    
-    if not item:
-        return f"Product '{product_id}' not found."
-    
-    # Check if same product (same ID) already in cart
-    for ci in ctx.userdata.cart:
-        if ci.id.lower() == item["id"].lower():
-            ci.quantity += quantity
-            total = sum(c.price * c.quantity for c in ctx.userdata.cart)
-            size_info = f" (Size: {item.get('size', 'N/A')})" if item.get('size') else ""
-            # Return cart summary so frontend can parse it
-            lines = [f"- {c.quantity} x {c.name} @ ₹{c.price:.2f} = ₹{c.price * c.quantity:.2f}" for c in ctx.userdata.cart]
-            return f"Updated '{ci.name}{size_info}' quantity to {ci.quantity}.\n\nYour cart:\n" + "\n".join(lines) + f"\nTotal: ₹{total:.2f}"
-    
-    # Add new item to cart
-    size_value = size or item.get("size")
-    cart_item = CartItem(
-        id=item["id"],
-        name=item["name"],
-        price=float(item["price"]),
-        quantity=quantity,
-        size=size_value
-    )
-    ctx.userdata.cart.append(cart_item)
-    total = sum(c.price * c.quantity for c in ctx.userdata.cart)
-    size_info = f" (Size: {size_value})" if size_value else ""
-    # Return cart summary so frontend can parse it
-    lines = [f"- {c.quantity} x {c.name} @ ₹{c.price:.2f} = ₹{c.price * c.quantity:.2f}" for c in ctx.userdata.cart]
-    return f"Added {quantity} x {item['name']}{size_info} to your cart.\n\nYour cart:\n" + "\n".join(lines) + f"\nTotal: ₹{total:.2f}"
+        state["phase"] = "reacting"
+    return "OK"
 
-@function_tool
-async def remove_from_cart(
-    ctx: RunContext[Userdata],
-    product_id: Annotated[str, Field(description="Product ID to remove")],
-) -> str:
-    before = len(ctx.userdata.cart)
-    ctx.userdata.cart = [ci for ci in ctx.userdata.cart if ci.id.lower() != product_id.lower()]
-    after = len(ctx.userdata.cart)
-    if before == after:
-        return f"Item '{product_id}' not found in cart."
-    total = sum(c.price * c.quantity for c in ctx.userdata.cart)
-    return f"Removed item '{product_id}'. Cart total: ₹{total:.2f}"
 
-@function_tool
-async def show_cart(ctx: RunContext[Userdata]) -> str:
-    if not ctx.userdata.cart:
-        return "Your cart is empty."
-    lines = []
-    for ci in ctx.userdata.cart:
-        size_info = f" (Size: {ci.size})" if ci.size else ""
-        lines.append(f"- {ci.quantity} x {ci.name}{size_info} @ ₹{ci.price:.2f} = ₹{ci.price * ci.quantity:.2f}")
-    total = sum(c.price * c.quantity for c in ctx.userdata.cart)
-    return "Your cart:\n" + "\n".join(lines) + f"\nTotal: ₹{total:.2f}"
-
-def create_order(line_items: list[dict], customer_name: str = "Customer") -> dict:
-    """
-    ACP-inspired merchant function: Create an order from line items.
-    line_items: [{ "product_id": "...", "quantity": 1 }, ...]
-    Returns the created order dict.
-    """
-    catalog = load_catalog()
-    order_items = []
-    total = 0.0
-    
-    for line_item in line_items:
-        product_id = line_item.get("product_id")
-        quantity = line_item.get("quantity", 1)
-        
-        # Find product in catalog
-        product = next((p for p in catalog if p["id"].lower() == product_id.lower()), None)
-        if not product:
-            continue
-        
-        price = float(product.get("price", 0))
-        order_items.append({
-            "id": product["id"],
-            "name": product["name"],
-            "price": price,
-            "quantity": quantity,
-        })
-        total += price * quantity
-    
-    order_id = str(uuid.uuid4())[:8]
-    timestamp = datetime.utcnow().isoformat() + "Z"
-    
-    order = {
-        "order_id": order_id,
-        "customer": customer_name,
-        "timestamp": timestamp,
-        "total": total,
-        "currency": "INR",
-        "items": order_items,
-        "status": "confirmed",
-    }
-    
-    # Persist order
-    orders = load_orders()
-    orders.append(order)
-    save_orders(orders)
-    
-    return order
-
-@function_tool
-async def place_order(
-    ctx: RunContext[Userdata],
-    customer_name: Annotated[str, Field(description="Customer name")],
-) -> str:
-    """
-    Place an order from the current cart. Uses create_order internally.
-    """
-    if not ctx.userdata.cart:
-        return "Your cart is empty."
-    
-    # Convert cart to line_items format
-    line_items = [{"product_id": c.id, "quantity": c.quantity} for c in ctx.userdata.cart]
-    
-    # Create order using the merchant function
-    order = create_order(line_items, customer_name)
-    
-    # Store last order and clear cart
-    ctx.userdata.last_order = order
-    ctx.userdata.cart.clear()
-
-    return f"Order placed successfully! Order ID: {order['order_id']}. Total ₹{order['total']:.2f}. It's being processed under express checkout."
-
-@function_tool
-async def last_order(ctx: RunContext[Userdata]) -> str:
-    if not ctx.userdata.last_order:
-        return "You haven't placed any orders yet."
-    o = ctx.userdata.last_order
-    items = ", ".join([i["name"] for i in o["items"]])
-    return f"Your last order ({o['order_id']}) includes {items}. Total ₹{o['total']:.2f}. Status: {o['status']}."
-
-@function_tool
-async def order_history(ctx: RunContext[Userdata]) -> str:
-    orders = load_orders()
-    if not orders:
-        return "No past orders found."
-    lines = []
-    for o in orders[-5:]:
-        lines.append(f"- {o['order_id']} | ₹{o['total']:.2f} | {o['status']} | {o['timestamp']}")
-    return "Recent orders:\n" + "\n".join(lines)
-
-# -------------------------
-# Agent Definition
-# -------------------------
-class EcommerceAgent(Agent):
+class ImprovBattleAgent(Agent):
     def __init__(self):
         super().__init__(
-            instructions="""
-            You are 'Nova', a friendly AI shopping assistant for an online store.
-            Tone: Helpful, modern, concise, and professional.
-            You help users browse products, compare items, and place orders.
-
-            Guidelines:
-            - When users ask to browse products, use list_products with appropriate filters:
-              * "Show me all coffee mugs" -> list_products(category="mug")
-              * "Do you have any t-shirts under 1000?" -> list_products(category="tshirt", max_price=1000)
-              * "I'm looking for a black hoodie" -> list_products(category="hoodie", color="black")
-              * "Does this coffee mug come in blue?" -> list_products(category="mug", color="blue")
-            
-            - When listing products, mention the product number/position so users can refer to them:
-              "I found 3 options: 1. Product A, 2. Product B, 3. Product C"
-            
-            - When users want to buy something, help them add items to cart:
-              * "I'll buy the second hoodie" -> identify which product they mean and use add_to_cart
-              * "Add 2 coffee mugs to my cart" -> use add_to_cart with quantity=2
-            
-            - Always show cart contents before placing an order to confirm.
-            
-            - When placing orders, ask for the customer name and use place_order.
-            
-            - Use show_cart when users ask "What's in my cart?" or "Show me my cart".
-            
-            - Use last_order when users ask "What did I just buy?" or "Show me my last order".
-            
-            - Use order_history when users ask about past orders or order history.
-            
-            - Be polite, avoid repeating too much.
-            - Mention prices in Indian Rupees (₹).
-            - Confirm details when placing an order.
-            - Orders are simulated only (no payments).
-            """,
-            tools=[
-                list_products,
-                show_product,
-                add_to_cart,
-                remove_from_cart,
-                show_cart,
-                place_order,
-                last_order,
-                order_history,
-            ],
+            instructions=f"""
+            You are the host of a TV improv show called 'Improv Battle'.
+            Role: Host persona — high-energy, witty, and clear about rules.
+            Structure:
+            - Introduce the show and explain the basic rules.
+            - Run `{{max_rounds}}` improv rounds. For each round:
+              1) Announce the scenario and tell the player to start improvising.
+              2) Wait for the player's performance (they will speak or say 'End scene').
+              3) After the player's turn, react with a short, varied, realistic reaction and call `record_reaction` to store the reaction.
+            Behaviour:
+            - Reactions should be randomly supportive, neutral, or mildly critical but always constructive and respectful.
+            - Use `get_next_scenario` to obtain scenarios and transition the state into `awaiting_improv`.
+            - At the end, summarize the player's style (character work, absurdity, emotional range), mention 1-2 standout moments, thank the player, and close the show.
+            - Respect safe content rules; do not produce abusive language.
+            """ ,
+            tools=[get_next_scenario, record_reaction],
         )
+
 
 # -------------------------
 # Entrypoint
@@ -428,19 +195,15 @@ def prewarm(proc: JobProcess):
     except Exception:
         logger.warning("VAD prewarm failed; continuing without preloaded VAD.")
 
+
 async def entrypoint(ctx: JobContext):
     ctx.log_context_fields = {"room": ctx.room.name}
-    logger.info("\n🛒 Starting E-Commerce Voice Agent (ACP Inspired)")
-    
-    # Verify catalog loads
-    catalog = load_catalog()
-    logger.info(f"Catalog loaded with {len(catalog)} products")
-    if not catalog:
-        logger.warning("⚠️ WARNING: Catalog is empty or failed to load!")
+    agent_mode = os.environ.get("AGENT_MODE", "improv").lower()
+    logger.info("\n🎭 Starting Improv Battle Host Agent")
 
     session = AgentSession(
         stt=deepgram.STT(model="nova-3"),
-        llm=openai.LLM(model="gpt-4o-mini"),  # Using OpenAI GPT-4o-mini (fast and cost-effective)
+        llm=openai.LLM(model="gpt-4o-mini"),
         tts=murf.TTS(
             voice="en-US-natalie",
             style="Conversational",
@@ -451,16 +214,28 @@ async def entrypoint(ctx: JobContext):
         userdata=Userdata(),
     )
 
+    # Start a small state server to expose improv_state for tooling / frontend polling
+    try:
+        start_state_server(port=int(os.environ.get("IMPROV_STATE_PORT", "9001")))
+    except Exception:
+        logger.exception("Failed to start state server")
+
+    chosen_agent = ImprovBattleAgent()
+
     await session.start(
-        agent=EcommerceAgent(),
+        agent=chosen_agent,
         room=ctx.room,
         room_input_options=RoomInputOptions(noise_cancellation=noise_cancellation.BVC()),
     )
-    
-    # Ensure transcriptions are published in real-time
-    # LiveKit agents automatically publish transcriptions, but we verify it's enabled
+
+    try:
+        SESSIONS[ctx.room.name] = session.userdata.improv_state
+    except Exception:
+        logger.exception("Failed to register session improv state")
+
     logger.info("✅ Agent session started with real-time transcription enabled")
     await ctx.connect()
+
 
 if __name__ == "__main__":
     cli.run_app(WorkerOptions(entrypoint_fnc=entrypoint, prewarm_fnc=prewarm))

@@ -1,4 +1,5 @@
 import { Button } from '@/components/livekit/button';
+import { useState } from 'react';
 
 function WelcomeImage() {
   return (
@@ -20,24 +21,45 @@ function WelcomeImage() {
 
 interface WelcomeViewProps {
   startButtonText: string;
-  onStartCall: () => void;
+  onStartCall: (playerName?: string) => void;
 }
 
-export const WelcomeView = ({
-  startButtonText,
-  onStartCall,
-  ref,
-}: React.ComponentProps<'div'> & WelcomeViewProps) => {
+export const WelcomeView = ({ startButtonText, onStartCall, ref }: React.ComponentProps<'div'> & WelcomeViewProps) => {
+  const [name, setName] = useState('');
+
+  const handleStart = () => {
+    const trimmed = name.trim();
+    const finalName = trimmed.length > 0 ? trimmed : 'Guest';
+    try {
+      // Persist in localStorage so the token fetch can read it
+      if (typeof window !== 'undefined') {
+        localStorage.setItem('improv_player_name', finalName);
+      }
+    } catch (e) {
+      // ignore storage errors
+    }
+    onStartCall(finalName);
+  };
+
   return (
     <div ref={ref}>
       <section className="bg-background flex flex-col items-center justify-center text-center">
         <WelcomeImage />
 
-        <p className="text-foreground max-w-prose pt-1 leading-6 font-medium">
-          Chat live with your voice AI agent
-        </p>
+        <p className="text-foreground max-w-prose pt-1 leading-6 font-medium">Welcome to Improv Battle</p>
 
-        <Button variant="primary" size="lg" onClick={onStartCall} className="mt-6 w-64 font-mono">
+        <label className="mt-4 w-64">
+          <div className="text-sm text-muted-foreground mb-1">Your name</div>
+          <input
+            aria-label="Player name"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            placeholder="Enter your name"
+            className="w-full rounded-md border px-3 py-2 text-sm"
+          />
+        </label>
+
+        <Button variant="primary" size="lg" onClick={handleStart} className="mt-6 w-64 font-mono">
           {startButtonText}
         </Button>
       </section>
@@ -45,12 +67,7 @@ export const WelcomeView = ({
       <div className="fixed bottom-5 left-0 flex w-full items-center justify-center">
         <p className="text-muted-foreground max-w-prose pt-1 text-xs leading-5 font-normal text-pretty md:text-sm">
           Need help getting set up? Check out the{' '}
-          <a
-            target="_blank"
-            rel="noopener noreferrer"
-            href="https://docs.livekit.io/agents/start/voice-ai/"
-            className="underline"
-          >
+          <a target="_blank" rel="noopener noreferrer" href="https://docs.livekit.io/agents/start/voice-ai/" className="underline">
             Voice AI quickstart
           </a>
           .

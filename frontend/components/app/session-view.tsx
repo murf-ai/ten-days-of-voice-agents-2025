@@ -6,9 +6,7 @@ import type { AppConfig } from '@/app-config';
 import { ChatTranscript } from '@/components/app/chat-transcript';
 import { PreConnectMessage } from '@/components/app/preconnect-message';
 import { TileLayout } from '@/components/app/tile-layout';
-import { ProductCatalog } from '@/components/app/product-catalog';
-import { ShoppingCart } from '@/components/app/shopping-cart';
-import { LastOrderPanel } from '@/components/app/last-order-panel';
+// Shopping UI removed — this app focuses on the Improv Battle voice experience
 import {
   AgentControlBar,
   type ControlBarControls,
@@ -98,17 +96,13 @@ export const SessionView = ({
 
   return (
     <section className="bg-background relative z-10 h-full w-full overflow-hidden" {...props}>
-      {/* Main Layout: Products on left, Cart on right */}
-      <div className="flex h-full pt-16 pb-32">
-        {/* Left: Product Catalog */}
+      {/* Main Layout: Voice session with transcript and tile layout */}
+      <div className="flex h-full flex-col pt-16 pb-32">
         <div className="flex-1 overflow-y-auto px-4 md:px-6">
-          <ProductCatalog />
-        </div>
-
-        {/* Right: Shopping Cart Panel */}
-        <div className="w-80 border-l border-border bg-muted/30 p-4 flex flex-col gap-4">
-          <ShoppingCart className="flex-1 min-h-0" />
-          <LastOrderPanel />
+          <div className="mx-auto max-w-2xl py-8">
+            <h2 className="text-2xl font-bold mb-2">Improv Battle — Voice Session</h2>
+            <p className="text-sm text-muted-foreground">Join the session and perform — the host will guide you through rounds.</p>
+          </div>
         </div>
       </div>
 
