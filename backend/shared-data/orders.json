@@ -1,0 +1,210 @@
+[
+  {
+    "order_id": "ORD-1764319037",
+    "customer_name": "Anushka Dubhe",
+    "address": "Jabalpur, Vijayanagar",
+    "items": [
+      {
+        "id": "chips",
+        "name": "Potato Chips 100g",
+        "qty": 3,
+        "unit_price": 40,
+        "subtotal": 120
+      },
+      {
+        "id": "peanut_butter",
+        "name": "Peanut Butter (200g)",
+        "qty": 1,
+        "unit_price": 180,
+        "subtotal": 180
+      },
+      {
+        "id": "pizza_margherita",
+        "name": "Margherita Pizza (ready)",
+        "qty": 2,
+        "unit_price": 399,
+        "subtotal": 798
+      }
+    ],
+    "total": 1098.0,
+    "timestamp": "2025-11-28T14:07:17.864774",
+    "status": "placed"
+  },
+  {
+    "order_id": "ORD-1764319384",
+    "customer_name": "Anushka Dubhe",
+    "address": "Vijayanagar, Chakalpur",
+    "items": [
+      {
+        "id": "peanut_butter",
+        "name": "Peanut Butter (200g)",
+        "qty": 1,
+        "unit_price": 180,
+        "subtotal": 180
+      },
+      {
+        "id": "chips",
+        "name": "Potato Chips 100g",
+        "qty": 1,
+        "unit_price": 40,
+        "subtotal": 40
+      },
+      {
+        "id": "bread_whole",
+        "name": "Whole Wheat Bread (1 loaf)",
+        "qty": 1,
+        "unit_price": 40,
+        "subtotal": 40
+      },
+      {
+        "id": "butter",
+        "name": "Butter 200g",
+        "qty": 1,
+        "unit_price": 140,
+        "subtotal": 140
+      },
+      {
+        "id": "jam",
+        "name": "Strawberry Jam (200g)",
+        "qty": 1,
+        "unit_price": 120,
+        "subtotal": 120
+      }
+    ],
+    "total": 520.0,
+    "timestamp": "2025-11-28T14:13:04.523263",
+    "status": "placed"
+  },
+  {
+    "order_id": "ORD-1764319701",
+    "customer_name": "Anushka Dubhe",
+    "address": "Vijayanagar Jabalpur",
+    "items": [
+      {
+        "id": "bread_whole",
+        "name": "Whole Wheat Bread (1 loaf)",
+        "qty": 1,
+        "unit_price": 40,
+        "subtotal": 40
+      },
+      {
+        "id": "butter",
+        "name": "Butter 200g",
+        "qty": 1,
+        "unit_price": 140,
+        "subtotal": 140
+      },
+      {
+        "id": "jam",
+        "name": "Strawberry Jam (200g)",
+        "qty": 1,
+        "unit_price": 120,
+        "subtotal": 120
+      }
+    ],
+    "total": 300.0,
+    "timestamp": "2025-11-28T14:18:21.557085",
+    "status": "placed"
+  },
+  {
+    "order_id": "ORD-1764320189",
+    "customer_name": "Aditi Yadav",
+    "address": "Jabalpur, Vijayanagar",
+    "items": [
+      {
+        "id": "chips",
+        "name": "Potato Chips 100g",
+        "qty": 2,
+        "unit_price": 40,
+        "subtotal": 80
+      },
+      {
+        "id": "peanut_butter",
+        "name": "Peanut Butter (200g)",
+        "qty": 1,
+        "unit_price": 180,
+        "subtotal": 180
+      },
+      {
+        "id": "bread_whole",
+        "name": "Whole Wheat Bread (1 loaf)",
+        "qty": 2,
+        "unit_price": 40,
+        "subtotal": 80
+      },
+      {
+        "id": "butter",
+        "name": "Butter 200g",
+        "qty": 2,
+        "unit_price": 140,
+        "subtotal": 280
+      },
+      {
+        "id": "jam",
+        "name": "Strawberry Jam (200g)",
+        "qty": 2,
+        "unit_price": 120,
+        "subtotal": 240
+      }
+    ],
+    "total": 860.0,
+    "timestamp": "2025-11-28T14:26:29.178381",
+    "status": "placed"
+  },
+  {
+    "id": "5c5ab611-e125-45b7-9670-03c32d12dc40",
+    "created_at": "2025-11-30T13:04:19.761652Z",
+    "status": "CONFIRMED",
+    "items": [
+      {
+        "product_id": "hoodie-002",
+        "name": "Sport Tech Hoodie",
+        "quantity": 1,
+        "unit_price": 1800,
+        "currency": "INR",
+        "item_total": 1800
+      },
+      {
+        "product_id": "mug-001",
+        "name": "Stoneware Coffee Mug",
+        "quantity": 1,
+        "unit_price": 800,
+        "currency": "INR",
+        "item_total": 800
+      }
+    ],
+    "total": 2600,
+    "currency": "INR",
+    "buyer": {
+      "name": "Voice Customer"
+    }
+  },
+  {
+    "id": "68e6b157-8fc6-4d52-951e-bfb54307793a",
+    "created_at": "2025-11-30T13:10:42.108681Z",
+    "status": "CONFIRMED",
+    "items": [
+      {
+        "product_id": "hoodie-002",
+        "name": "Sport Tech Hoodie",
+        "quantity": 2,
+        "unit_price": 1800,
+        "currency": "INR",
+        "item_total": 3600
+      },
+      {
+        "product_id": "mug-001",
+        "name": "Stoneware Coffee Mug",
+        "quantity": 1,
+        "unit_price": 800,
+        "currency": "INR",
+        "item_total": 800
+      }
+    ],
+    "total": 4400,
+    "currency": "INR",
+    "buyer": {
+      "name": "Voice Customer"
+    }
+  }
+]
