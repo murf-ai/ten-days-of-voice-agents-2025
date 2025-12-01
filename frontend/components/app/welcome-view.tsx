@@ -8,13 +8,21 @@ function WelcomeImage() {
       viewBox="0 0 64 64"
       fill="none"
       xmlns="http://www.w3.org/2000/svg"
-      className="mb-4 size-16 text-orange-600"
+      className="mb-4 size-16 text-purple-600"
     >
       <path
-        d="M32 8L24 16H16V48H48V16H40L32 8ZM32 12L36 16H28L32 12ZM20 20H44V44H20V20ZM26 26V38H38V26H26Z"
+        d="M32 8C18.7 8 8 18.7 8 32s10.7 24 24 24 24-10.7 24-24S45.3 8 32 8zm0 4c11.1 0 20 8.9 20 20s-8.9 20-20 20-20-8.9-20-20 8.9-20 20-20z"
         fill="currentColor"
       />
-      <circle cx="32" cy="32" r="4" fill="currentColor" />
+      <circle cx="22" cy="26" r="3" fill="currentColor" />
+      <circle cx="42" cy="26" r="3" fill="currentColor" />
+      <path
+        d="M20 38c0-6.6 5.4-12 12-12s12 5.4 12 12"
+        stroke="currentColor"
+        strokeWidth="3"
+        fill="none"
+      />
+      <path d="M16 16l6 6M48 16l-6 6" stroke="currentColor" strokeWidth="2" />
     </svg>
   );
 }
@@ -33,35 +41,35 @@ export const WelcomeView = ({
       <section className="bg-background flex flex-col items-center justify-center text-center">
         <WelcomeImage />
 
-        <h1 className="mb-1 text-4xl font-extrabold text-orange-600">Urban Drip India</h1>
-        <p className="mb-2 font-mono text-xs tracking-widest text-orange-500 uppercase">
-          Voice Commerce Experience
+        <h1 className="mb-1 text-4xl font-extrabold text-purple-600">🎭 Improv Battle</h1>
+        <p className="mb-2 font-mono text-xs tracking-widest text-purple-500 uppercase">
+          Voice Improv Game Show
         </p>
 
         <p className="text-muted-foreground max-w-prose px-4 pt-1 text-base leading-6">
-          Shop Indian streetwear with your voice
+          Act out hilarious scenarios, get live feedback from your AI host!
         </p>
 
         <div className="mt-6 grid max-w-lg grid-cols-2 gap-3 text-sm">
-          <div className="flex flex-col items-center gap-2 rounded-lg bg-orange-50 p-4 dark:bg-orange-900/20">
-            <span className="text-3xl">👕</span>
-            <p className="font-semibold">10+ Products</p>
-            <p className="text-muted-foreground text-xs">Hoodies, Tees, Accessories</p>
+          <div className="flex flex-col items-center gap-2 rounded-lg bg-purple-50 p-4 dark:bg-purple-900/20">
+            <span className="text-3xl">🎬</span>
+            <p className="font-semibold">3 Scenarios</p>
+            <p className="text-muted-foreground text-xs">Wild improv challenges</p>
+          </div>
+          <div className="flex flex-col items-center gap-2 rounded-lg bg-pink-50 p-4 dark:bg-pink-900/20">
+            <span className="text-3xl">🎤</span>
+            <p className="font-semibold">Live Feedback</p>
+            <p className="text-muted-foreground text-xs">Honest, witty reactions</p>
           </div>
           <div className="flex flex-col items-center gap-2 rounded-lg bg-blue-50 p-4 dark:bg-blue-900/20">
-            <span className="text-3xl">🛒</span>
-            <p className="font-semibold">Smart Cart</p>
-            <p className="text-muted-foreground text-xs">Add, remove, checkout</p>
+            <span className="text-3xl">😂</span>
+            <p className="font-semibold">No Scripts</p>
+            <p className="text-muted-foreground text-xs">Pure improvisation</p>
           </div>
-          <div className="flex flex-col items-center gap-2 rounded-lg bg-green-50 p-4 dark:bg-green-900/20">
-            <span className="text-3xl">💳</span>
-            <p className="font-semibold">ACP Protocol</p>
-            <p className="text-muted-foreground text-xs">Structured commerce</p>
-          </div>
-          <div className="flex flex-col items-center gap-2 rounded-lg bg-purple-50 p-4 dark:bg-purple-900/20">
-            <span className="text-3xl">🗣️</span>
-            <p className="font-semibold">Voice Shopping</p>
-            <p className="text-muted-foreground text-xs">Just speak your order</p>
+          <div className="flex flex-col items-center gap-2 rounded-lg bg-orange-50 p-4 dark:bg-orange-900/20">
+            <span className="text-3xl">⭐</span>
+            <p className="font-semibold">Your Style</p>
+            <p className="text-muted-foreground text-xs">Get your improv summary</p>
           </div>
         </div>
 
@@ -69,15 +77,15 @@ export const WelcomeView = ({
           variant="primary"
           size="lg"
           onClick={onStartCall}
-          className="mt-8 w-64 bg-orange-600 font-mono hover:bg-orange-700"
+          className="mt-8 w-64 bg-purple-600 font-mono hover:bg-purple-700"
         >
-          {startButtonText || '🛍️ START SHOPPING'}
+          {startButtonText || '🎭 START IMPROV BATTLE'}
         </Button>
       </section>
 
       <div className="fixed bottom-5 left-0 flex w-full items-center justify-center">
         <p className="text-muted-foreground max-w-prose px-4 pt-1 text-xs leading-5 font-normal">
-          🛍️ ACP-Inspired Commerce • Powered by Murf Falcon TTS
+          🎭 Day 10: Improv Battle • Powered by Murf Falcon TTS
         </p>
       </div>
     </div>
