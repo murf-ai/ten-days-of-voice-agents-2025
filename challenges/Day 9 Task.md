@@ -6,7 +6,7 @@ The idea is to simulate the key ACP pattern:
 
 - The **user** describes what they want to buy.
 - The **AI agent** interprets that intent.
-- The agent calls a **merchant-like API** (your Python code) to:
+- The agent calls a **merchant-like API** (your backend code) to:
   - Browse a product catalog.
   - Create an order.
 
@@ -43,7 +43,7 @@ You are just building a small, ACP-inspired flow in your own code.
 Build a **voice shopping assistant** with:
 
 1. A small product catalog.
-2. A simple, ACP-inspired “merchant layer” in Python.
+2. A simple, ACP-inspired “merchant layer” in backend.
 3. A voice flow that lets the user browse and place an order.
 4. Orders persisted on the backend (in memory or JSON file).
 
@@ -62,7 +62,7 @@ Your agent should:
 
    The agent should:
 
-   - Call a Python function to get the catalog or filtered list.
+   - Call a function to get the catalog or filtered list.
    - Summarize a few relevant products with name and price.
 
 2. Allow the user to place an order
@@ -72,7 +72,7 @@ Your agent should:
    - User: “I’ll buy the second hoodie you mentioned, in size M.”
    - Agent:
      - Resolves which product this refers to.
-     - Calls a Python function to create an order object.
+     - Calls a function to create an order object.
      - Confirms the order details back to the user.
 
 3. Persist orders in a simple backend structure
@@ -250,7 +250,7 @@ The assistant should be able to answer these questions using those functions.
 
 ### Advanced Goal 5: Experiment with a Type-Safe ACP Library (Optional)
 
-If you want to go deeper into ACP itself, you can experiment with an existing ACP library in Python that provides typed models for the protocol.
+If you want to go deeper into ACP itself, you can experiment with an existing ACP library in backend that provides typed models for the protocol.
 
 For example:
 
