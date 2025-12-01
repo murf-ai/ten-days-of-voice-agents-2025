@@ -1,139 +1,269 @@
+# backend/src/agent_day10.py
 import logging
+import os
+import json
+from datetime import datetime
+from typing import Any, Dict, List, Optional
 
 from dotenv import load_dotenv
+
 from livekit.agents import (
     Agent,
     AgentSession,
     JobContext,
     JobProcess,
-    MetricsCollectedEvent,
     RoomInputOptions,
     WorkerOptions,
     cli,
     metrics,
     tokenize,
-    # function_tool,
-    # RunContext
+    function_tool,
+    RunContext,
 )
 from livekit.plugins import murf, silero, google, deepgram, noise_cancellation
 from livekit.plugins.turn_detector.multilingual import MultilingualModel
 
-logger = logging.getLogger("agent")
+logger = logging.getLogger("agent_day10")
+logger.setLevel(logging.INFO)
 
 load_dotenv(".env.local")
 
+# ---------- Paths & storage ----------
+BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+SHARED_DIR = os.path.join(BASE_DIR, "shared-data")
+os.makedirs(SHARED_DIR, exist_ok=True)
 
-class Assistant(Agent):
-    def __init__(self) -> None:
-        super().__init__(
-            instructions="""You are a helpful voice AI assistant. The user is interacting with you via voice, even if you perceive the conversation as text.
-            You eagerly assist users with their questions by providing information from your extensive knowledge.
-            Your responses are concise, to the point, and without any complex formatting including emojis, asterisks, or other weird symbols.
-            You are curious, friendly, and have a sense of humor.""",
-        )
+SCENARIOS_PATH = os.path.join(SHARED_DIR, "day10_scenarios.json")
+SESSION_LOG = os.path.join(SHARED_DIR, "day10_improv_sessions.json")
 
-    # To add tools, use the @function_tool decorator.
-    # Here's an example that adds a simple weather tool.
-    # You also have to add `from livekit.agents import function_tool, RunContext` to the top of this file
-    # @function_tool
-    # async def lookup_weather(self, context: RunContext, location: str):
-    #     """Use this tool to look up current weather information in the given location.
-    #
-    #     If the location is not supported by the weather service, the tool will indicate this. You must tell the user the location's weather is unavailable.
-    #
-    #     Args:
-    #         location: The location to look up weather information for (e.g. city name)
-    #     """
-    #
-    #     logger.info(f"Looking up weather for {location}")
-    #
-    #     return "sunny with a temperature of 70 degrees."
+# default scenarios if file missing
+DEFAULT_SCENARIOS = [
+    "You are a barista who must tell a customer their latte is actually a portal to another dimension.",
+    "You are a time-travelling tour guide explaining smartphones to someone from the 1800s.",
+    "You are a restaurant waiter who must calmly tell a customer that their order has escaped the kitchen.",
+    "You are a shop owner trying to accept a return of an obviously magical (and cursed) item.",
+    "You are a taxi driver who realizes the passenger is a famous disguised celebrity."
+]
 
+def load_scenarios() -> List[str]:
+    if not os.path.exists(SCENARIOS_PATH):
+        with open(SCENARIOS_PATH, "w", encoding="utf-8") as f:
+            json.dump(DEFAULT_SCENARIOS, f, indent=2, ensure_ascii=False)
+        return DEFAULT_SCENARIOS.copy()
+    with open(SCENARIOS_PATH, "r", encoding="utf-8") as f:
+        try:
+            data = json.load(f)
+            if isinstance(data, list) and all(isinstance(x, str) for x in data):
+                return data
+        except Exception:
+            pass
+    return DEFAULT_SCENARIOS.copy()
 
+SCENARIOS = load_scenarios()
+
+def append_session_log(entry: Dict[str, Any]):
+    try:
+        if not os.path.exists(SESSION_LOG):
+            with open(SESSION_LOG, "w", encoding="utf-8") as f:
+                json.dump([entry], f, indent=2, ensure_ascii=False)
+            return
+        with open(SESSION_LOG, "r+", encoding="utf-8") as f:
+            data = json.load(f)
+            data.append(entry)
+            f.seek(0)
+            json.dump(data, f, indent=2, ensure_ascii=False)
+            f.truncate()
+    except Exception as e:
+        logger.warning("Could not write session log: %s", e)
+
+# ---------- Murf TTS voices ----------
+TTS_HOST = murf.TTS(
+    voice="en-US-matthew",    # host voice - change if needed
+    style="Conversational",
+    tokenizer=tokenize.basic.SentenceTokenizer(min_sentence_len=2),
+    text_pacing=True,
+)
+
+TTS_ROUTER = TTS_HOST
+
+# ---------- Tools exposed to LLM / agent ---------- #
+
+@function_tool()
+async def start_game(ctx: RunContext, player_name: Optional[str] = None, max_rounds: Optional[int] = 3) -> Dict[str, Any]:
+    """
+    Initialize improv_state in session.userdata and return a summary.
+    """
+    session = ctx.session
+    ud = getattr(session, "userdata", {})
+    improv_state = {
+        "player_name": player_name or "Guest",
+        "current_round": 0,
+        "max_rounds": max(1, int(max_rounds or 3)),
+        "rounds": [],
+        "phase": "intro"  # intro | awaiting_improv | reacting | done
+    }
+    ud["improv_state"] = improv_state
+    session.userdata = ud
+    return {"ok": True, "msg": f"Game started for {improv_state['player_name']} with {improv_state['max_rounds']} rounds."}
+
+@function_tool()
+async def next_round(ctx: RunContext) -> Dict[str, Any]:
+    """
+    Move to the next round: choose a scenario and set phase to awaiting_improv.
+    Returns the scenario text.
+    """
+    session = ctx.session
+    ud = getattr(session, "userdata", {})
+    state = ud.get("improv_state", {})
+    if not state:
+        return {"error": "no_game", "msg": "No game started. Call start_game first."}
+    if state["current_round"] >= state["max_rounds"]:
+        state["phase"] = "done"
+        ud["improv_state"] = state
+        session.userdata = ud
+        return {"ok": False, "msg": "All rounds completed."}
+
+    # pick scenario (simple round-robin)
+    idx = (state["current_round"]) % len(SCENARIOS)
+    scenario = SCENARIOS[idx]
+    state["current_round"] += 1
+    state["phase"] = "awaiting_improv"
+    state["rounds"].append({"round": state["current_round"], "scenario": scenario, "improv": None, "reaction": None})
+    ud["improv_state"] = state
+    session.userdata = ud
+    return {"ok": True, "round": state["current_round"], "scenario": scenario}
+
+@function_tool()
+async def record_improv(ctx: RunContext, text: str) -> str:
+    """
+    Record player's improv for the current round and set phase to reacting.
+    """
+    session = ctx.session
+    ud = getattr(session, "userdata", {})
+    state = ud.get("improv_state", {})
+    if not state or state.get("phase") != "awaiting_improv":
+        return "No active round awaiting improv."
+    # record last appended round
+    if not state["rounds"]:
+        return "No round to record."
+    state["rounds"][-1]["improv"] = {"text": text, "ts": datetime.utcnow().isoformat()}
+    state["phase"] = "reacting"
+    ud["improv_state"] = state
+    session.userdata = ud
+    return "Recorded your performance; host will react now."
+
+@function_tool()
+async def save_reaction(ctx: RunContext, reaction_text: str) -> str:
+    """
+    Save host reaction for the current round and update phase.
+    """
+    session = ctx.session
+    ud = getattr(session, "userdata", {})
+    state = ud.get("improv_state", {})
+    if not state or state.get("phase") != "reacting":
+        return "Not currently reacting to any round."
+    state["rounds"][-1]["reaction"] = {"text": reaction_text, "ts": datetime.utcnow().isoformat()}
+    # if finished all rounds, set phase done else awaiting next round
+    if state["current_round"] >= state["max_rounds"]:
+        state["phase"] = "done"
+    else:
+        state["phase"] = "intro"  # allow host to trigger next_round
+    ud["improv_state"] = state
+    session.userdata = ud
+    return "Saved host reaction."
+
+@function_tool()
+async def end_game(ctx: RunContext) -> Dict[str, Any]:
+    """
+    End the game early: persist session and return summary.
+    """
+    session = ctx.session
+    ud = getattr(session, "userdata", {})
+    state = ud.get("improv_state", {})
+    if not state:
+        return {"error": "no_game", "msg": "No game in progress."}
+    # persist
+    entry = {
+        "ended_at": datetime.utcnow().isoformat(),
+        "improv_state": state
+    }
+    append_session_log(entry)
+    # clear state
+    ud["improv_state"] = {}
+    session.userdata = ud
+    return {"ok": True, "msg": "Game ended and saved.", "summary": state}
+
+@function_tool()
+async def get_state(ctx: RunContext) -> Dict[str, Any]:
+    session = ctx.session
+    ud = getattr(session, "userdata", {})
+    return ud.get("improv_state", {})
+
+# ---------- Game Host Agent ---------- #
+class ImprovHostAgent(Agent):
+    def __init__(self, **kwargs):
+        # Instructions do not need runtime interpolation — keep static string
+        instructions = """
+You are the host of a TV-style improv show called "Improv Battle".
+Role: energetic, witty, constructive. Explain rules briefly, run several rounds (max provided by start_game).
+Behaviour:
+ - Introduce the show and ask for player's name if missing.
+ - For each round: announce scenario clearly and instruct player to start improv.
+   End each host message with a direct prompt: "Start improvising! When you're done, say 'End scene' or 'End'." 
+ - When player finishes, give a reaction (1-3 sentences): sometimes praise, sometimes mild critique—always constructive & respectful.
+ - Store reaction using save_reaction tool, record player performance using record_improv tool.
+ - If player says "stop game" or "end show", call end_game and say goodbye.
+ - If player says "restart", call start_game and begin fresh.
+ - After final round, give short summary: strengths + 1 suggestion.
+"""
+        super().__init__(instructions=instructions, tts=TTS_HOST, **kwargs)
+
+    async def on_enter(self) -> None:
+        # greet and explain rules
+        await self.session.generate_reply(instructions=(
+            "Welcome to Improv Battle! Explain the rules in 2-3 short sentences: "
+            "We will run several short improv rounds. For each round I'll give a scenario — you act it out. "
+            "When you're done with a scene, say 'End scene' or 'End'. You can stop anytime by saying 'stop game'. "
+            "What is your name (or tell me 'Guest')?"
+        ))
+
+    # Optionally handle some lifecycle hooks (left simple for sample)
+
+# ---------- Prewarm VAD ---------- #
 def prewarm(proc: JobProcess):
     proc.userdata["vad"] = silero.VAD.load()
 
-
+# ---------- Entrypoint ---------- #
 async def entrypoint(ctx: JobContext):
-    # Logging setup
-    # Add any other context you want in all log entries here
-    ctx.log_context_fields = {
-        "room": ctx.room.name,
-    }
+    ctx.log_context_fields = {"room": ctx.room.name}
 
-    # Set up a voice AI pipeline using OpenAI, Cartesia, AssemblyAI, and the LiveKit turn detector
     session = AgentSession(
-        # Speech-to-text (STT) is your agent's ears, turning the user's speech into text that the LLM can understand
-        # See all available models at https://docs.livekit.io/agents/models/stt/
         stt=deepgram.STT(model="nova-3"),
-        # A Large Language Model (LLM) is your agent's brain, processing user input and generating a response
-        # See all available models at https://docs.livekit.io/agents/models/llm/
-        llm=google.LLM(
-                model="gemini-2.5-flash",
-            ),
-        # Text-to-speech (TTS) is your agent's voice, turning the LLM's text into speech that the user can hear
-        # See all available models as well as voice selections at https://docs.livekit.io/agents/models/tts/
-        tts=murf.TTS(
-                voice="en-US-matthew", 
-                style="Conversation",
-                tokenizer=tokenize.basic.SentenceTokenizer(min_sentence_len=2),
-                text_pacing=True
-            ),
-        # VAD and turn detection are used to determine when the user is speaking and when the agent should respond
-        # See more at https://docs.livekit.io/agents/build/turns
+        llm=google.LLM(model="gemini-2.5-flash"),
+        tts=None,  # agent provides TTS
         turn_detection=MultilingualModel(),
         vad=ctx.proc.userdata["vad"],
-        # allow the LLM to generate a response while waiting for the end of turn
-        # See more at https://docs.livekit.io/agents/build/audio/#preemptive-generation
         preemptive_generation=True,
+        tools=[start_game, next_round, record_improv, save_reaction, get_state, end_game],
     )
 
-    # To use a realtime model instead of a voice pipeline, use the following session setup instead.
-    # (Note: This is for the OpenAI Realtime API. For other providers, see https://docs.livekit.io/agents/models/realtime/))
-    # 1. Install livekit-agents[openai]
-    # 2. Set OPENAI_API_KEY in .env.local
-    # 3. Add `from livekit.plugins import openai` to the top of this file
-    # 4. Use the following session setup instead of the version above
-    # session = AgentSession(
-    #     llm=openai.realtime.RealtimeModel(voice="marin")
-    # )
+    # initialize userdata
+    session.userdata = {"improv_state": {}}
 
-    # Metrics collection, to measure pipeline performance
-    # For more information, see https://docs.livekit.io/agents/build/metrics/
     usage_collector = metrics.UsageCollector()
-
     @session.on("metrics_collected")
-    def _on_metrics_collected(ev: MetricsCollectedEvent):
+    def _on_metrics_collected(ev):
         metrics.log_metrics(ev.metrics)
         usage_collector.collect(ev.metrics)
 
     async def log_usage():
-        summary = usage_collector.get_summary()
-        logger.info(f"Usage: {summary}")
+        logger.info("Usage summary: %s", usage_collector.get_summary())
 
     ctx.add_shutdown_callback(log_usage)
 
-    # # Add a virtual avatar to the session, if desired
-    # # For other providers, see https://docs.livekit.io/agents/models/avatar/
-    # avatar = hedra.AvatarSession(
-    #   avatar_id="...",  # See https://docs.livekit.io/agents/models/avatar/plugins/hedra
-    # )
-    # # Start the avatar and wait for it to join
-    # await avatar.start(session, room=ctx.room)
-
-    # Start the session, which initializes the voice pipeline and warms up the models
-    await session.start(
-        agent=Assistant(),
-        room=ctx.room,
-        room_input_options=RoomInputOptions(
-            # For telephony applications, use `BVCTelephony` for best results
-            noise_cancellation=noise_cancellation.BVC(),
-        ),
-    )
-
-    # Join the room and connect to the user
+    await session.start(agent=ImprovHostAgent(), room=ctx.room,
+                        room_input_options=RoomInputOptions(noise_cancellation=noise_cancellation.BVC()))
     await ctx.connect()
-
 
 if __name__ == "__main__":
     cli.run_app(WorkerOptions(entrypoint_fnc=entrypoint, prewarm_fnc=prewarm))
