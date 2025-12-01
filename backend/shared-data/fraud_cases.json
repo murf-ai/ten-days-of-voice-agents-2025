@@ -1,0 +1,34 @@
+[
+  {
+    "userName": "john",
+    "securityIdentifier": "ABC123",
+    "cardEnding": "4242",
+    "case": "pending_review",
+    "transactionName": "ABC Industry",
+    "transactionAmount": "₹2,450.00",
+    "transactionTime": "2025-11-20T14:12:00+05:30",
+    "transactionCategory": "e-commerce",
+    "transactionSource": "alibaba.com",
+    "location": "Delhi, India",
+    "security_question": "What is my favorite pet?",
+    "security_answer": "dog",
+    "outcome": "",
+    "last_updated": ""
+  },
+  {
+    "userName": "rita",
+    "securityIdentifier": "XYZ789",
+    "cardEnding": "1111",
+    "case": "pending_review",
+    "transactionName": "FoodFiesta",
+    "transactionAmount": "₹799.00",
+    "transactionTime": "2025-11-21T19:05:00+05:30",
+    "transactionCategory": "food",
+    "transactionSource": "foodfiesta.example",
+    "location": "Bengaluru, India",
+    "security_question": "What city were you born in?",
+    "security_answer": "patna",
+    "outcome": "",
+    "last_updated": ""
+  }
+]

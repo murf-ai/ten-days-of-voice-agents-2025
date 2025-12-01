@@ -1,0 +1,62 @@
+[
+  {
+    "id": "cac68595-07f3-48ff-95b3-80337822d470",
+    "created_at": "2025-11-30T08:48:06.460676Z",
+    "status": "CONFIRMED",
+    "items": [
+      {
+        "product_id": "mug-001",
+        "name": "Stoneware Coffee Mug",
+        "quantity": 1,
+        "unit_price": 800,
+        "currency": "INR",
+        "item_total": 800
+      }
+    ],
+    "total": 800,
+    "currency": "INR",
+    "buyer": {
+      "name": "Voice Customer"
+    }
+  },
+  {
+    "id": "30f56f82-da5d-47e7-8a0c-28b4c317e7f1",
+    "created_at": "2025-11-30T08:51:14.887709Z",
+    "status": "CONFIRMED",
+    "items": [
+      {
+        "product_id": "mug-003",
+        "name": "Premium Coffee Mug Set",
+        "quantity": 1,
+        "unit_price": 1200,
+        "currency": "INR",
+        "item_total": 1200
+      }
+    ],
+    "total": 1200,
+    "currency": "INR",
+    "buyer": {
+      "name": "Voice Customer"
+    }
+  },
+  {
+    "id": "af81b8e0-41ae-408d-891e-26ff40ade542",
+    "created_at": "2025-11-30T08:52:02.388889Z",
+    "status": "CONFIRMED",
+    "items": [
+      {
+        "product_id": "tshirt-002",
+        "name": "Premium Organic T-Shirt",
+        "quantity": 1,
+        "unit_price": 850,
+        "currency": "INR",
+        "item_total": 850
+      }
+    ],
+    "total": 850,
+    "currency": "INR",
+    "buyer": {
+      "name": "Voice Customer"
+    }
+  }
+]

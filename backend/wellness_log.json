@@ -1,0 +1,41 @@
+[
+  {
+    "timestamp": "2025-11-23T16:18:05.068945+00:00",
+    "mood": "normal",
+    "energy": "normal",
+    "objectives": [],
+    "agent_summary": "Reported mood: normal. Energy: normal. Objectives: none."
+  },
+  {
+    "timestamp": "2025-11-24T12:40:56.835332+00:00",
+    "mood": "tired",
+    "energy": "low",
+    "objectives": [
+      "reduce movie/game time",
+      "meet with friends"
+    ],
+    "agent_summary": "Reported mood: tired. Energy: low. Objectives: reduce movie/game time, meet with friends."
+  },
+  {
+    "timestamp": "2025-11-24T13:18:44.685696+00:00",
+    "mood": "tired",
+    "energy": "low",
+    "objectives": [
+      "play games",
+      "watch movies",
+      "hang out with friends"
+    ],
+    "agent_summary": "Reported mood: tired. Energy: low. Objectives: play games, watch movies, hang out with friends."
+  },
+  {
+    "timestamp": "2025-11-24T13:22:29.917364+00:00",
+    "mood": "tired (rating: 2)",
+    "energy": "low",
+    "objectives": [
+      "watch movies",
+      "play games",
+      "hang out with friends"
+    ],
+    "agent_summary": "Reported mood: tired (rating: 2). Energy: low. Objectives: watch movies, play games, hang out with friends."
+  }
+]
