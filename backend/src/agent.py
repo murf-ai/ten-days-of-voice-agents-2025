@@ -58,7 +58,7 @@ async def stop_game(context: RunContext) -> str:
     state["game_complete"] = True
     return "Game stopped. Thanks for playing!"
 
-# Improv Battle Agent
+
 class ImprovAgent(Agent):
     """Voice improv game show agent."""
     
