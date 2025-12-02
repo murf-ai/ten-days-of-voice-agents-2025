@@ -1,14 +1,103 @@
-# OS-specific files
+# -----------------------------
+# OS / Editor / IDE
+# -----------------------------
 .DS_Store
 Thumbs.db
+.AppleDouble
+ehthumbs.db
+Desktop.ini
 
-# IDE configuration
+# IDEs
 .idea/
 .vscode/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.iml
 
-# Executable files
-*.exe
-
-# Environment variables
+# -----------------------------
+# Environment files
+# -----------------------------
+# Keep example envs, ignore actual credentials and local envs
 .env
-.env.local
+.env.*
+!.env.example
+
+# -----------------------------
+# Node / Frontend
+# -----------------------------
+node_modules/
+**/node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnp.*
+.pnp.js
+
+# Next.js / build outputs
+.next/
+/out/
+/dist/
+/build/
+.vercel/
+.vercel_build_output/
+.turbo/
+.turbo-build/
+.cache/
+.next-turbopack/
+
+# pnpm/yarn cache
+.pnpm-store/
+.yarn/
+
+# Typescript
+*.tsbuildinfo
+
+# -----------------------------
+# Python / Backend
+# -----------------------------
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.Python
+env/
+venv/
+.venv/
+pip-wheel-metadata/
+*.egg-info/
+htmlcov/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# -----------------------------
+# Logs, databases, caches
+# -----------------------------
+logs/
+*.log
+*.log.*
+.cache/
+coverage/
+.nyc_output/
+*.sqlite3
+*.db
+*.sqlite
+
+# -----------------------------
+# System / Misc
+# -----------------------------
+*.pem
+*.key
+*.crt
+*.p12
+*.tgz
+*.zip
+Thumbs.db
+
+# Local build / temp
+/tmp/
+/temp/
+dist/
+

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Room, RoomEvent, TokenSource } from 'livekit-client';
+import { Room, RoomEvent } from 'livekit-client';
 import { AppConfig } from '@/app-config';
 import { toastAlert } from '@/components/livekit/alert-toast';
 
@@ -36,16 +36,18 @@ export function useRoom(appConfig: AppConfig) {
     };
   }, [room]);
 
-  const tokenSource = useMemo(
-    () =>
-      TokenSource.custom(async () => {
-        const url = new URL(
-          process.env.NEXT_PUBLIC_CONN_DETAILS_ENDPOINT ?? '/api/connection-details',
-          window.location.origin
-        );
+  const startSession = useCallback((playerName?: string) => {
+    setIsSessionActive(true);
 
-        try {
-          const res = await fetch(url.toString(), {
+    if (room.state === 'disconnected') {
+      const { isPreConnectBufferEnabled } = appConfig;
+      Promise.all([
+        room.localParticipant.setMicrophoneEnabled(true, undefined, {
+          preConnectBuffer: isPreConnectBufferEnabled,
+        }),
+        fetch(
+          process.env.NEXT_PUBLIC_CONN_DETAILS_ENDPOINT ?? '/api/connection-details',
+          {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
@@ -57,28 +59,10 @@ export function useRoom(appConfig: AppConfig) {
                     agents: [{ agent_name: appConfig.agentName }],
                   }
                 : undefined,
+              playerName,
             }),
-          });
-          return await res.json();
-        } catch (error) {
-          console.error('Error fetching connection details:', error);
-          throw new Error('Error fetching connection details!');
-        }
-      }),
-    [appConfig]
-  );
-
-  const startSession = useCallback(() => {
-    setIsSessionActive(true);
-
-    if (room.state === 'disconnected') {
-      const { isPreConnectBufferEnabled } = appConfig;
-      Promise.all([
-        room.localParticipant.setMicrophoneEnabled(true, undefined, {
-          preConnectBuffer: isPreConnectBufferEnabled,
-        }),
-        tokenSource
-          .fetch({ agentName: appConfig.agentName })
+          }
+        ).then((res) => res.json())
           .then((connectionDetails) =>
             room.connect(connectionDetails.serverUrl, connectionDetails.participantToken)
           ),
@@ -98,7 +82,7 @@ export function useRoom(appConfig: AppConfig) {
         });
       });
     }
-  }, [room, appConfig, tokenSource]);
+  }, [room, appConfig]);
 
   const endSession = useCallback(() => {
     setIsSessionActive(false);

@@ -34,9 +34,23 @@ yarn-error.log*
 .env*
 !.env.example
 .env.example
+
 # vercel
 .vercel
 
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# turbopack/cache & other caches
+.turbo/
+.next-turbopack/
+.vercel_build_output/
+.cache/
+.parcel-cache/
+
+# local build artifacts
+/dist/
+/tmp/
+/.cache/
+

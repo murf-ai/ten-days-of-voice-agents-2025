@@ -5,10 +5,12 @@ import { AnimatePresence, motion } from 'motion/react';
 import { useRoomContext } from '@livekit/components-react';
 import { useSession } from '@/components/app/session-provider';
 import { SessionView } from '@/components/app/session-view';
+import { GameSessionView } from '@/components/app/game-session-view';
 import { WelcomeView } from '@/components/app/welcome-view';
 
 const MotionWelcomeView = motion.create(WelcomeView);
 const MotionSessionView = motion.create(SessionView);
+const MotionGameSessionView = motion.create(GameSessionView);
 
 const VIEW_MOTION_PROPS = {
   variants: {
@@ -24,14 +26,13 @@ const VIEW_MOTION_PROPS = {
   exit: 'hidden',
   transition: {
     duration: 0.5,
-    ease: 'linear',
   },
 };
 
 export function ViewController() {
   const room = useRoomContext();
   const isSessionActiveRef = useRef(false);
-  const { appConfig, isSessionActive, startSession } = useSession();
+  const { appConfig, isSessionActive, startSession, playerName, gameMode } = useSession();
 
   // animation handler holds a reference to stale isSessionActive value
   isSessionActiveRef.current = isSessionActive;
@@ -54,8 +55,18 @@ export function ViewController() {
           onStartCall={startSession}
         />
       )}
-      {/* Session view */}
-      {isSessionActive && (
+      {/* Game Session view */}
+      {isSessionActive && gameMode === 'improv' && (
+        <MotionGameSessionView
+          key="game-session-view"
+          {...VIEW_MOTION_PROPS}
+          appConfig={appConfig}
+          playerName={playerName}
+          onAnimationComplete={handleAnimationComplete}
+        />
+      )}
+      {/* Regular Session view */}
+      {isSessionActive && gameMode !== 'improv' && (
         <MotionSessionView
           key="session-view"
           {...VIEW_MOTION_PROPS}
