@@ -1,0 +1,146 @@
+{
+  "show_name": "Improv Battle",
+  "description": "A high-energy improv game show where players act out absurd scenarios",
+  "scenarios": [
+    {
+      "id": "scenario-001",
+      "title": "Time Traveler's Phone Trouble",
+      "scenario": "You are a time-traveling tour guide from the year 2500 who is trying to explain to someone from the 1800s how to use a smartphone. The person is terrified and thinks it's witchcraft. Go ahead, try to convince them it's safe!",
+      "difficulty": "medium",
+      "duration": 60
+    },
+    {
+      "id": "scenario-002",
+      "title": "Cursed Object Returns",
+      "scenario": "You are a customer trying to return an obviously cursed object to a very skeptical shop owner who keeps insisting it's fine and probably just needs new batteries. The object keeps doing weird things. Improvise!",
+      "difficulty": "hard",
+      "duration": 60
+    },
+    {
+      "id": "scenario-003",
+      "title": "Escaped Kitchen Order",
+      "scenario": "You are a waiter at a fancy restaurant who must calmly tell a customer that their order has escaped from the kitchen. Literally. It's running around the restaurant. How do you break this news?",
+      "difficulty": "medium",
+      "duration": 60
+    },
+    {
+      "id": "scenario-004",
+      "title": "Superpower Gone Wrong",
+      "scenario": "You just discovered you have an incredible superpower, but it's completely useless in this situation. You're stuck in an elevator with a stranger and need to impress them with your amazing ability. What is it?",
+      "difficulty": "hard",
+      "duration": 60
+    },
+    {
+      "id": "scenario-005",
+      "title": "Alien Barista",
+      "scenario": "You are an alien working as a barista at a coffee shop on Earth for the first time. You're trying very hard to understand human coffee culture but keep making hilarious mistakes. A customer just ordered a latte.",
+      "difficulty": "medium",
+      "duration": 60
+    },
+    {
+      "id": "scenario-006",
+      "title": "Secret Agent Disaster",
+      "scenario": "You are a secret agent on an important mission, but you just sneezed so hard you revealed your hiding spot. Your cover is blown. Improvise your way out of this disaster while staying in character!",
+      "difficulty": "medium",
+      "duration": 60
+    },
+    {
+      "id": "scenario-007",
+      "title": "Gym Trainer's Confession",
+      "scenario": "You're a gym trainer who just realized mid-workout that you've been giving your client completely wrong advice for the past 6 months. How do you break this to them? They're currently doing a handstand.",
+      "difficulty": "hard",
+      "duration": 60
+    },
+    {
+      "id": "scenario-008",
+      "title": "Museum Night Guard Mystery",
+      "scenario": "You're a night guard at a museum and you just caught a painting coming to life and walking around. It's a portrait of a Victorian nobleman. You need to convince it to go back to the wall. Be diplomatic!",
+      "difficulty": "hard",
+      "duration": 60
+    },
+    {
+      "id": "scenario-009",
+      "title": "Breaking Up with Furniture",
+      "scenario": "You're trying to gently break up with your favorite chair because you bought a new sofa. The chair doesn't understand why. You need to explain this sensitively while the chair responds emotionally. Make it touching and funny!",
+      "difficulty": "hard",
+      "duration": 60
+    },
+    {
+      "id": "scenario-010",
+      "title": "Disappointed Dragon",
+      "scenario": "You are a dragon who was promised a knight to fight, but the knight never showed up. Instead, someone sent a pizza delivery person. You're disappointed and hungry. React realistically!",
+      "difficulty": "medium",
+      "duration": 60
+    },
+    {
+      "id": "scenario-011",
+      "title": "Dance Class Catastrophe",
+      "scenario": "You're a ballet instructor who accidentally started teaching a ballet class to people who thought it was a CrossFit class. Now they're all very confused and angry. How do you salvage this?",
+      "difficulty": "medium",
+      "duration": 60
+    },
+    {
+      "id": "scenario-012",
+      "title": "Haunted Realtor",
+      "scenario": "You're a real estate agent showing someone a beautiful house, but it's actually haunted. You're trying to downplay the hauntings as 'quirky features' and 'character-building experiences'. Sell them on it!",
+      "difficulty": "hard",
+      "duration": 60
+    },
+    {
+      "id": "scenario-013",
+      "title": "Robot's First Day",
+      "scenario": "You're a robot who just got a job at a grocery store. You're trying very hard to understand human emotions and social cues, but you keep misinterpreting things. A customer just asked where the 'organic' produce is.",
+      "difficulty": "medium",
+      "duration": 60
+    },
+    {
+      "id": "scenario-014",
+      "title": "Pirate Landlord",
+      "scenario": "You're a pirate who became a landlord because you buried treasure in someone's backyard 300 years ago and they built a house on top of it. Now you're trying to convince them to let you dig it up. Pirate accent required!",
+      "difficulty": "hard",
+      "duration": 60
+    },
+    {
+      "id": "scenario-015",
+      "title": "Chef's Food Critic Date",
+      "scenario": "You're a world-renowned chef cooking dinner for someone you really like, but everything is going catastrophically wrong. The oven is on fire, the pasta is sentient, and your date is very confused. How do you explain this?",
+      "difficulty": "hard",
+      "duration": 60
+    },
+    {
+      "id": "scenario-016",
+      "title": "Motivational Speaker Meltdown",
+      "scenario": "You're a motivational speaker in the middle of an inspiring speech when you completely lose your voice and can only communicate through interpretive dance and sound effects. You still need to inspire these people!",
+      "difficulty": "hard",
+      "duration": 60
+    },
+    {
+      "id": "scenario-017",
+      "title": "Therapist's Patient",
+      "scenario": "You're a therapist's patient, but the therapist fell asleep 5 minutes into your session. You've been talking for 45 minutes and just noticed. What do you do?",
+      "difficulty": "medium",
+      "duration": 60
+    },
+    {
+      "id": "scenario-018",
+      "title": "Wedding MC Surprise",
+      "scenario": "You're the best man giving a toast at a wedding, and you just realized you've been giving the wrong speech. This is your ex's wedding, not your best friend's. How do you recover?",
+      "difficulty": "hard",
+      "duration": 60
+    },
+    {
+      "id": "scenario-019",
+      "title": "Conspiracy Theorist Taxi Driver",
+      "scenario": "You're a taxi driver who is absolutely convinced that pigeons are government drones watching us all. A passenger just asked why you keep swerving away from pigeons. Explain your theory!",
+      "difficulty": "medium",
+      "duration": 60
+    },
+    {
+      "id": "scenario-020",
+      "title": "Superhero Support Group",
+      "scenario": "You're a superhero at a support group meeting, and it's your turn to share. You accidentally mention something that accidentally reveals a major secret about a famous public figure. The group is shocked. Handle it!",
+      "difficulty": "hard",
+      "duration": 60
+    }
+  ]
+}

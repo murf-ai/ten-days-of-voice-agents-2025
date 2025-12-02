@@ -13,6 +13,7 @@ function transcriptionToChatMessage(textStream: TextStreamData, room: Room): Rec
     id: textStream.streamInfo.id,
     timestamp: textStream.streamInfo.timestamp,
     message: textStream.text,
+    type: 'chatMessage',
     from:
       textStream.participantInfo.identity === room.localParticipant.identity
         ? room.localParticipant
