@@ -71,8 +71,8 @@ Make sure you have the following installed:
 ### 1. Clone the Repository
 
 ```bash
-git clone <your-repo-url>
-cd falcon-tdova-nov25-livekit
+git clone https://github.com/murf-ai/ten-days-of-voice-agents-2025.git
+cd ten-days-of-voice-agents-2025
 ```
 
 ### 2. Backend Setup
