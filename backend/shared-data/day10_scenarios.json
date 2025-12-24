@@ -1,0 +1,169 @@
+{
+  "show_name": "Improv Battle - भारतीय संस्करण",
+  "show_name_en": "Improv Battle - Indian Edition",
+  "tagline": "बोलो, अभिनय करो, हँसो! Speak, Act, Laugh!",
+  "description": "एक high-energy improv game show जहाँ खिलाड़ी absurd Indian scenarios में अभिनय करते हैं",
+  "host_language": "hinglish",
+  "scenarios": [
+    {
+      "id": "scenario-001",
+      "title": "Bhoot Ka Shaadi",
+      "title_hi": "भूत की शादी",
+      "scenario": "तुम एक 200 साल पुराने भूत हो जो finally शादी करने जा रहे हो। लेकिन तुम्हारी सास (भी एक भूत) आ गई और कहा कि दुल्हन का दहेज़ गायब हो गया। तुम्हें शादी रोकनी है और सब कुछ fix करना है।",
+      "difficulty": "hard",
+      "category": "horror"
+    },
+    {
+      "id": "scenario-002",
+      "title": "Dabbawala Ka Raaz",
+      "title_hi": "डिब्बावाले की रहस्य",
+      "scenario": "तुम एक Mumbai का dabbawala हो। पता चला कि तुम 10 साल से गलत office को lunch दे रहे हो। अब CEO को बताना है। CEO अभी lunch खोल रहा है जिसमें sambar है लेकिन उसका नहीं है।",
+      "difficulty": "medium",
+      "category": "comedy"
+    },
+    {
+      "id": "scenario-003",
+      "title": "Rani Mahal Ka Daayan",
+      "title_hi": "रानी महल का डायन",
+      "scenario": "तुम एक royalty हो। 500 साल पुराने palace में एक डायन रहती है। डायन कहती है - मैं तुम्हारी grand-grandmother हूँ और 500 सालों से palace की सुरक्षा कर रही हूँ। अब अपने modern family को convince करो।",
+      "difficulty": "hard",
+      "category": "horror_mystery"
+    },
+    {
+      "id": "scenario-004",
+      "title": "Aloo Paratha Secret",
+      "title_hi": "आलू पराठे की सच्चाई",
+      "scenario": "तुम एक North Indian aunty हो। तुम्हारे family की 50 साल की secret recipe, दादी का खास मसाला। एक celebrity chef ने YouTube पर copy कर दिया। सब को पता है अब। अपने family को convince करो कि तुम असली inventor हो।",
+      "difficulty": "medium",
+      "category": "comedy"
+    },
+    {
+      "id": "scenario-005",
+      "title": "Rajput Honor Gaming",
+      "title_hi": "राजपूत का नाम लेलो",
+      "scenario": "तुम एक Traditional Rajput warrior हो। तुम्हारा sworn 50-साल का दुश्मन... असल में तुम्हारा online gaming friend है। और वो तुम्हें game में हरा रहा है। Honor ज्यादा महत्वपूर्ण है या friendship? Dramatic हो जाओ।",
+      "difficulty": "hard",
+      "category": "drama"
+    },
+    {
+      "id": "scenario-006",
+      "title": "Wedding Coordinator Chaos",
+      "title_hi": "शादी का ऋषि मिक्स-अप",
+      "scenario": "तुम एक famous wedding coordinator हो। Bride और groom accidentally switch हो गए। दुल्हन ने दूल्हे की जगह best friend को देखा, दूल्हा असल में bride's uncle है। 500 guests को बिना गुस्से में लाए बताओ।",
+      "difficulty": "hard",
+      "category": "comedy_chaos"
+    },
+    {
+      "id": "scenario-007",
+      "title": "Thanedar Father Dilemma",
+      "title_hi": "थानेदार का राज़",
+      "scenario": "तुम एक small town का police thanedar हो। अपना बेटा पकड़ा गया एक funny crime के लिए - सब के computers के password बदल दिए। सब लोग हँस रहे हैं। Authority maintain करो, अपने बेटे को सजा दो... लेकिन दिल नहीं चाह रहा।",
+      "difficulty": "medium",
+      "category": "drama_comedy"
+    },
+    {
+      "id": "scenario-008",
+      "title": "Grandfather Ghost Returns",
+      "title_hi": "पितृ पक्ष का भूत",
+      "scenario": "Pitru paksha का समय है। अचानक तुम्हारा दादा का ghost दिखा। कहता है उसे गलत तरीके से cremated किया गया था। Parents को convince करो guilt के बिना, दादा की spirit को satisfy करो। बहुत delicate है।",
+      "difficulty": "hard",
+      "category": "horror_family"
+    },
+    {
+      "id": "scenario-009",
+      "title": "Daughter-in-Law Spy Secret",
+      "title_hi": "बहु के सूप में",
+      "scenario": "तुम एक traditional Indian सास हो। पता चला कि तुम्हारी बहु एक international spy है। Handler हर दिन phone करता है missions के लिए। किसी को नहीं बता सकते - पूरे घर में खतरा आ जाएगा। Secretly उसे help करो।",
+      "difficulty": "hard",
+      "category": "mystery_drama"
+    },
+    {
+      "id": "scenario-010",
+      "title": "Chai Vendor Secret Ingredient",
+      "title_hi": "चाय वाले का षड्यंत्र",
+      "scenario": "तुम एक railway station का chai wala हो। तुम्हारी chai में एक secret ingredient है जो लोगों को पूरे दिन energy देता है। सब दीवाने हैं। लेकिन एक journalist को पता चल गया। Secret बचाओ, customers खुश रखो, journalist को convince करो।",
+      "difficulty": "medium",
+      "category": "mystery_comedy"
+    },
+    {
+      "id": "scenario-011",
+      "title": "Temple Priest Cat Secret",
+      "title_hi": "मंदिर का पुजारी",
+      "scenario": "तुम एक 80 साल का temple का pujari हो। पता चला कि temple के treasure का एक बड़ा part असल में mandir की street cat के पास था। Billi ने अपने kittens के लिए secret cave में रखा था। अब बिल्ली गायब है। गाँव को बताओ बिना temple की reputation खराब किए।",
+      "difficulty": "medium",
+      "category": "comedy_drama"
+    },
+    {
+      "id": "scenario-012",
+      "title": "CCTV Ghost Mystery",
+      "title_hi": "CCTV का राज़",
+      "scenario": "तुम एक residential society के security guard हो। CCTV में आया कि रात को 3 बजे एक अजीब आदमी entry करके chairman के घर में चला गया। लेकिन exit नहीं हुआ। Mystery solve करो। असल में वो old chairman का ghost है।",
+      "difficulty": "hard",
+      "category": "mystery_horror"
+    },
+    {
+      "id": "scenario-013",
+      "title": "Biryani Restaurant War",
+      "title_hi": "बिरयानी की टक्कर",
+      "scenario": "तुम एक famous biryani restaurant owner हो। एक नया restaurant खुल गया बगल में जो claim कर रहा है कि उनकी biryani ज्यादा famous है। Challenge करो एक बहुत ही funny तरीके से। Biryani competition organize करो। बहुत dramatic अभिनय करो।",
+      "difficulty": "medium",
+      "category": "comedy"
+    },
+    {
+      "id": "scenario-014",
+      "title": "Witch Hunter Who Is A Witch",
+      "title_hi": "डायन का दुश्मन",
+      "scenario": "तुम एक professional daayan hunter हो। लोगों को witches से बचाते हो। हर गाँव में जाते हो, witches को catch करते हो। लेकिन तुम्हें बस पता चला... कि तुम खुद एक witch हो। अपनी पहचान छिपाओ। दूसरी witch को catch करो।",
+      "difficulty": "hard",
+      "category": "horror_drama"
+    },
+    {
+      "id": "scenario-015",
+      "title": "Fake Instagram Guru",
+      "title_hi": "इंस्टाग्राम का आश्रम",
+      "scenario": "तुम एक fake guru हो जिसके Instagram पर बहुत followers हैं। Spiritual content डालते हो। लेकिन एक follower को पता चल गया कि तुम असली में एक normal person हो जो पहले एक comedy actor था। अब तुम्हें अपनी fake image बचानी है।",
+      "difficulty": "medium",
+      "category": "comedy_fraud"
+    },
+    {
+      "id": "scenario-016",
+      "title": "Landlord Pirate Treasure",
+      "title_hi": "पायरेट मकान मालिक",
+      "scenario": "तुम एक pirate हो जो 300 साल पहले treasure दफन किया था। उसके बाद किसी ने उस जमीन पर house बना दिया। अब तुम एक landlord बन गए हो उस house के। Tenant को बताना है कि treasure खोदना है। Pirate accent में बात करो।",
+      "difficulty": "hard",
+      "category": "comedy_fantasy"
+    },
+    {
+      "id": "scenario-017",
+      "title": "Time Traveler Explains Smartphone",
+      "title_hi": "टाइम ट्रैवलर फोन समझाए",
+      "scenario": "तुम एक 2500 के future से आए time-traveler हो जो 1800s के person को smartphone का फायदा समझा रहे हो। लेकिन वो बिल्कुल डरा हुआ है और सोचता है यह जादू है। उसे convince करो कि यह सुरक्षित है।",
+      "difficulty": "hard",
+      "category": "comedy_fantasy"
+    },
+    {
+      "id": "scenario-018",
+      "title": "Restaurant Kitchen Escaped",
+      "title_hi": "रेस्टोरेंट से भागा खाना",
+      "scenario": "तुम एक fancy restaurant का waiter हो। Customer को बताना है कि उसका order रसोई से भाग गया। असल में, रसोई में explosion हुआ था और सब कुछ उड़ गया। अब customer को यह बात carefully बताओ।",
+      "difficulty": "medium",
+      "category": "comedy"
+    },
+    {
+      "id": "scenario-019",
+      "title": "Cursed Object Returns",
+      "title_hi": "श्रापित वस्तु वापसी",
+      "scenario": "तुम एक customer हो जो एक obviously cursed object को return करना चाहते हो। लेकिन shop owner बार-बार कहता है कि यह ठीक है, बस battery change करना है। Object हर समय अजीब काम कर रहा है। Owner को convince करो कि यह cursed है।",
+      "difficulty": "medium",
+      "category": "horror_comedy"
+    },
+    {
+      "id": "scenario-020",
+      "title": "Superhero Accidental Reveal",
+      "title_hi": "सुपरहीरो का रहस्य खुलना",
+      "scenario": "तुम एक superhero हो जो एक support group में बैठे हो। अपनी बात share करते समय accidentally एक बहुत बड़ी secret reveal कर दी - किसी famous public figure की। पूरा group shocked है। अब अपनी secret को cover-up करो।",
+      "difficulty": "hard",
+      "category": "comedy_drama"
+    }
+  ]
+}

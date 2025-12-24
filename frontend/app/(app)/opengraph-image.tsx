@@ -1,3 +1,4 @@
+/* eslint-disable @next/next/no-style-component-with-dynamic-styles */
 import { headers } from 'next/headers';
 import { ImageResponse } from 'next/og';
 import getImageSize from 'buffer-image-size';
@@ -141,6 +142,7 @@ export default async function Image() {
   return new ImageResponse(
     (
       // ImageResponse JSX element
+      // eslint-disable-next-line @next/next/no-style-component-with-dynamic-styles
       <div
         style={{
           display: 'flex',
@@ -165,8 +167,7 @@ export default async function Image() {
             gap: 10,
           }}
         >
-          {/* eslint-disable-next-line jsx-a11y/alt-text */}
-          <img src={wordmarkSrcBase64} width={wordmarkSize.width} height={wordmarkSize.height} />
+          <img src={wordmarkSrcBase64} width={wordmarkSize.width} height={wordmarkSize.height} alt="Wordmark" />
         </div>
         {/* logo */}
         <div
@@ -179,8 +180,7 @@ export default async function Image() {
             gap: 10,
           }}
         >
-          {/* eslint-disable-next-line jsx-a11y/alt-text */}
-          <img src={logoSrcBase64} width={logoSize.width} height={logoSize.height} />
+          <img src={logoSrcBase64} width={logoSize.width} height={logoSize.height} alt="Logo" />
         </div>
         {/* title */}
         <div

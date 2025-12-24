@@ -1,0 +1,116 @@
+{
+  "company": {
+    "name": "Razorpay",
+    "tagline": "India's Leading Payment Gateway",
+    "description": "Razorpay is a full-stack financial solutions provider that helps businesses accept payments, automate payouts, and manage their finances. We serve over 10 million businesses across India.",
+    "founded": "2014",
+    "headquarters": "Bangalore, India",
+    "industries_served": ["E-commerce", "SaaS", "Education", "Healthcare", "Food & Beverage", "Retail"]
+  },
+  "products": [
+    {
+      "name": "Payment Gateway",
+      "description": "Accept payments via 100+ payment methods including cards, UPI, netbanking, wallets, and Buy Now Pay Later options.",
+      "use_case": "Online businesses, e-commerce stores, subscription services"
+    },
+    {
+      "name": "Payment Links",
+      "description": "Create and share payment links instantly via WhatsApp, SMS, or email. No website needed.",
+      "use_case": "Freelancers, small businesses, invoice payments"
+    },
+    {
+      "name": "Payment Pages",
+      "description": "Create custom checkout pages without coding. Perfect for selling products or accepting donations.",
+      "use_case": "Creators, NGOs, event organizers"
+    },
+    {
+      "name": "Subscriptions & Recurring Payments",
+      "description": "Automate recurring billing for subscriptions, memberships, and EMIs.",
+      "use_case": "SaaS companies, membership platforms, OTT services"
+    },
+    {
+      "name": "RazorpayX (Neo-Banking)",
+      "description": "Business banking with current accounts, payroll automation, vendor payments, and expense management.",
+      "use_case": "Startups, SMEs, enterprises managing finances"
+    }
+  ],
+  "pricing": {
+    "payment_gateway": {
+      "transaction_fee": "2% per transaction (domestic cards, UPI, netbanking)",
+      "international_cards": "3% per transaction",
+      "setup_fee": "No setup fee",
+      "free_tier": "No free tier, pay per transaction"
+    },
+    "payment_links": {
+      "fee": "Same as payment gateway (2% per transaction)",
+      "free_tier": "Unlimited payment links creation"
+    },
+    "razorpayx": {
+      "current_account": "Zero balance current account",
+      "transaction_fee": "Varies by transaction type",
+      "monthly_fee": "No monthly maintenance fee"
+    }
+  },
+  "faqs": [
+    {
+      "question": "What does Razorpay do?",
+      "answer": "Razorpay is India's leading payment gateway and financial solutions provider. We help businesses accept online payments, automate payouts, manage subscriptions, and handle all their financial operations in one platform."
+    },
+    {
+      "question": "Who is Razorpay for?",
+      "answer": "Razorpay is perfect for any business accepting online payments - from freelancers and small businesses to large enterprises. We serve e-commerce stores, SaaS companies, educational institutions, healthcare providers, and more."
+    },
+    {
+      "question": "Do you have a free tier?",
+      "answer": "We don't have a free tier, but we have no setup fees or monthly charges. You only pay per transaction - 2% for domestic payments and 3% for international payments. This means you only pay when you earn."
+    },
+    {
+      "question": "What payment methods do you support?",
+      "answer": "We support 100+ payment methods including credit/debit cards, UPI, net banking, mobile wallets like Paytm and PhonePe, and Buy Now Pay Later options like LazyPay and Simpl."
+    },
+    {
+      "question": "How long does integration take?",
+      "answer": "Integration is very simple! With our APIs and plugins, most businesses can integrate in 1-2 days. We have ready plugins for Shopify, WooCommerce, and other platforms. For custom integration, our documentation and support team makes it easy."
+    },
+    {
+      "question": "Is Razorpay secure?",
+      "answer": "Absolutely! We are PCI DSS Level 1 compliant, the highest security standard for payment companies. We use bank-grade encryption and have multiple layers of fraud detection to keep transactions safe."
+    },
+    {
+      "question": "What are your transaction fees?",
+      "answer": "We charge 2% per transaction for domestic payments (cards, UPI, netbanking, wallets) and 3% for international card payments. There are no setup fees, no monthly fees, and no hidden charges."
+    },
+    {
+      "question": "Can I accept international payments?",
+      "answer": "Yes! Razorpay supports international card payments from Visa, Mastercard, and American Express from customers worldwide. We charge 3% per international transaction."
+    },
+    {
+      "question": "Do you offer instant settlement?",
+      "answer": "Yes, we offer instant settlements where you can access your funds in minutes instead of waiting 2-3 days. This feature is available for eligible businesses and has a small additional fee."
+    },
+    {
+      "question": "What support do you provide?",
+      "answer": "We provide 24/7 customer support via email, phone, and chat. We also have extensive documentation, video tutorials, and a dedicated account manager for enterprise clients."
+    },
+    {
+      "question": "Can I use Razorpay without a website?",
+      "answer": "Absolutely! You can use Payment Links or Payment Pages to accept payments without a website. Just create a link, share it via WhatsApp or email, and start collecting payments immediately."
+    },
+    {
+      "question": "What is RazorpayX?",
+      "answer": "RazorpayX is our business banking platform that offers current accounts, automated payroll, vendor payments, corporate cards, and expense management - all in one dashboard. It's perfect for managing your entire business finances."
+    }
+  ],
+  "target_customers": {
+    "ideal_team_size": ["1-10", "11-50", "51-200", "200+"],
+    "common_use_cases": [
+      "E-commerce payment processing",
+      "Subscription billing",
+      "Freelance invoicing",
+      "Event ticket sales",
+      "Donation collection",
+      "Marketplace payments",
+      "SaaS billing"
+    ]
+  }
+}

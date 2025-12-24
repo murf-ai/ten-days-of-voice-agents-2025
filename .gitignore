@@ -1,0 +1,54 @@
+# OS-specific files
+.DS_Store
+Thumbs.db
+
+# IDE configuration
+.idea/
+.vscode/
+
+# Executable files
+*.exe
+
+# Environment variables
+.env
+.env.local
+.env.*
+!.env.example
+
+# Build outputs
+dist/
+build/
+out/
+
+# Node
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+.pnpm-debug.log*
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+.venv/
+venv/
+*.egg-info/
+.pytest_cache/
+.ruff_cache/
+
+# Next.js
+.next/
+.vercel/
+
+# Logs
+*.log
+logs/
+
+# Temporary files
+*.tmp
+*.temp
+*.swp
+*.swo
+
+# Live kit
+KMS/

@@ -28,12 +28,31 @@
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
+
+# environment
+.env
+.env.local
+.env.*.local
+
+# IDE
+.vscode/
+.idea/
+
+# OS files
+Thumbs.db
+*.swp
+*.swo
+
+# Build artifacts
+dist/
+build/
+
 .pnpm-debug.log*
 
 # env files (can opt-in for committing if needed)
 .env*
 !.env.example
-
+.env.example
 # vercel
 .vercel
 
