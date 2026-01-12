@@ -1,0 +1,74 @@
+[
+  {
+    "order_id": "ORD-1764289600",
+    "customer_name": "Subham Sao",
+    "address": "Jammalpur, Madhya Pradesh",
+    "items": [
+      {
+        "id": "peanut_butter",
+        "name": "Peanut Butter (200g)",
+        "qty": 1,
+        "unit_price": 180,
+        "subtotal": 180
+      },
+      {
+        "id": "samosa_2",
+        "name": "Samosa (2 pcs)",
+        "qty": 2,
+        "unit_price": 30,
+        "subtotal": 60
+      },
+      {
+        "id": "jam",
+        "name": "Strawberry Jam (200g)",
+        "qty": 2,
+        "unit_price": 120,
+        "subtotal": 240
+      },
+      {
+        "id": "pizza_margherita",
+        "name": "Margherita Pizza (ready)",
+        "qty": 1,
+        "unit_price": 399,
+        "subtotal": 399
+      },
+      {
+        "id": "milk_1l",
+        "name": "Milk 1L",
+        "qty": 1,
+        "unit_price": 55,
+        "subtotal": 55
+      },
+      {
+        "id": "chips",
+        "name": "Potato Chips 100g",
+        "qty": 2,
+        "unit_price": 40,
+        "subtotal": 80
+      }
+    ],
+    "total": 1014.0,
+    "timestamp": "2025-11-28T05:56:40.593214",
+    "status": "placed"
+  }
+  {
+    "id": "839066fa-3db3-4f84-b3c4-230f647888ed",
+    "created_at": "2025-11-30T09:31:58.793236Z",
+    "status": "CONFIRMED",
+    "items": [
+      {
+        "product_id": "hoodie-001",
+        "name": "Classic Fleece Hoodie",
+        "quantity": 1,
+        "unit_price": 1200,
+        "currency": "INR",
+        "item_total": 1200
+      }
+    ],
+    "total": 1200,
+    "currency": "INR",
+    "buyer": {
+      "name": "Voice Customer"
+    }
+  }
+]
