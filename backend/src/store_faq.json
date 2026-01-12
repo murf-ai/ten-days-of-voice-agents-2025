@@ -1,0 +1,18 @@
+[
+    {
+        "question": "What do you sell?",
+        "answer": "We offer premium courses on Cloud Computing, Google Cloud Arcade, and Voice AI Agent development. We also sell 'Cloud Ninja' merchandise like hoodies and mugs."
+    },
+    {
+        "question": "How much does the Voice AI course cost?",
+        "answer": "The 'Professional Voice AI' course is currently priced at $499. It covers LiveKit, Deepgram, and LLM integration."
+    },
+    {
+        "question": "Do you offer free content?",
+        "answer": "Yes! Dr. Abhishek releases weekly tutorials on YouTube for free. The paid courses offer deep-dives, code reviews, and certification."
+    },
+    {
+        "question": "Do you do corporate consulting?",
+        "answer": "Absolutely. We help companies build internal voice agents for customer support. Pricing depends on the project scope."
+    }
+]
