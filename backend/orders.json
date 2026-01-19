@@ -1,0 +1,20 @@
+[
+  {
+    "drinkType": "matcha",
+    "size": "medium",
+    "milk": "oat",
+    "extras": [
+      "cinnamon"
+    ],
+    "name": "Alex",
+    "timestamp": "2025-11-23T16:56:33.938148"
+  },
+  {
+    "drinkType": "cappuccino",
+    "size": "small",
+    "milk": "whole",
+    "extras": [],
+    "name": "Then We'Re",
+    "timestamp": "2025-11-23T17:02:58.937846"
+  }
+]
