@@ -1,0 +1,15 @@
+{
+  "name": "Navneet",
+  "company": "XYZ Limited",
+  "email": null,
+  "role": null,
+  "use_case": "Payment Gateway with analytics and fraud detection",
+  "team_size": "4-5 members",
+  "timeline": null,
+  "timestamp": "2025-11-26T18:20:09.760149",
+  "questions_asked": [
+    "Razorpay analytics dashboard for payment interfaces",
+    "Razorpay domestic and international charges",
+    "Razorpay Payment Gateway charges"
+  ]
+}

@@ -1,0 +1,29 @@
+[
+  {
+    "date": "2025-11-23",
+    "time": "21:56:20",
+    "mood": "lazy, clumsy, suffering from cold",
+    "energy_level": "low",
+    "objectives": [
+      "perform a coding task",
+      "prepare for upcoming exams",
+      "focus on other things"
+    ],
+    "stressors": "health issue (cold)",
+    "timestamp": "2025-11-23T21:56:20.091111"
+  },
+  {
+    "date": "2025-11-23",
+    "time": "22:09:26",
+    "mood": "better",
+    "energy_level": "medium",
+    "objectives": [
+      "solved PSA problems",
+      "went for a walk",
+      "played badminton",
+      "studied for semester exams"
+    ],
+    "stressors": "None",
+    "timestamp": "2025-11-23T22:09:26.071271"
+  }
+]

@@ -1,0 +1,37 @@
+{
+  "order_id": "ORD20251128210924",
+  "customer_name": "Navneet",
+  "delivery_address": "New Delhi, Delhi",
+  "items": [
+    {
+      "id": "GR009",
+      "name": "Pasta Sauce",
+      "price": 150,
+      "quantity": 2,
+      "brand": "Kissan",
+      "size": "400g",
+      "total": 300
+    },
+    {
+      "id": "GR001",
+      "name": "Bread",
+      "price": 40,
+      "quantity": 3,
+      "brand": "Britannia",
+      "size": "400g",
+      "total": 120
+    },
+    {
+      "id": "GR005",
+      "name": "Peanut Butter",
+      "price": 180,
+      "quantity": 1,
+      "brand": "Sundrop",
+      "size": "400g",
+      "total": 180
+    }
+  ],
+  "total": 600,
+  "timestamp": "2025-11-28T21:09:24.794120",
+  "status": "placed"
+}
